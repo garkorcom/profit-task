@@ -1,0 +1,19 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // Правила для задач пользователей
+    match /users/{userId}/tasks/{taskId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Правила для контрагентов пользователей
+    match /users/{userId}/contractors/{contractorId} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+    
+    // Правила для других коллекций пользователей
+    match /users/{userId}/{document=**} {
+      allow read, write: if request.auth != null && request.auth.uid == userId;
+    }
+  }
+}
