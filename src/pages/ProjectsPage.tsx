@@ -1,5 +1,5 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Card, CardContent, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Chip } from '@mui/material';
+import { Box, Typography, Card, CardContent, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Chip, Alert } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
@@ -56,9 +56,9 @@ const ProjectsPage: React.FC = () => {
   };
 
   const save = async () => {
-    if (!currentUser || !form.name) return;
+    if (!currentUser || !form.name || !form.contractorId) return;
     try {
-      const contractorName = form.contractorId ? contractorMap[form.contractorId] : '';
+      const contractorName = contractorMap[form.contractorId] || '';
       if (editing) {
         await updateProject(currentUser.uid, editing.id, { ...form, contractorName });
         setNotify({ open: true, message: 'Проект обновлён', severity: 'success' });
@@ -68,6 +68,7 @@ const ProjectsPage: React.FC = () => {
       }
       closeDialog();
     } catch (e) {
+      console.error('Ошибка при сохранении проекта:', e);
       setNotify({ open: true, message: 'Ошибка при сохранении', severity: 'error' });
     }
   };
@@ -135,6 +136,11 @@ const ProjectsPage: React.FC = () => {
         <DialogTitle>{editing ? 'Редактировать проект' : 'Новый проект'}</DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
+            {customerContractors.length === 0 && (
+              <Alert severity="warning">
+                Сначала добавьте клиента в справочнике контрагентов (тип: Клиент)
+              </Alert>
+            )}
             <TextField label="Название" value={form.name || ''} onChange={(e) => setForm({ ...form, name: e.target.value })} required fullWidth />
             <Box display="flex" gap={2}>
               <TextField label="Код" value={form.code || ''} onChange={(e) => setForm({ ...form, code: e.target.value })} fullWidth />
