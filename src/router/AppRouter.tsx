@@ -5,11 +5,13 @@ import PrivateRoute from '../components/layouts/PrivateRoute';
 import MainLayout from '../components/layouts/MainLayout';
 import HomePage from '../pages/HomePage';
 import TasksPage from '../pages/TasksPage';
-import WarehousePage from '../pages/WarehousePage';
+import WarehousePage from '../pages/Warehouse';
 import InvoicesPage from '../pages/InvoicesPage';
 import ContractorsPage from '../pages/ContractorsPage';
+import ProjectsPage from '../pages/ProjectsPage';
 import ReferencesPage from '../pages/ReferencesPage';
 import ContractorTasksPage from '../pages/ContractorTasksPage';
+import ShoppingListPage from '../pages/ShoppingListPage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -24,6 +26,8 @@ const AppRouter: React.FC = () => {
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/warehouse" element={<WarehousePage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
+            <Route path="/shopping" element={<ShoppingListPage />} />
+            <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/references" element={<ReferencesPage />} />
             <Route path="/contractors" element={<ContractorsPage />} />
             <Route path="/contractors/:contractorId/tasks" element={<ContractorTasksPage />} />

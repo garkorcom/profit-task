@@ -10,6 +10,7 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { 
   Business as BusinessIcon,
+  Work as WorkIcon,
   Category as CategoryIcon,
   Inventory as InventoryIcon,
   LocalShipping as LocalShippingIcon,
@@ -29,6 +30,20 @@ const ReferencesPage: React.FC = () => {
   const navigate = useNavigate();
 
   const references: ReferenceItem[] = [
+    {
+      title: 'Проекты',
+      description: 'Каталог проектов и их параметры',
+      icon: <WorkIcon />,
+      path: '/projects',
+      color: '#026aa7'
+    },
+    {
+      title: 'Список покупок',
+      description: 'Агрегированный список из задач по полю "Что купить"',
+      icon: <InventoryIcon />,
+      path: '/shopping',
+      color: '#6d4c41'
+    },
     {
       title: 'Контрагенты',
       description: 'Поставщики, клиенты и их контактная информация',

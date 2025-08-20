@@ -18,13 +18,14 @@ import {
   Chip,
   FormHelperText
 } from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon, Business as BusinessIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Edit as EditIcon, Business as BusinessIcon, Work as WorkIcon } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { getTasksStream, addTask, updateTask, deleteTask, Task } from '../api/taskApi';
 import { getContractorsStream, Contractor } from '../api/contractorApi';
+import { getProjectsStream, Project } from '../api/projectApi';
 import { useLocation, useNavigate } from 'react-router-dom';
 
 const TasksPage: React.FC = () => {
@@ -43,9 +44,12 @@ const TasksPage: React.FC = () => {
     status: 'pending',
     contractorId: '',
     contractorName: '',
+    projectId: '',
+    projectName: '',
     questions: '',
     whatToBuy: ''
   });
+  const [projects, setProjects] = useState<Project[]>([]);
   const [notification, setNotification] = useState<{
     open: boolean;
     message: string;
@@ -68,12 +72,16 @@ const TasksPage: React.FC = () => {
     
     const unsubscribeContractors = getContractorsStream(currentUser.uid, (data) => {
       setContractors(data);
+    });
+    const unsubscribeProjects = getProjectsStream(currentUser.uid, (data) => {
+      setProjects(data);
       setLoading(false);
     });
     
     return () => {
       unsubscribeTasks();
       unsubscribeContractors();
+      unsubscribeProjects();
     };
   }, [currentUser]);
 
@@ -90,6 +98,8 @@ const TasksPage: React.FC = () => {
         status: 'pending',
         contractorId: prefill?.id || newForId,
         contractorName: prefill?.name || '',
+        projectId: '',
+        projectName: '',
         questions: '',
         whatToBuy: ''
       });
@@ -109,8 +119,10 @@ const TasksPage: React.FC = () => {
         status: task.status || 'pending',
         contractorId: task.contractorId || '',
         contractorName: task.contractorName || '',
+        projectId: (task as any).projectId || '',
+        projectName: (task as any).projectName || '',
         questions: task.questions || '',
-        whatToBuy: (task as any).whatToBuy || ''
+        whatToBuy: String((task as any).whatToBuy || '')
       });
     } else {
       setEditingTask(null);
@@ -123,6 +135,8 @@ const TasksPage: React.FC = () => {
         status: 'pending',
         contractorId: prefill?.id || '',
         contractorName: prefill?.name || '',
+        projectId: '',
+        projectName: '',
         questions: '',
         whatToBuy: ''
       });
@@ -140,6 +154,8 @@ const TasksPage: React.FC = () => {
       status: 'pending',
       contractorId: '',
       contractorName: '',
+      projectId: '',
+      projectName: '',
       questions: '',
       whatToBuy: ''
     });
@@ -242,6 +258,26 @@ const TasksPage: React.FC = () => {
             ))}
           </Select>
         </FormControl>
+          {/* Проект (опционально) */}
+          <FormControl fullWidth sx={{ mb: 2 }}>
+            <InputLabel>Проект</InputLabel>
+            <Select
+              value={formData.projectId}
+              label="Проект"
+              onChange={(e) => {
+                const pid = e.target.value as string;
+                const p = projects.find(pr => pr.id === pid);
+                setFormData({ ...formData, projectId: pid, projectName: p?.name || '' });
+              }}
+            >
+              <MenuItem value="">
+                <em>Не выбран</em>
+              </MenuItem>
+              {projects.map(p => (
+                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
+              ))}
+            </Select>
+          </FormControl>
       </Box>
       
       {visibleTasks.length > 0 ? visibleTasks.map(task => (
@@ -259,6 +295,12 @@ const TasksPage: React.FC = () => {
                   <Typography variant="body2" color="primary" sx={{ mb: 1 }}>
                     <BusinessIcon sx={{ mr: 0.5, fontSize: 'small', verticalAlign: 'middle' }} />
                     {task.contractorName}
+                  </Typography>
+                )}
+                {(task as any).projectName && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    <WorkIcon sx={{ mr: 0.5, fontSize: 'small', verticalAlign: 'middle' }} />
+                    {(task as any).projectName}
                   </Typography>
                 )}
                 {(task as any).whatToBuy && (

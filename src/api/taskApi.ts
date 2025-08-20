@@ -12,6 +12,8 @@ export interface Task {
   status?: string;
   contractorId?: string;
   contractorName?: string;
+  projectId?: string;
+  projectName?: string;
   questions?: string;  // Вопросы и уточнения по задаче
   whatToBuy?: string;  // Список покупок по задаче
   reservedProducts?: Array<{  // Товары, зарезервированные под задачу
