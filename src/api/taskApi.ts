@@ -12,6 +12,8 @@ export interface Task {
   status?: string;
   contractorId?: string;
   contractorName?: string;
+  questions?: string;
+  whatToBuy?: string;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -60,6 +62,8 @@ export const addTask = async (userId: string, taskData: {
   status?: string;
   contractorId?: string;
   contractorName?: string;
+  questions?: string;
+  whatToBuy?: string;
 }) => {
   const tasksPath = `users/${userId}/tasks`;
   const taskWithTimestamp = {

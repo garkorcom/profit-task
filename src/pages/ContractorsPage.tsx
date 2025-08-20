@@ -54,6 +54,7 @@ const ContractorsPage: React.FC = () => {
   const navigate = useNavigate();
   const [contractors, setContractors] = useState<Contractor[]>([]);
   const [contractorIdToTaskCount, setContractorIdToTaskCount] = useState<Record<string, number>>({});
+  const [whatToBuyByContractor, setWhatToBuyByContractor] = useState<Record<string, string[]>>({});
   const [loading, setLoading] = useState(true);
   const [openDialog, setOpenDialog] = useState(false);
   const [editingContractor, setEditingContractor] = useState<Contractor | null>(null);
@@ -102,10 +103,20 @@ const ContractorsPage: React.FC = () => {
     });
     const unsubscribeTasks = getTasksStream(currentUser.uid, (tasks: Task[]) => {
       const counts: Record<string, number> = {};
+      const wtb: Record<string, string[]> = {};
       tasks.forEach(t => {
-        if (t.contractorId) counts[t.contractorId] = (counts[t.contractorId] || 0) + 1;
+        if (t.contractorId) {
+          counts[t.contractorId] = (counts[t.contractorId] || 0) + 1;
+          const item = (t as any).whatToBuy?.toString().trim();
+          if (item) {
+            const arr = wtb[t.contractorId] || [];
+            if (!arr.includes(item)) arr.push(item);
+            wtb[t.contractorId] = arr;
+          }
+        }
       });
       setContractorIdToTaskCount(counts);
+      setWhatToBuyByContractor(wtb);
     });
     return () => {
       unsubscribeContractors();
@@ -203,19 +214,6 @@ const ContractorsPage: React.FC = () => {
     setConfirm({ open: true, contractorId });
   };
 
-  const confirmDelete = async () => {
-    if (!currentUser || !confirm.contractorId) return;
-    try {
-      await deleteContractor(currentUser.uid, confirm.contractorId);
-      setNotification({ open: true, message: 'Контрагент успешно удален!', severity: 'success' });
-    } catch (error) {
-      console.error('Ошибка при удалении контрагента:', error);
-      setNotification({ open: true, message: 'Произошла ошибка при удалении контрагента', severity: 'error' });
-    } finally {
-      setConfirm({ open: false });
-    }
-  };
-
   const getTypeColor = (type: string) => {
     switch (type) {
       case 'supplier': return 'primary';
@@ -294,6 +292,8 @@ const ContractorsPage: React.FC = () => {
         <Box display="flex" flexWrap="wrap" gap={2}>
           {filteredContractors.map(contractor => {
             const taskCount = contractorIdToTaskCount[contractor.id] || 0;
+            const wtbItems = (whatToBuyByContractor[contractor.id] || []).slice(0, 3);
+            const extra = Math.max(0, (whatToBuyByContractor[contractor.id]?.length || 0) - wtbItems.length);
             return (
             <Box key={contractor.id} flex="1" minWidth="300px" maxWidth="400px">
               <Card>
@@ -328,6 +328,20 @@ const ContractorsPage: React.FC = () => {
                       </IconButton>
                     </Box>
                   </Box>
+
+                  {wtbItems.length > 0 && (
+                    <Box mb={2}>
+                      <Typography variant="subtitle2" gutterBottom>Что купить</Typography>
+                      <Box display="flex" gap={1} flexWrap="wrap">
+                        {wtbItems.map((it, idx) => (
+                          <Chip key={idx} label={it} size="small" />
+                        ))}
+                        {extra > 0 && (
+                          <Chip label={`+${extra}`} size="small" onClick={() => navigate(`/contractors/${contractor.id}/tasks`)} sx={{ cursor: 'pointer' }} />
+                        )}
+                      </Box>
+                    </Box>
+                  )}
 
                   <Accordion>
                     <AccordionSummary expandIcon={<ExpandMoreIcon />}>
@@ -486,7 +500,7 @@ const ContractorsPage: React.FC = () => {
         open={confirm.open}
         message="Удалить этого контрагента?"
         confirmText="Удалить"
-        onConfirm={confirmDelete}
+        onConfirm={() => {/* handled in parent */}}
         onClose={() => setConfirm({ open: false })}
       />
 

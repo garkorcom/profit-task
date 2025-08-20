@@ -42,7 +42,9 @@ const TasksPage: React.FC = () => {
     priority: 'medium',
     status: 'pending',
     contractorId: '',
-    contractorName: ''
+    contractorName: '',
+    questions: '',
+    whatToBuy: ''
   });
   const [notification, setNotification] = useState<{
     open: boolean;
@@ -75,7 +77,6 @@ const TasksPage: React.FC = () => {
     };
   }, [currentUser]);
 
-  // Авто-открытие формы с предзаполненным контрагентом при переходе со страницы контрагентов
   useEffect(() => {
     if (loading) return;
     const newForId = location?.state?.newForContractorId as string | undefined;
@@ -88,7 +89,9 @@ const TasksPage: React.FC = () => {
         priority: 'medium',
         status: 'pending',
         contractorId: prefill?.id || newForId,
-        contractorName: prefill?.name || ''
+        contractorName: prefill?.name || '',
+        questions: '',
+        whatToBuy: ''
       });
       setOpenDialog(true);
       setFilterContractorId(newForId);
@@ -105,7 +108,9 @@ const TasksPage: React.FC = () => {
         priority: task.priority || 'medium',
         status: task.status || 'pending',
         contractorId: task.contractorId || '',
-        contractorName: task.contractorName || ''
+        contractorName: task.contractorName || '',
+        questions: task.questions || '',
+        whatToBuy: (task as any).whatToBuy || ''
       });
     } else {
       setEditingTask(null);
@@ -117,7 +122,9 @@ const TasksPage: React.FC = () => {
         priority: 'medium',
         status: 'pending',
         contractorId: prefill?.id || '',
-        contractorName: prefill?.name || ''
+        contractorName: prefill?.name || '',
+        questions: '',
+        whatToBuy: ''
       });
     }
     setOpenDialog(true);
@@ -132,7 +139,9 @@ const TasksPage: React.FC = () => {
       priority: 'medium',
       status: 'pending',
       contractorId: '',
-      contractorName: ''
+      contractorName: '',
+      questions: '',
+      whatToBuy: ''
     });
   };
 
@@ -252,6 +261,16 @@ const TasksPage: React.FC = () => {
                     {task.contractorName}
                   </Typography>
                 )}
+                {(task as any).whatToBuy && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Что купить: {(task as any).whatToBuy}
+                  </Typography>
+                )}
+                {task.questions && (
+                  <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
+                    Вопросы и уточнения: {task.questions}
+                  </Typography>
+                )}
                 <Box display="flex" gap={1} flexWrap="wrap">
                   <Chip 
                     label={task.priority || 'medium'} 
@@ -307,6 +326,28 @@ const TasksPage: React.FC = () => {
             rows={3}
             value={formData.description}
             onChange={(e) => setFormData({...formData, description: e.target.value})}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Что купить"
+            fullWidth
+            variant="outlined"
+            multiline
+            rows={2}
+            value={formData.whatToBuy}
+            onChange={(e) => setFormData({...formData, whatToBuy: e.target.value})}
+            sx={{ mb: 2 }}
+          />
+          <TextField
+            margin="dense"
+            label="Вопросы и уточнения"
+            fullWidth
+            variant="outlined"
+            multiline
+            rows={3}
+            value={formData.questions}
+            onChange={(e) => setFormData({...formData, questions: e.target.value})}
             sx={{ mb: 2 }}
           />
           <FormControl fullWidth sx={{ mb: 2 }}>

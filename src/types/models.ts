@@ -15,6 +15,7 @@ export interface Contractor {
     correspondentAccount?: string;
   };
   notes?: string;
+  questionsForClient?: string;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -27,6 +28,8 @@ export interface Task {
   status?: 'pending' | 'in_progress' | 'completed';
   contractorId?: string;
   contractorName?: string;
+  questions?: string;
+  whatToBuy?: string;
   createdAt?: any;
   updatedAt?: any;
 }
