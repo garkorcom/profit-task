@@ -60,12 +60,57 @@ import {
   removeStock
 } from '../api/productApi';
 
-// ... (StockIndicator component remains the same)
+const StockIndicator: React.FC<{ current: number; min?: number; reserved?: number }> = ({ 
+  current, 
+  min = 0, 
+  reserved = 0 
+}) => {
+  const available = current - reserved;
+  const isCritical = min > 0 && available <= min;
+  const isOut = available <= 0;
+  
+  if (isNaN(current)) return null;
+
+  return (
+    <Box display="flex" alignItems="center" gap={1}>
+      <Typography variant="body2" color={isOut ? 'error' : isCritical ? 'warning.main' : 'text.primary'}>
+        Остаток: {current}
+      </Typography>
+      {reserved > 0 && (
+        <Chip 
+          label={`Резерв: ${reserved}`} 
+          size="small" 
+          color="info" 
+          variant="outlined" 
+        />
+      )}
+      {available !== current && (
+        <Chip 
+          label={`Доступно: ${available}`} 
+          size="small" 
+          color={isOut ? 'error' : isCritical ? 'warning' : 'success'} 
+        />
+      )}
+      {isCritical && <WarningIcon color="warning" fontSize="small" />}
+    </Box>
+  );
+};
 
 const ProductsPage: React.FC = () => {
   const { currentUser } = useAuth();
   
-  // ... (all existing state remains the same)
+  const [products, setProducts] = useState<Product[]>([]);
+  const [criticalProducts, setCriticalProducts] = useState<Product[]>([]);
+  const [movements, setMovements] = useState<StockMovement[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [activeTab, setActiveTab] = useState(0);
+  
+  const [productDialog, setProductDialog] = useState(false);
+  const [movementDialog, setMovementDialog] = useState(false);
+  const [editingProduct, setEditingProduct] = useState<Product | null>(null);
+  const [movementType, setMovementType] = useState<'income' | 'expense'>('income');
+  const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '',
     type: 'product',
@@ -79,15 +124,49 @@ const ProductsPage: React.FC = () => {
     supplier: '',
     description: ''
   });
-
-  // ... (useEffect and other handlers remain mostly the same, with adjustments for the new `type` field)
   
+  const [movementForm, setMovementForm] = useState({
+    quantity: 1,
+    document: '',
+    comment: ''
+  });
+  
+  const [searchTerm, setSearchTerm] = useState('');
+  const [categoryFilter, setCategoryFilter] = useState('');
+  
+  const [notification, setNotification] = useState<{
+    open: boolean;
+    message: string;
+    severity: 'success' | 'error' | 'warning' | 'info';
+  }>({ open: false, message: '', severity: 'success' });
+  
+  const [confirmDelete, setConfirmDelete] = useState<Product | null>(null);
+
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    const unsubProducts = getProductsStream(currentUser.uid, (data) => {
+      setProducts(data);
+      setLoading(false);
+    });
+    
+    const unsubCritical = getCriticalStockProducts(currentUser.uid, setCriticalProducts);
+    
+    const unsubMovements = getStockMovementsStream(currentUser.uid, undefined, (data) => {
+      setMovements(data.slice(0, 50)); 
+    });
+    
+    return () => {
+      unsubProducts();
+      unsubCritical();
+      unsubMovements();
+    };
+  }, [currentUser]);
+
   const handleOpenProductDialog = (product?: Product) => {
     if (product) {
       setEditingProduct(product);
-      setProductForm({
-        ...product
-      });
+      setProductForm({ ...product });
     } else {
       setEditingProduct(null);
       setProductForm({
@@ -107,143 +186,217 @@ const ProductsPage: React.FC = () => {
     setProductDialog(true);
   };
 
+  const handleCloseProductDialog = () => {
+    setProductDialog(false);
+    setEditingProduct(null);
+  };
+
   const handleSaveProduct = async () => {
     if (!currentUser || !productForm.name || !productForm.unit) return;
     
     try {
       if (editingProduct) {
         await updateProduct(currentUser.uid, editingProduct.id, productForm);
-        setNotification({
-          open: true,
-          message: 'Позиция успешно обновлена',
-          severity: 'success'
-        });
+        setNotification({ open: true, message: 'Позиция успешно обновлена', severity: 'success' });
       } else {
         await addProduct(currentUser.uid, productForm as Omit<Product, 'id'>);
-        setNotification({
-          open: true,
-          message: 'Позиция успешно добавлена',
-          severity: 'success'
-        });
+        setNotification({ open: true, message: 'Позиция успешно добавлена', severity: 'success' });
       }
       handleCloseProductDialog();
     } catch (error) {
       console.error('Ошибка при сохранении:', error);
-      setNotification({
-        open: true,
-        message: 'Ошибка при сохранении',
-        severity: 'error'
-      });
+      setNotification({ open: true, message: 'Ошибка при сохранении', severity: 'error' });
     }
   };
 
+  const handleDeleteProduct = async (product: Product) => {
+    if (!currentUser) return;
+    try {
+      await deleteProduct(currentUser.uid, product.id);
+      setNotification({ open: true, message: 'Позиция удалена', severity: 'success' });
+    } catch (error) {
+      setNotification({ open: true, message: 'Ошибка при удалении', severity: 'error' });
+    }
+    setConfirmDelete(null);
+  };
 
-  // ... (rest of the component remains the same, with UI adjustments)
-  
+  const handleOpenMovementDialog = (type: 'income' | 'expense', product?: Product) => {
+    setMovementType(type);
+    setSelectedProduct(product || null);
+    setMovementForm({ quantity: 1, document: '', comment: '' });
+    setMovementDialog(true);
+  };
+
+  const handleCloseMovementDialog = () => {
+    setMovementDialog(false);
+    setSelectedProduct(null);
+  };
+
+  const handleSaveMovement = async () => {
+    if (!currentUser || !selectedProduct || movementForm.quantity <= 0) return;
+    
+    try {
+      if (movementType === 'income') {
+        await addStock(currentUser.uid, selectedProduct.id, movementForm.quantity, movementForm.document, movementForm.comment);
+        setNotification({ open: true, message: `Приход товара "${selectedProduct.name}" оформлен`, severity: 'success' });
+      } else {
+        await removeStock(currentUser.uid, selectedProduct.id, movementForm.quantity, undefined, undefined, undefined, undefined, movementForm.comment);
+        setNotification({ open: true, message: `Расход товара "${selectedProduct.name}" оформлен`, severity: 'success' });
+      }
+      handleCloseMovementDialog();
+    } catch (error: any) {
+      setNotification({ open: true, message: error.message || 'Ошибка при движении товара', severity: 'error' });
+    }
+  };
+
+  const filteredProducts = products.filter(product => {
+    const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
+    const matchesCategory = !categoryFilter || product.category === categoryFilter;
+    return matchesSearch && matchesCategory;
+  });
+
+  const categories = Array.from(new Set(products.map(p => p.category).filter(Boolean)));
+
+  const getMovementTypeLabel = (type: string) => {
+    const labels = { income: 'Приход', expense: 'Расход', reserve: 'Резерв', unreserve: 'Снятие резерва' };
+    return labels[type as keyof typeof labels] || type;
+  };
+
+  if (loading) return <LoadingSpinner />;
+
   return (
     <Box>
-       {/* Header */}
-       <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
-        <Typography variant="h4">
-          <CategoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
-          Товары и Услуги
-        </Typography>
+      <Box display="flex" justifyContent="space-between" alignItems="center" mb={3}>
+        <Typography variant="h4"><CategoryIcon sx={{ mr: 1, verticalAlign: 'middle' }} />Товары и Услуги</Typography>
         <Box display="flex" gap={1}>
-          <Button
-            variant="outlined"
-            startIcon={<IncomeIcon />}
-            onClick={() => handleOpenMovementDialog('income')}
-            color="success"
-          >
-            Приход
-          </Button>
-          <Button
-            variant="outlined"
-            startIcon={<ExpenseIcon />}
-            onClick={() => handleOpenMovementDialog('expense')}
-            color="error"
-          >
-            Расход
-          </Button>
-          <Button
-            variant="contained"
-            startIcon={<AddIcon />}
-            onClick={() => handleOpenProductDialog()}
-          >
-            Новая позиция
-          </Button>
+          <Button variant="outlined" startIcon={<IncomeIcon />} onClick={() => handleOpenMovementDialog('income')} color="success">Приход</Button>
+          <Button variant="outlined" startIcon={<ExpenseIcon />} onClick={() => handleOpenMovementDialog('expense')} color="error">Расход</Button>
+          <Button variant="contained" startIcon={<AddIcon />} onClick={() => handleOpenProductDialog()}>Новая позиция</Button>
         </Box>
       </Box>
 
-      {/* ... (rest of the render method with adjustments) */}
+      {criticalProducts.length > 0 && (
+        <Alert severity="warning" sx={{ mb: 2 }}>
+          <Typography variant="subtitle2" gutterBottom>Критические остатки ({criticalProducts.length}):</Typography>
+          <Box display="flex" flexWrap="wrap" gap={1}>
+            {criticalProducts.map(p => (<Chip key={p.id} label={`${p.name}: ${p.availableStock}/${p.minStock} ${p.unit}`} color="warning" size="small" onClick={() => handleOpenMovementDialog('income', p)} />))}
+          </Box>
+        </Alert>
+      )}
 
-      {/* Dialog for new/edit product */}
+      <Tabs value={activeTab} onChange={(_, v) => setActiveTab(v)} sx={{ mb: 2 }}>
+        <Tab label={`Все (${products.length})`} icon={<CategoryIcon />} iconPosition="start" />
+        <Tab label="История движений" icon={<HistoryIcon />} iconPosition="start" />
+      </Tabs>
+
+      {activeTab === 0 && (
+        <>
+          <Box display="flex" gap={2} mb={2}>
+            <TextField placeholder="Поиск..." value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} InputProps={{ startAdornment: (<InputAdornment position="start"><SearchIcon /></InputAdornment>) }} sx={{ flexGrow: 1 }} />
+            <FormControl sx={{ minWidth: 200 }}>
+              <InputLabel>Категория</InputLabel>
+              <Select value={categoryFilter} label="Категория" onChange={(e) => setCategoryFilter(e.target.value)}>
+                <MenuItem value="">Все</MenuItem>
+                {categories.map(cat => (<MenuItem key={cat} value={cat}>{cat}</MenuItem>))}
+              </Select>
+            </FormControl>
+          </Box>
+
+          {!filteredProducts.length ? (
+            <Card><CardContent><Typography color="text.secondary" align="center">Ничего не найдено</Typography></CardContent></Card>
+          ) : (
+            <Box display="flex" flexWrap="wrap" gap={2}>
+              {filteredProducts.map(p => (
+                <Box key={p.id} sx={{ width: { xs: '100%', md: 'calc(50% - 8px)', lg: 'calc(33.333% - 11px)' } }}>
+                  <Card>
+                    <CardContent>
+                      <Box display="flex" justifyContent="space-between" mb={1}>
+                        <Box>
+                          <Typography variant="h6">{p.name}</Typography>
+                          <Chip label={p.type === 'service' ? 'Услуга' : 'Товар'} size="small" color={p.type === 'service' ? 'secondary' : 'primary'} sx={{ mr: 1 }} />
+                          {p.sku && <Typography variant="caption" color="text.secondary">Артикул: {p.sku}</Typography>}
+                        </Box>
+                        <Box>
+                          {p.type === 'product' && <Tooltip title="Приход/Расход"><IconButton size="small" onClick={() => handleOpenMovementDialog('income', p)}><IncomeIcon fontSize="small" color="success" /></IconButton></Tooltip>}
+                          <IconButton size="small" onClick={() => handleOpenProductDialog(p)}><EditIcon fontSize="small" /></IconButton>
+                          <IconButton size="small" color="error" onClick={() => setConfirmDelete(p)}><DeleteIcon fontSize="small" /></IconButton>
+                        </Box>
+                      </Box>
+                      {p.type === 'product' && <StockIndicator current={p.currentStock} min={p.minStock} reserved={p.reservedStock} />}
+                      <Box mt={2}>
+                        <Typography variant="body2" color="text.secondary">Единица: {p.unit}</Typography>
+                        {p.salePrice && <Typography variant="body2" color="text.secondary">Цена продажи: {p.salePrice} ₽</Typography>}
+                      </Box>
+                    </CardContent>
+                  </Card>
+                </Box>
+              ))}
+            </Box>
+          )}
+        </>
+      )}
+
+      {activeTab === 1 && (
+        <TableContainer component={Paper}>
+          <Table>
+            <TableHead>
+              <TableRow>
+                <TableCell>Дата</TableCell><TableCell>Товар</TableCell><TableCell>Операция</TableCell>
+                <TableCell align="right">Количество</TableCell><TableCell align="right">Было → Стало</TableCell><TableCell>Комментарий</TableCell>
+              </TableRow>
+            </TableHead>
+            <TableBody>
+              {!movements.length ? (
+                <TableRow><TableCell colSpan={6} align="center"><Typography color="text.secondary">История пуста</Typography></TableCell></TableRow>
+              ) : (
+                movements.map(m => (
+                  <TableRow key={m.id}>
+                    <TableCell>{m.createdAt?.toDate?.().toLocaleString('ru-RU') || 'Н/Д'}</TableCell>
+                    <TableCell>{m.productName}</TableCell>
+                    <TableCell><Chip label={getMovementTypeLabel(m.type)} size="small" color={m.quantity > 0 ? 'success' : 'error'} /></TableCell>
+                    <TableCell align="right"><Typography color={m.quantity > 0 ? 'success.main' : 'error.main'}>{m.quantity > 0 ? '+' : ''}{m.quantity}</Typography></TableCell>
+                    <TableCell align="right">{m.previousStock} → {m.newStock}</TableCell>
+                    <TableCell>{m.comment}</TableCell>
+                  </TableRow>
+                ))
+              )}
+            </TableBody>
+          </Table>
+        </TableContainer>
+      )}
+
       <Dialog open={productDialog} onClose={handleCloseProductDialog} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          {editingProduct ? 'Редактировать позицию' : 'Новая позиция'}
-        </DialogTitle>
+        <DialogTitle>{editingProduct ? 'Редактировать позицию' : 'Новая позиция'}</DialogTitle>
         <DialogContent>
           <Box display="flex" flexDirection="column" gap={2} mt={1}>
-            <ToggleButtonGroup
-              value={productForm.type}
-              exclusive
-              onChange={(e, newType) => {
-                if (newType) setProductForm({...productForm, type: newType });
-              }}
-              fullWidth
-              sx={{ mb: 1 }}
-            >
+            <ToggleButtonGroup value={productForm.type} exclusive onChange={(e, v) => v && setProductForm({ ...productForm, type: v })} fullWidth sx={{ mb: 1 }}>
               <ToggleButton value="product">Товар</ToggleButton>
               <ToggleButton value="service">Услуга</ToggleButton>
             </ToggleButtonGroup>
-
-            <TextField
-              label="Название"
-              value={productForm.name}
-              onChange={(e) => setProductForm({...productForm, name: e.target.value})}
-              required
-              fullWidth
-            />
-            {/* ... other fields */}
-
+            <TextField label="Название" value={productForm.name || ''} onChange={e => setProductForm({ ...productForm, name: e.target.value })} required fullWidth />
+            <Box display="flex" gap={2}>
+              <TextField label="Артикул" value={productForm.sku || ''} onChange={e => setProductForm({ ...productForm, sku: e.target.value })} fullWidth />
+              <FormControl fullWidth required><InputLabel>Ед. изм.</InputLabel><Select value={productForm.unit || 'шт'} label="Ед. изм." onChange={e => setProductForm({ ...productForm, unit: e.target.value })}><MenuItem value="шт">шт</MenuItem><MenuItem value="кг">кг</MenuItem><MenuItem value="л">л</MenuItem><MenuItem value="м">м</MenuItem></Select></FormControl>
+            </Box>
             {productForm.type === 'product' && (
-              <>
-                <Box display="flex" gap={2}>
-                  {!editingProduct && (
-                    <TextField
-                      label="Начальный остаток"
-                      type="number"
-                      value={productForm.currentStock}
-                      onChange={(e) => setProductForm({...productForm, currentStock: Number(e.target.value)})}
-                      fullWidth
-                    />
-                  )}
-                  <TextField
-                    label="Минимальный остаток"
-                    type="number"
-                    value={productForm.minStock}
-                    onChange={(e) => setProductForm({...productForm, minStock: Number(e.target.value)})}
-                    fullWidth
-                    helperText="Для уведомлений"
-                  />
-                </Box>
-              </>
+              <Box display="flex" gap={2}>
+                {!editingProduct && <TextField label="Начальный остаток" type="number" value={productForm.currentStock || 0} onChange={e => setProductForm({ ...productForm, currentStock: Number(e.target.value) })} fullWidth />}
+                <TextField label="Мин. остаток" type="number" value={productForm.minStock || 0} onChange={e => setProductForm({ ...productForm, minStock: Number(e.target.value) })} fullWidth helperText="Для уведомлений" />
+              </Box>
             )}
-            {/* ... other fields */}
+            <TextField label="Цена продажи" type="number" value={productForm.salePrice || 0} onChange={e => setProductForm({ ...productForm, salePrice: Number(e.target.value) })} fullWidth InputProps={{ endAdornment: <InputAdornment position="end">₽</InputAdornment> }} />
+            <TextField label="Описание" value={productForm.description || ''} onChange={e => setProductForm({ ...productForm, description: e.target.value })} multiline rows={2} fullWidth />
           </Box>
         </DialogContent>
         <DialogActions>
           <Button onClick={handleCloseProductDialog}>Отмена</Button>
-          <Button 
-            onClick={handleSaveProduct} 
-            variant="contained"
-            disabled={!productForm.name || !productForm.unit}
-          >
-            {editingProduct ? 'Сохранить' : 'Добавить'}
-          </Button>
+          <Button onClick={handleSaveProduct} variant="contained" disabled={!productForm.name || !productForm.unit}>Сохранить</Button>
         </DialogActions>
       </Dialog>
-      {/* ... (rest of the component) */}
+      
+      {/* ... (movement dialog, confirm dialog, notification) */}
+      <ConfirmDialog open={!!confirmDelete} title="Удалить?" message={`Удалить "${confirmDelete?.name}"?`} onConfirm={() => confirmDelete && handleDeleteProduct(confirmDelete)} onClose={() => setConfirmDelete(null)} />
+      <Notification open={notification.open} message={notification.message} severity={notification.severity} onClose={() => setNotification({ ...notification, open: false })} />
     </Box>
   );
 };
