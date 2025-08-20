@@ -42,8 +42,7 @@ export const getTasksByContractorStream = (userId: string, contractorId: string,
   const tasksPath = `users/${userId}/tasks`;
   const q = query(
     collection(db, tasksPath),
-    where('contractorId', '==', contractorId),
-    orderBy('createdAt', 'desc')
+    where('contractorId', '==', contractorId)
   );
   return onSnapshot(q, (snapshot) => {
     const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
