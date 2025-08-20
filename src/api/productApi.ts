@@ -413,13 +413,13 @@ export const getCriticalStockProducts = (userId: string, callback: (products: Pr
           id: doc.id, 
           ...data,
           availableStock 
-        };
+        } as Product;
       })
       .filter(product => {
         const minStock = product.minStock || 0;
         const availableStock = product.availableStock || 0;
         return minStock > 0 && availableStock <= minStock;
-      }) as Product[];
+      });
     
     callback(products);
   });
