@@ -7,7 +7,7 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import { Project, ProjectStatus, addProject, deleteProject, getProjectsStream, updateProject } from '../api/projectApi';
 import { Contractor, getContractorsStream } from '../api/contractorApi';
-import { Estimate, getEstimatesStream } from '../api/estimateApi';
+import { deleteEstimate } from '../api/estimateApi';
 import { useNavigate } from 'react-router-dom';
 
 const statusOptions: { value: ProjectStatus; label: string; color: 'default' | 'info' | 'warning' | 'success'; }[] = [
@@ -23,7 +23,7 @@ const ProjectsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
-  const [estimatesCount, setEstimatesCount] = useState<Record<string, number>>({});
+  // REMOVE: const [estimatesCount, setEstimatesCount] = useState<Record<string, number>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
@@ -35,12 +35,7 @@ const ProjectsPage: React.FC = () => {
     if (!currentUser) return;
     const unsubProjects = getProjectsStream(currentUser.uid, (items) => {
       setProjects(items);
-      // For each project, subscribe to its estimates to get the count
-      items.forEach(project => {
-        getEstimatesStream(currentUser.uid, project.id, (estimates) => {
-          setEstimatesCount(prev => ({ ...prev, [project.id]: estimates.length }));
-        });
-      });
+      // REMOVED estimate counting logic
     });
     const unsubContractors = getContractorsStream(currentUser.uid, (items) => {
       setContractors(items);
@@ -88,6 +83,10 @@ const ProjectsPage: React.FC = () => {
   const remove = async (p: Project) => {
     if (!currentUser) return;
     try {
+      // Logic to delete estimates is now handled inside Estimate module or cloud function
+      // For now, we assume estimates are deleted or handled elsewhere when a project is deleted.
+      // A more robust solution would be a cloud function to clean up subcollections.
+      
       await deleteProject(currentUser.uid, p.id);
       setNotify({ open: true, message: 'Проект удалён', severity: 'success' });
     } catch (e) {
@@ -128,7 +127,7 @@ const ProjectsPage: React.FC = () => {
                         onClick={() => navigate(`/projects/${p.id}/estimates`)}
                         title="Сметы"
                       >
-                        <Badge badgeContent={estimatesCount[p.id] || 0} color="primary">
+                        <Badge badgeContent={p.estimatesCount || 0} color="primary">
                           <EstimateIcon fontSize="small" />
                         </Badge>
                       </IconButton>

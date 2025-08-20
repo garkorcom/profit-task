@@ -36,9 +36,9 @@ const ProjectEstimatesPage: React.FC = () => {
   }, [currentUser, projectId]);
 
   const handleDelete = async () => {
-    if (!currentUser || !confirmDelete) return;
+    if (!currentUser || !confirmDelete || !projectId) return;
     try {
-      await deleteEstimate(currentUser.uid, confirmDelete.id);
+      await deleteEstimate(currentUser.uid, confirmDelete.id, projectId);
       setNotification({ open: true, message: 'Смета удалена', severity: 'success' });
     } catch (error) {
       setNotification({ open: true, message: 'Ошибка при удалении', severity: 'error' });

@@ -2,7 +2,7 @@
 // Структура хранения: users/{userId}/tasks/{taskId}
 // Здесь собраны функции для подписки на изменения и для операций создания/обновления/удаления задач.
 import { db } from '../firebase/firebase';
-import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, limit } from 'firebase/firestore';
 
 export interface Task {
   id: string;
@@ -51,6 +51,25 @@ export const getTasksByContractorStream = (userId: string, contractorId: string,
   const q = query(
     collection(db, tasksPath),
     where('contractorId', '==', contractorId)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
+    callback(tasks);
+  });
+};
+
+/**
+ * Получить поток задач с высоким приоритетом (ограниченный лимит)
+ */
+export const getHighPriorityTasksStream = (userId: string, limitCount: number = 5, callback: (tasks: Task[]) => void) => {
+  const tasksPath = `users/${userId}/tasks`;
+  const q = query(
+    collection(db, tasksPath),
+    where('priority', '==', 'high'),
+    where('status', '!=', 'completed'),
+    orderBy('status'),
+    orderBy('createdAt', 'desc'),
+    limit(limitCount)
   );
   return onSnapshot(q, (snapshot) => {
     const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];

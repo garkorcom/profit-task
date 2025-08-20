@@ -10,6 +10,7 @@ import {
   where,
   serverTimestamp,
   writeBatch,
+  increment, // Импортируем increment
   orderBy,
 } from 'firebase/firestore';
 
@@ -87,20 +88,31 @@ export const getEstimateStream = (
 };
 
 /**
- * Создать новую смету
+ * Создать новую смету и атомарно обновить счетчик в проекте
  */
 export const addEstimate = async (
   userId: string,
   estimateData: Omit<Estimate, 'id'>
 ) => {
+  const batch = writeBatch(db);
+
+  // 1. Создаем ссылку на новую смету
   const estimatesPath = `users/${userId}/estimates`;
+  const newEstimateRef = doc(collection(db, estimatesPath));
+  
   const data = {
     ...estimateData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
   };
-  const docRef = await addDoc(collection(db, estimatesPath), data);
-  return docRef.id;
+  batch.set(newEstimateRef, data);
+
+  // 2. Обновляем счетчик в проекте
+  const projectRef = doc(db, `users/${userId}/projects`, estimateData.projectId);
+  batch.update(projectRef, { estimatesCount: increment(1) });
+
+  await batch.commit();
+  return newEstimateRef.id;
 };
 
 /**
@@ -120,9 +132,18 @@ export const updateEstimate = async (
 };
 
 /**
- * Удалить смету
+ * Удалить смету и атомарно обновить счетчик в проекте
  */
-export const deleteEstimate = async (userId: string, estimateId: string) => {
+export const deleteEstimate = async (userId: string, estimateId: string, projectId: string) => {
+  const batch = writeBatch(db);
+
+  // 1. Удаляем смету
   const estimatePath = `users/${userId}/estimates/${estimateId}`;
-  await deleteDoc(doc(db, estimatePath));
+  batch.delete(doc(db, estimatePath));
+
+  // 2. Уменьшаем счетчик в проекте
+  const projectRef = doc(db, `users/${userId}/projects`, projectId);
+  batch.update(projectRef, { estimatesCount: increment(-1) });
+
+  await batch.commit();
 };

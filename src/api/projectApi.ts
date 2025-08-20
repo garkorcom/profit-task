@@ -1,7 +1,7 @@
 // Модуль работы с проектами (CRUD и стриминг из Firestore)
 // Структура хранения: users/{userId}/projects/{projectId}
 import { db } from '../firebase/firebase';
-import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, limit } from 'firebase/firestore';
 
 export type ProjectStatus = 'planned' | 'active' | 'paused' | 'completed';
 
@@ -16,6 +16,7 @@ export interface Project {
   contractorId?: string;
   contractorName?: string;
   budget?: number;
+  estimatesCount?: number; // Денормализованный счетчик смет
   createdAt?: any;
   updatedAt?: any;
 }
@@ -63,6 +64,23 @@ export const getProjectStream = (userId: string, projectId: string, callback: (p
     } else {
       callback(null);
     }
+  });
+};
+
+/**
+ * Получить поток активных проектов (ограниченный лимит)
+ */
+export const getActiveProjectsStream = (userId: string, limitCount: number = 5, callback: (projects: Project[]) => void) => {
+  const projectsPath = `users/${userId}/projects`;
+  const q = query(
+    collection(db, projectsPath),
+    where('status', '==', 'active'),
+    orderBy('endDate', 'asc'),
+    limit(limitCount)
+  );
+  return onSnapshot(q, (snapshot) => {
+    const projects = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Project[];
+    callback(projects);
   });
 };
 
