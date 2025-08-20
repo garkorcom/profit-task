@@ -54,4 +54,16 @@ export const deleteProject = async (userId: string, projectId: string) => {
   await deleteDoc(projectRef);
 };
 
+// Get a real-time stream for a single project
+export const getProjectStream = (userId: string, projectId: string, callback: (project: Project | null) => void) => {
+  const projectPath = `users/${userId}/projects/${projectId}`;
+  return onSnapshot(doc(db, projectPath), (snapshot) => {
+    if (snapshot.exists()) {
+      callback({ id: snapshot.id, ...snapshot.data() } as Project);
+    } else {
+      callback(null);
+    }
+  });
+};
+
 

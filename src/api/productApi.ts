@@ -26,6 +26,7 @@ import {
  */
 export interface Product {
   id: string;
+  type: 'product' | 'service';       // Тип: Товар или Услуга
   name: string;                    // Название товара
   sku?: string;                    // Артикул
   unit: string;                    // Единица измерения (шт, кг, м, л)

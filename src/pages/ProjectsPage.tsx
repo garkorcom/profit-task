@@ -1,12 +1,14 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Card, CardContent, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Chip, Alert } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Box, Typography, Card, CardContent, Button, IconButton, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Chip, Alert, Badge } from '@mui/material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, Description as EstimateIcon } from '@mui/icons-material';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import { Project, ProjectStatus, addProject, deleteProject, getProjectsStream, updateProject } from '../api/projectApi';
 import { Contractor, getContractorsStream } from '../api/contractorApi';
+import { Estimate, getEstimatesStream } from '../api/estimateApi';
+import { useNavigate } from 'react-router-dom';
 
 const statusOptions: { value: ProjectStatus; label: string; color: 'default' | 'info' | 'warning' | 'success'; }[] = [
   { value: 'planned', label: 'Запланирован', color: 'info' },
@@ -17,9 +19,11 @@ const statusOptions: { value: ProjectStatus; label: string; color: 'default' | '
 
 const ProjectsPage: React.FC = () => {
   const { currentUser } = useAuth();
+  const navigate = useNavigate();
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [estimatesCount, setEstimatesCount] = useState<Record<string, number>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
   const [editing, setEditing] = useState<Project | null>(null);
@@ -29,7 +33,15 @@ const ProjectsPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    const unsubProjects = getProjectsStream(currentUser.uid, (items) => setProjects(items));
+    const unsubProjects = getProjectsStream(currentUser.uid, (items) => {
+      setProjects(items);
+      // For each project, subscribe to its estimates to get the count
+      items.forEach(project => {
+        getEstimatesStream(currentUser.uid, project.id, (estimates) => {
+          setEstimatesCount(prev => ({ ...prev, [project.id]: estimates.length }));
+        });
+      });
+    });
     const unsubContractors = getContractorsStream(currentUser.uid, (items) => {
       setContractors(items);
       setLoading(false);
@@ -111,6 +123,15 @@ const ProjectsPage: React.FC = () => {
                       {p.code && <Typography variant="caption" color="text.secondary">Код: {p.code}</Typography>}
                     </Box>
                     <Box>
+                      <IconButton 
+                        size="small" 
+                        onClick={() => navigate(`/projects/${p.id}/estimates`)}
+                        title="Сметы"
+                      >
+                        <Badge badgeContent={estimatesCount[p.id] || 0} color="primary">
+                          <EstimateIcon fontSize="small" />
+                        </Badge>
+                      </IconButton>
                       <IconButton size="small" onClick={() => openEdit(p)}><EditIcon fontSize="small" /></IconButton>
                       <IconButton size="small" color="error" onClick={() => setConfirm(p)}><DeleteIcon fontSize="small" /></IconButton>
                     </Box>
