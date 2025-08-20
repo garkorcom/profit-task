@@ -12,8 +12,14 @@ export interface Task {
   status?: string;
   contractorId?: string;
   contractorName?: string;
-  questions?: string;
-  whatToBuy?: string;
+  questions?: string;  // Вопросы и уточнения по задаче
+  whatToBuy?: string;  // Список покупок по задаче
+  reservedProducts?: Array<{  // Товары, зарезервированные под задачу
+    productId: string;
+    productName: string;
+    quantity: number;
+    unit: string;
+  }>;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -83,6 +89,8 @@ export const addTask = async (userId: string, taskData: {
 
 /**
  * Частичное обновление полей задачи с выставлением updatedAt.
+ * Важно: если обновляются зарезервированные товары (reservedProducts),
+ * нужно также вызывать соответствующие функции из productApi для обновления резервов
  */
 export const updateTask = async (userId: string, taskId: string, updates: Partial<Task>) => {
   const taskRef = doc(db, `users/${userId}/tasks`, taskId);
@@ -101,6 +109,8 @@ export const updateTask = async (userId: string, taskId: string, updates: Partia
 
 /**
  * Удаление задачи по её идентификатору.
+ * Важно: перед удалением задачи нужно снять все резервы товаров,
+ * связанные с этой задачей (через функции из productApi)
  */
 export const deleteTask = async (userId: string, taskId: string) => {
   const taskRef = doc(db, `users/${userId}/tasks`, taskId);
