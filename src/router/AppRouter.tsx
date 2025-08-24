@@ -14,6 +14,7 @@ import ContractorTasksPage from '../pages/ContractorTasksPage';
 import ShoppingListPage from '../pages/ShoppingListPage';
 import ProjectEstimatesPage from '../pages/ProjectEstimatesPage';
 import EstimateEditorPage from '../pages/EstimateEditorPage';
+import TaskReviewPage from '../pages/TaskReviewPage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -26,6 +27,7 @@ const AppRouter: React.FC = () => {
           <Route element={<MainLayout />}>
             <Route path="/" element={<HomeDashboard />} />
             <Route path="/tasks" element={<TasksPage />} />
+            <Route path="/tasks/review" element={<TaskReviewPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/shopping" element={<ShoppingListPage />} />

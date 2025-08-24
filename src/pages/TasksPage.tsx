@@ -4,6 +4,7 @@ import {
   Typography, 
   Card, 
   CardContent, 
+  CardActions,
   Button, 
   Dialog,
   DialogTitle,
@@ -16,14 +17,28 @@ import {
   MenuItem,
   IconButton,
   Chip,
-  FormHelperText
+  FormHelperText,
+  Grid,
+  FormControlLabel,
+  Switch
 } from '@mui/material';
-import { Delete as DeleteIcon, Edit as EditIcon, Business as BusinessIcon, Work as WorkIcon } from '@mui/icons-material';
+import { 
+  Delete as DeleteIcon, 
+  Edit as EditIcon, 
+  Business as BusinessIcon, 
+  Work as WorkIcon,
+  Visibility as ViewIcon,
+  PlayArrow as StartIcon,
+  Assignment as TaskIcon
+} from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { getTasksStream, addTask, updateTask, deleteTask, Task } from '../api/taskApi';
+import { getTasksStream, addTask, updateTask, deleteTask, Task, TaskStatus, TaskPriority } from '../api/taskApi';
+import TaskStatusChip from '../components/tasks/TaskStatusChip';
+import TaskPriorityChip from '../components/tasks/TaskPriorityChip';
+import TaskDetailsDialog from '../components/tasks/TaskDetailsDialog';
 import { getContractorsStream, Contractor } from '../api/contractorApi';
 import { getProjectsStream, Project } from '../api/projectApi';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -40,14 +55,21 @@ const TasksPage: React.FC = () => {
   const [formData, setFormData] = useState({
     task: '',
     description: '',
-    priority: 'medium',
-    status: 'pending',
+    priority: 'medium' as TaskPriority,
+    status: 'new' as TaskStatus,
     contractorId: '',
     contractorName: '',
     projectId: '',
     projectName: '',
+    estimateItemId: '',
+    assigneeId: '',
+    assigneeName: '',
+    deadline: '',
+    plannedDuration: 0,
+    requirePhoto: false,
     questions: '',
-    whatToBuy: ''
+    whatToBuy: '',
+    tags: [] as string[]
   });
   const [projects, setProjects] = useState<Project[]>([]);
   const [notification, setNotification] = useState<{
@@ -62,6 +84,8 @@ const TasksPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [confirm, setConfirm] = useState<{ open: boolean; taskId?: string }>({ open: false });
   const [filterContractorId, setFilterContractorId] = useState<string>('');
+  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [detailsOpen, setDetailsOpen] = useState(false);
 
   useEffect(() => {
     if (!currentUser) return;
@@ -133,14 +157,21 @@ const TasksPage: React.FC = () => {
       setFormData({
         task: task.task,
         description: task.description || '',
-        priority: task.priority || 'medium',
-        status: task.status || 'pending',
+        priority: (task.priority || 'medium') as TaskPriority,
+        status: (task.status || 'new') as TaskStatus,
         contractorId: task.contractorId || '',
         contractorName: task.contractorName || '',
-        projectId: (task as any).projectId || '',
-        projectName: (task as any).projectName || '',
+        projectId: task.projectId || '',
+        projectName: task.projectName || '',
+        estimateItemId: task.estimateItemId || '',
+        assigneeId: task.assigneeId || '',
+        assigneeName: task.assigneeName || '',
+        deadline: task.deadline ? new Date(task.deadline).toISOString().split('T')[0] : '',
+        plannedDuration: task.plannedDuration || 0,
+        requirePhoto: task.requirePhoto || false,
         questions: task.questions || '',
-        whatToBuy: String((task as any).whatToBuy || '')
+        whatToBuy: task.whatToBuy || '',
+        tags: task.tags || []
       });
     } else {
       setEditingTask(null);
@@ -149,17 +180,29 @@ const TasksPage: React.FC = () => {
       setFormData({
         task: '',
         description: '',
-        priority: 'medium',
-        status: 'pending',
+        priority: 'medium' as TaskPriority,
+        status: 'new' as TaskStatus,
         contractorId: prefill?.id || '',
         contractorName: prefill?.name || '',
         projectId: '',
         projectName: '',
+        estimateItemId: '',
+        assigneeId: '',
+        assigneeName: '',
+        deadline: '',
+        plannedDuration: 0,
+        requirePhoto: false,
         questions: '',
-        whatToBuy: ''
+        whatToBuy: '',
+        tags: []
       });
     }
     setOpenDialog(true);
+  };
+
+  const handleViewDetails = (task: Task) => {
+    setSelectedTask(task);
+    setDetailsOpen(true);
   };
 
   const handleCloseDialog = () => {
@@ -356,6 +399,17 @@ const TasksPage: React.FC = () => {
           </CardContent>
         </Card>
       )) : <Typography>Задач пока нет.</Typography>}
+      
+      {/* Диалог просмотра деталей задачи */}
+      <TaskDetailsDialog
+        open={detailsOpen}
+        onClose={() => setDetailsOpen(false)}
+        task={selectedTask}
+        onStatusChange={(taskId, newStatus) => {
+          // Обработка изменения статуса
+          console.log('Status change:', taskId, newStatus);
+        }}
+      />
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
