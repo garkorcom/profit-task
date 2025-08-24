@@ -20,5 +20,11 @@
     "predeploy": [
       "npm run build"
     ]
+  },
+  "firestore": {
+    "rules": "firestore.rules"
+  },
+  "storage": {
+    "rules": "storage.rules"
   }
 }

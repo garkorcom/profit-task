@@ -209,8 +209,7 @@ export const getTimeEntriesByTaskStream = (
   const entriesPath = `users/${userId}/timeEntries`;
   const q = query(
     collection(db, entriesPath),
-    where('taskId', '==', taskId),
-    orderBy('startTime', 'desc')
+    where('taskId', '==', taskId)
   );
   
   return onSnapshot(q, (snapshot) => {
@@ -218,6 +217,14 @@ export const getTimeEntriesByTaskStream = (
       id: doc.id, 
       ...doc.data() 
     })) as TimeEntry[];
+    
+    // Сортируем на клиенте
+    entries.sort((a, b) => {
+      const aTime = a.startTime?.toDate?.()?.getTime() || 0;
+      const bTime = b.startTime?.toDate?.()?.getTime() || 0;
+      return bTime - aTime; // desc
+    });
+    
     callback(entries);
   });
 };

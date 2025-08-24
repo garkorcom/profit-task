@@ -6,7 +6,7 @@ import {
   CardContent,
   CardActions,
   Button,
-  GridLegacy as Grid,
+
   Chip,
   TextField,
   Dialog,
@@ -25,6 +25,7 @@ import {
   Badge,
   CircularProgress
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   CheckCircle as ApproveIcon,
   Cancel as RejectIcon,

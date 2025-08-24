@@ -39,8 +39,23 @@ export interface Product {
   salePrice?: number;              // Цена продажи
   supplier?: string;               // Поставщик по умолчанию
   description?: string;            // Описание
+  // Для составных услуг
+  components?: ServiceComponent[]; // Состав услуги (вложенные товары/услуги)
   createdAt?: any;
   updatedAt?: any;
+}
+
+/**
+ * Компонент составной услуги
+ */
+export interface ServiceComponent {
+  id: string;                       // Локальный ID строки состава
+  refType: 'product' | 'service';   // Тип ссылки
+  refId: string;                    // ID товара/услуги
+  name: string;                     // Название на момент добавления
+  unit: string;                     // Единица измерения
+  quantity: number;                 // Количество
+  costPerUnitSnapshot?: number;     // Снимок себестоимости на момент добавления (необязательно)
 }
 
 /**
@@ -362,6 +377,87 @@ export const unreserveStock = async (
       comment: `Снятие резерва с задачи: ${taskName}`,
       createdAt: serverTimestamp()
     });
+  });
+};
+
+/**
+ * Резервирование под смету (без привязки к задаче)
+ */
+export const reserveForEstimate = async (
+  userId: string,
+  productId: string,
+  quantity: number,
+  estimateId: string,
+  estimateNumberOrName?: string
+) => {
+  return runTransaction(db, async (transaction) => {
+    const productRef = doc(db, `users/${userId}/products/${productId}`);
+    const productSnap = await transaction.get(productRef);
+    if (!productSnap.exists()) {
+      throw new Error('Товар не найден');
+    }
+    const productData = productSnap.data() as Product;
+    const currentStock = productData.currentStock || 0;
+    const reservedStock = productData.reservedStock || 0;
+    const availableStock = currentStock - reservedStock;
+    if (availableStock < quantity) {
+      throw new Error(`Недостаточно товара для резервирования. Доступно: ${availableStock}`);
+    }
+    transaction.update(productRef, {
+      reservedStock: increment(quantity),
+      updatedAt: serverTimestamp()
+    });
+    const movementsPath = `users/${userId}/stockMovements`;
+    const movementRef = doc(collection(db, movementsPath));
+    transaction.set(movementRef, {
+      productId,
+      productName: productData.name,
+      type: 'reserve',
+      quantity,
+      previousStock: currentStock,
+      newStock: currentStock,
+      document: 'Estimate',
+      comment: `Резервирование по смете: ${estimateNumberOrName || estimateId}`,
+      createdAt: serverTimestamp()
+    } as any);
+  });
+};
+
+/**
+ * Снятие резерва по смете (без привязки к задаче)
+ */
+export const unreserveForEstimate = async (
+  userId: string,
+  productId: string,
+  quantity: number,
+  estimateId: string,
+  estimateNumberOrName?: string
+) => {
+  return runTransaction(db, async (transaction) => {
+    const productRef = doc(db, `users/${userId}/products/${productId}`);
+    const productSnap = await transaction.get(productRef);
+    if (!productSnap.exists()) {
+      throw new Error('Товар не найден');
+    }
+    const productData = productSnap.data() as Product;
+    const currentStock = productData.currentStock || 0;
+    transaction.update(productRef, {
+      reservedStock: increment(-quantity),
+      updatedAt: serverTimestamp()
+    });
+    const movementsPath = `users/${userId}/stockMovements`;
+    const movementRef = doc(collection(db, movementsPath));
+    transaction.set(movementRef, {
+      productId,
+      productName: productData.name,
+      type: 'unreserve',
+      quantity: -quantity,
+      previousStock: currentStock,
+      newStock: currentStock,
+      document: 'Estimate',
+      comment: `Снятие резерва по смете: ${estimateNumberOrName || estimateId}`,
+      createdAt: serverTimestamp()
+    } as any);
   });
 };
 

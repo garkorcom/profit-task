@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  GridLegacy as Grid,
+
   Card,
   CardContent,
   CardHeader,
@@ -24,6 +24,7 @@ import {
   useTheme,
   alpha
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   TrendingUp as TrendingUpIcon,
   TrendingDown as TrendingDownIcon,

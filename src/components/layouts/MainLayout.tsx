@@ -12,7 +12,7 @@ import LogoutIcon from '@mui/icons-material/Logout';
 const navItems = [
   { path: '/', label: 'Главная', value: 'home', icon: <HomeIcon /> },
   { path: '/tasks', label: 'Задачи', value: 'tasks', icon: <TasksIcon /> },
-  { path: '/warehouse', label: 'Склад', value: 'warehouse', icon: <WarehouseIcon /> },
+  { path: '/products', label: 'Склад', value: 'warehouse', icon: <WarehouseIcon /> },
   { path: '/invoices', label: 'Счета', value: 'invoices', icon: <InvoiceIcon /> },
   { path: '/references', label: 'Справочники', value: 'references', icon: <FolderIcon /> },
 ];
@@ -20,6 +20,8 @@ const navItems = [
 const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
+  
+
   
   // Определяем активный пункт меню, учитывая вложенные маршруты
   const getCurrentNav = () => {
@@ -63,7 +65,9 @@ const MainLayout: React.FC = () => {
           <Button color="inherit" onClick={logout}><LogoutIcon /></Button>
         </Toolbar>
       </AppBar>
-      <Box component="main" sx={{ p: 2, mb: 8 }}><Outlet /></Box>
+      <Box component="main" sx={{ p: 2, mb: 8 }}>
+        <Outlet />
+      </Box>
       <Paper sx={{ position: 'fixed', bottom: 0, left: 0, right: 0 }} elevation={3}>
         <BottomNavigation showLabels value={currentNav.value} onChange={(e, value) => {
           navigate(navItems.find(item => item.value === value)?.path || '/');

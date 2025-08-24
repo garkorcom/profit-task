@@ -10,7 +10,7 @@ import {
   FormControl,
   InputLabel,
   Avatar,
-  Grid,
+
   Divider,
   Alert,
   Chip,
@@ -24,6 +24,7 @@ import {
   ListItemText,
   ListItemSecondaryAction
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   Edit as EditIcon,
   Save as SaveIcon,
@@ -77,11 +78,11 @@ const UserProfilePage: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
     
-    const unsubscribeEmployees = getEmployeesStream((data) => {
+    const unsubscribeEmployees = getEmployeesStream(currentUser.uid, (data) => {
       setEmployees(data);
     });
     
-    const unsubscribeContractors = getContractorsStream((data) => {
+    const unsubscribeContractors = getContractorsStream(currentUser.uid, (data) => {
       setContractors(data);
     });
     

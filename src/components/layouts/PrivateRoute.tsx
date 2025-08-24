@@ -5,7 +5,11 @@ import LoadingSpinner from '../common/LoadingSpinner';
 
 const PrivateRoute: React.FC = () => {
   const { currentUser, loading } = useAuth();
-  if (loading) return <LoadingSpinner />;
+  
+  if (loading) {
+    return <LoadingSpinner />;
+  }
+  
   return currentUser ? <Outlet /> : <Navigate to="/login" />;
 };
 export default PrivateRoute;

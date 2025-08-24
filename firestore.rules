@@ -1,19 +1,95 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Правила для задач пользователей
-    match /users/{userId}/tasks/{taskId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Функция проверки аутентификации
+    function isAuthenticated() {
+      return request.auth != null;
     }
     
-    // Правила для контрагентов пользователей
-    match /users/{userId}/contractors/{contractorId} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Функция проверки владельца
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
     }
     
-    // Правила для других коллекций пользователей
-    match /users/{userId}/{document=**} {
-      allow read, write: if request.auth != null && request.auth.uid == userId;
+    // Правила для профилей пользователей
+    match /users/{userId} {
+      allow read: if isAuthenticated();
+      allow create: if isOwner(userId);
+      allow update: if isOwner(userId);
+      allow delete: if false; // Запрещаем удаление профилей
+      
+      // Вложенные коллекции пользователя
+      match /{subcollection}/{document=**} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Правила для проектов
+    match /projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+      
+      match /{subcollection}/{document=**} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+    
+    // Правила для задач
+    match /tasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Правила для сотрудников
+    match /employees/{employeeId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Правила для подрядчиков
+    match /contractors/{contractorId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Правила для товаров
+    match /products/{productId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Правила для смет
+    match /estimates/{estimateId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+      
+      match /{subcollection}/{document=**} {
+        allow read, write: if isAuthenticated();
+      }
+    }
+    
+    // Правила для табеля
+    match /timesheet/{entryId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Правила для складских документов
+    match /stockDocuments/{documentId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Правила для счетов
+    match /invoices/{invoiceId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
+    }
+    
+    // Общее правило для всех остальных документов
+    match /{document=**} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated();
     }
   }
 }

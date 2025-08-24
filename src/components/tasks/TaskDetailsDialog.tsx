@@ -7,7 +7,7 @@ import {
   Button,
   Box,
   Typography,
-  GridLegacy as Grid,
+
   Divider,
   Card,
   CardMedia,
@@ -25,6 +25,7 @@ import {
   Tab,
   Tabs
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   Timeline,
   TimelineItem,

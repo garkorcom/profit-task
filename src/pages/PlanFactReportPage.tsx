@@ -19,7 +19,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  GridLegacy as Grid,
+
   LinearProgress,
   Tooltip,
   IconButton,
@@ -27,6 +27,7 @@ import {
   useTheme,
   alpha
 } from '@mui/material';
+import { GridLegacy as Grid } from '@mui/material';
 import {
   FileDownload as ExportIcon,
   Print as PrintIcon,
@@ -83,7 +84,7 @@ const PlanFactReportPage: React.FC = () => {
       const unsubProjects = getProjectsStream(currentUser.uid, setProjects);
       const unsubTasks = getTasksStream(currentUser.uid, setTasks);
       const unsubTimeEntries = getTimeEntriesStream(currentUser.uid, {}, setTimeEntries);
-      const unsubEstimates = getEstimatesStream(currentUser.uid, setEstimates);
+      const unsubEstimates = getEstimatesStream(currentUser.uid, '', setEstimates);
 
       setLoading(false);
 
@@ -219,13 +220,13 @@ const PlanFactReportPage: React.FC = () => {
     }
   };
 
-  const getStatusIcon = (status: PlanFactData['status']) => {
+  const getStatusIcon = (status: PlanFactData['status']): React.ReactElement | undefined => {
     switch (status) {
       case 'on_track': return <OnTrackIcon fontSize="small" />;
       case 'over_budget': return <OverIcon fontSize="small" />;
       case 'under_budget': return <UnderIcon fontSize="small" />;
       case 'at_risk': return <WarningIcon fontSize="small" />;
-      default: return null;
+      default: return undefined;
     }
   };
 

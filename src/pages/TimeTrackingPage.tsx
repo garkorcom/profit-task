@@ -101,7 +101,7 @@ const TimeTrackingPage: React.FC = () => {
       await startWork(
         selectedTask.id!,
         startPhoto,
-        geoLocation || undefined
+        undefined
       );
       setDialogOpen(false);
       setSelectedProject(null);
@@ -121,7 +121,7 @@ const TimeTrackingPage: React.FC = () => {
       return;
     }
     try {
-      await stopWorkWithData(endPhoto, endComment);
+      await stopWork(endPhoto, endComment);
       setEndPhoto(null);
       setEndComment('');
     } catch (error) {

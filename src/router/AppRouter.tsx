@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../auth/LoginPage';
 import PrivateRoute from '../components/layouts/PrivateRoute';
 import MainLayout from '../components/layouts/MainLayout';
-import HomeDashboard from '../pages/HomeDashboard';
+import HomeDashboard from '../pages/HomePage';
 import TasksPage from '../pages/TasksPage';
 import ProductsPage from '../pages/ProductsPage';
 import InvoicesPage from '../pages/InvoicesPage';
@@ -18,6 +18,8 @@ import TaskReviewPage from '../pages/TaskReviewPage';
 import AnalyticsDashboard from '../pages/AnalyticsDashboard';
 import PlanFactReportPage from '../pages/PlanFactReportPage';
 import UserProfilePage from '../pages/UserProfilePage';
+import WarehousesPage from '../pages/WarehousesPage';
+import ShipmentsPage from '../pages/ShipmentsPage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -41,6 +43,8 @@ const AppRouter: React.FC = () => {
             <Route path="/projects/:projectId/estimates" element={<ProjectEstimatesPage />} />
             <Route path="/projects/:projectId/estimates/:estimateId" element={<EstimateEditorPage />} />
             <Route path="/references" element={<ReferencesPage />} />
+            <Route path="/warehouses" element={<WarehousesPage />} />
+            <Route path="/shipments" element={<ShipmentsPage />} />
             <Route path="/contractors" element={<ContractorsPage />} />
             <Route path="/contractors/:contractorId/tasks" element={<ContractorTasksPage />} />
           </Route>

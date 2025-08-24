@@ -43,33 +43,59 @@ export const createOrUpdateUserProfile = async (
   const userSnap = await getDoc(userRef);
   
   if (!userSnap.exists()) {
-    // Создаем новый профиль
-    const newProfile: UserProfile = {
+    // Создаем новый профиль (убираем undefined поля)
+    const newProfile: any = {
       id: firebaseUser.uid,
       email: firebaseUser.email!,
-      displayName: firebaseUser.displayName || undefined,
-      photoURL: firebaseUser.photoURL || undefined,
-      phoneNumber: firebaseUser.phoneNumber || undefined,
       role: 'employee', // По умолчанию
       isActive: true,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      ...additionalData
+      updatedAt: serverTimestamp()
     };
+    
+    // Добавляем только существующие поля
+    if (firebaseUser.displayName) newProfile.displayName = firebaseUser.displayName;
+    if (firebaseUser.photoURL) newProfile.photoURL = firebaseUser.photoURL;
+    if (firebaseUser.phoneNumber) newProfile.phoneNumber = firebaseUser.phoneNumber;
+    
+    // Добавляем дополнительные данные
+    if (additionalData) {
+      Object.keys(additionalData).forEach(key => {
+        if (additionalData[key as keyof UserProfile] !== undefined) {
+          newProfile[key] = additionalData[key as keyof UserProfile];
+        }
+      });
+    }
     
     await setDoc(userRef, newProfile);
     return { ...newProfile, id: firebaseUser.uid };
   } else {
-    // Обновляем существующий профиль
-    const updates = {
+    // Обновляем существующий профиль (убираем undefined поля)
+    const updates: any = {
       email: firebaseUser.email,
-      displayName: firebaseUser.displayName || userSnap.data().displayName,
-      photoURL: firebaseUser.photoURL || userSnap.data().photoURL,
-      phoneNumber: firebaseUser.phoneNumber || userSnap.data().phoneNumber,
       lastLogin: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      ...additionalData
+      updatedAt: serverTimestamp()
     };
+    
+    // Добавляем только существующие поля
+    if (firebaseUser.displayName) {
+      updates.displayName = firebaseUser.displayName;
+    }
+    if (firebaseUser.photoURL) {
+      updates.photoURL = firebaseUser.photoURL;
+    }
+    if (firebaseUser.phoneNumber) {
+      updates.phoneNumber = firebaseUser.phoneNumber;
+    }
+    
+    // Добавляем дополнительные данные
+    if (additionalData) {
+      Object.keys(additionalData).forEach(key => {
+        if (additionalData[key as keyof UserProfile] !== undefined) {
+          updates[key] = additionalData[key as keyof UserProfile];
+        }
+      });
+    }
     
     await updateDoc(userRef, updates);
     return { ...userSnap.data(), ...updates, id: firebaseUser.uid } as UserProfile;

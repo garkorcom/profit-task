@@ -11,6 +11,7 @@ import {
   increment,
   setDoc,
 } from 'firebase/firestore';
+import { reserveForEstimate, unreserveForEstimate } from './productApi';
 
 // Типы, согласованные с UI-конструктором смет
 export type EstimateItemType = 'section' | 'work' | 'material' | 'expense';
@@ -42,6 +43,7 @@ export interface EstimateItem {
   estimationMethod?: EstimationMethod;
   pertEstimate?: PertEstimate;
   // Поля для типа 'material'
+  productId?: string; // ссылка на товар
   materialQuantity?: number;
   materialUnit?: string;
   materialCost?: number;
@@ -183,6 +185,46 @@ export const updateEstimate = async (
     updatedAt: serverTimestamp(),
   } as any;
   await updateDoc(doc(db, estimatePath), data);
+};
+
+/**
+ * Обновить статус сметы с обработкой резервов по товарам
+ */
+export const updateEstimateStatus = async (
+  userId: string,
+  estimateId: string,
+  nextStatus: Estimate['status'],
+  estimateSnapshot?: Estimate
+) => {
+  // 1) Обновляем статус
+  await updateEstimate(userId, estimateId, { status: nextStatus });
+
+  // 2) Если требуется обработка резервов
+  if (!estimateSnapshot) return; // если не передали данные, пропускаем резервную логику
+
+  const est = estimateSnapshot;
+  const estimateLabel = est.number || est.name || estimateId;
+  const materialItems = (est.items || []).filter(i => i.type === 'material');
+
+  if (nextStatus === 'approved') {
+    // Резервируем все материал-строки
+    for (const item of materialItems) {
+      const qty = item.materialQuantity || item.quantity || 0;
+      if (!qty) continue;
+      if (!item.productId) continue; // резервируем только если известен товар
+      await reserveForEstimate(userId, item.productId, qty, estimateId, estimateLabel);
+    }
+  }
+
+  if (nextStatus === 'rejected') {
+    // Снимаем резерв
+    for (const item of materialItems) {
+      const qty = item.materialQuantity || item.quantity || 0;
+      if (!qty) continue;
+      if (!item.productId) continue;
+      await unreserveForEstimate(userId, item.productId, qty, estimateId, estimateLabel);
+    }
+  }
 };
 
 /**

@@ -46,7 +46,7 @@ const HomeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { currentUser } = useAuth();
-  const { isWorking, currentSession, elapsedSeconds, stopWork } = useTimeTracking();
+  const { isWorking, currentSession, elapsedSeconds } = useTimeTracking();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const api = useApi();
 
@@ -56,6 +56,8 @@ const HomeDashboard: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [createEstimateOpen, setCreateEstimateOpen] = useState(false);
   const [selectedProjectId, setSelectedProjectId] = useState('');
+  
+
 
   // Helpers for safe date handling (Timestamp | Date | string)
   const toJsDate = (value: any): Date | null => {
@@ -83,18 +85,33 @@ const HomeDashboard: React.FC = () => {
       setLoading(false);
       return;
     }
+    
+    // Устанавливаем таймаут для предотвращения вечной загрузки
+    const loadingTimeout = setTimeout(() => {
+      console.log('Loading timeout - forcing loading to false');
+      setLoading(false);
+    }, 3000); // 3 секунды максимум
+    
     const unsubProjects = api.getProjectsStream((data: Project[]) => {
       setProjects(data);
-      if (loading) setLoading(false);
+      setLoading(false);
     });
-    const unsubTasks = api.getTasksStream(setTasks);
-    const unsubTimesheet = currentUser?.uid ? api.getTimesheetsByEmployeeStream(currentUser.uid, (data: TimesheetEntry[]) => setTimesheet(data)) : undefined;
+    const unsubTasks = api.getTasksStream((data: Task[]) => {
+      setTasks(data);
+      setLoading(false);
+    });
+    const unsubTimesheet = currentUser?.uid ? api.getTimesheetsByEmployeeStream(currentUser.uid, (data: TimesheetEntry[]) => {
+      setTimesheet(data);
+      setLoading(false);
+    }) : undefined;
+    
     return () => {
+      clearTimeout(loadingTimeout);
       unsubProjects && unsubProjects();
       unsubTasks && unsubTasks();
       unsubTimesheet && unsubTimesheet();
     };
-  }, [currentUser, loading, api]);
+  }, [currentUser]); // Убираем api из зависимостей, чтобы избежать бесконечного цикла
 
   const stats = {
     activeProjects: projects.filter(p => p.status === 'active').length,
@@ -155,7 +172,7 @@ const HomeDashboard: React.FC = () => {
                 variant="contained"
                 color="error"
                 startIcon={<StopIcon />}
-                onClick={stopWork}
+                onClick={() => navigate('/time-tracking')}
                 sx={{ mt: 2 }}
             >
                 Остановить

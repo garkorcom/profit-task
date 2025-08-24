@@ -59,6 +59,20 @@ const ReferencesPage: React.FC = () => {
       color: '#388e3c'
     },
     {
+      title: 'Склады',
+      description: 'Справочник складов, остатки и движение',
+      icon: <InventoryIcon />,
+      path: '/warehouses',
+      color: '#455a64'
+    },
+    {
+      title: 'Отгрузки',
+      description: 'Реализации и списание товаров со склада',
+      icon: <LocalShippingIcon />,
+      path: '/shipments',
+      color: '#2e7d32'
+    },
+    {
       title: 'Единицы измерения',
       description: 'Справочник единиц измерения товаров',
       icon: <SettingsIcon />,
