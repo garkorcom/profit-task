@@ -1,9 +1,7 @@
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Card,
-  CardContent,
   Button,
   TextField,
   IconButton,
@@ -16,7 +14,7 @@ import {
   Paper,
   Autocomplete,
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Estimate, EstimateItem as CoreEstimateItem, getEstimateStream, addEstimate, updateEstimate } from '../api/estimateApi';

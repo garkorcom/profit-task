@@ -1,5 +1,5 @@
 import React from 'react';
-import { Box, Button, Typography, Container, Paper } from '@mui/material';
+import { Button, Typography, Container, Paper } from '@mui/material';
 import GoogleIcon from '@mui/icons-material/Google';
 import { login } from './AuthContext';
 

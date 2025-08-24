@@ -40,12 +40,11 @@ import { useNavigate } from 'react-router-dom';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
 import ConfirmDialog from '../components/common/ConfirmDialog';
-import { 
-  getContractorsStream, 
-  addContractor, 
-  updateContractor, 
-  deleteContractor,
-  Contractor 
+import {
+  getContractorsStream,
+  addContractor,
+  updateContractor,
+  Contractor
 } from '../api/contractorApi';
 import { getTasksStream, Task } from '../api/taskApi';
 

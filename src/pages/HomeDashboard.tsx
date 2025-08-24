@@ -15,8 +15,7 @@ import {
   MenuItem,
   Alert,
   Container,
-  Stack,
-  Chip,
+
   Paper,
   useTheme,
   useMediaQuery,
@@ -45,7 +44,7 @@ const HomeDashboard: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const { currentUser } = useAuth();
-  const { isWorking, currentSession, elapsedSeconds, stopWorkWithData } = useTimeTracking();
+  const { isWorking, currentSession, elapsedSeconds } = useTimeTracking();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
   const api = useApi();
 

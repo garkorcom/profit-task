@@ -35,7 +35,6 @@ import {
   Add as AddIcon,
   Edit as EditIcon,
   Delete as DeleteIcon,
-  Inventory as InventoryIcon,
   AddCircle as IncomeIcon,
   RemoveCircle as ExpenseIcon,
   Warning as WarningIcon,
@@ -106,7 +105,6 @@ const ProductsPage: React.FC = () => {
   const [activeTab, setActiveTab] = useState(0);
   
   const [productDialog, setProductDialog] = useState(false);
-  const [movementDialog, setMovementDialog] = useState(false);
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [movementType, setMovementType] = useState<'income' | 'expense'>('income');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
@@ -232,22 +230,7 @@ const ProductsPage: React.FC = () => {
     setSelectedProduct(null);
   };
 
-  const handleSaveMovement = async () => {
-    if (!currentUser || !selectedProduct || movementForm.quantity <= 0) return;
-    
-    try {
-      if (movementType === 'income') {
-        await addStock(currentUser.uid, selectedProduct.id, movementForm.quantity, movementForm.document, movementForm.comment);
-        setNotification({ open: true, message: `Приход товара "${selectedProduct.name}" оформлен`, severity: 'success' });
-      } else {
-        await removeStock(currentUser.uid, selectedProduct.id, movementForm.quantity, undefined, undefined, undefined, undefined, movementForm.comment);
-        setNotification({ open: true, message: `Расход товара "${selectedProduct.name}" оформлен`, severity: 'success' });
-      }
-      handleCloseMovementDialog();
-    } catch (error: any) {
-      setNotification({ open: true, message: error.message || 'Ошибка при движении товара', severity: 'error' });
-    }
-  };
+
 
   const filteredProducts = products.filter(product => {
     const matchesSearch = product.name.toLowerCase().includes(searchTerm.toLowerCase()) || (product.sku && product.sku.toLowerCase().includes(searchTerm.toLowerCase()));
