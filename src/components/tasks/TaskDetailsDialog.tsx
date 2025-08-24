@@ -23,7 +23,9 @@ import {
   TextField,
   CircularProgress,
   Tab,
-  Tabs,
+  Tabs
+} from '@mui/material';
+import {
   Timeline,
   TimelineItem,
   TimelineSeparator,
@@ -31,7 +33,7 @@ import {
   TimelineConnector,
   TimelineContent,
   TimelineOppositeContent
-} from '@mui/material';
+} from '@mui/lab';
 import {
   Close as CloseIcon,
   AccessTime as TimeIcon,

@@ -24,6 +24,7 @@ interface TimeTrackingContextType {
   isWorking: boolean;
   isPaused: boolean;
   currentEntry: TimeEntry | null;
+  currentSession: TimeEntry | null; // Для обратной совместимости
   currentTask: Task | null;
   elapsedSeconds: number;
   
@@ -372,6 +373,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     isWorking,
     isPaused,
     currentEntry,
+    currentSession: currentEntry, // Для обратной совместимости
     currentTask,
     elapsedSeconds,
     startWork,

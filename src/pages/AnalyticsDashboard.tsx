@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Grid,
+  Grid2 as Grid,
   Card,
   CardContent,
   CardHeader,

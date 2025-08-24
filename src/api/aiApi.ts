@@ -202,7 +202,7 @@ export const getEmployeePerformanceForAI = async (
 
     performances.push({
       employeeId: employee.id,
-      employeeName: employee.name,
+      employeeName: employee.fullName || 'Неизвестный сотрудник',
       totalTasks: tasks.length,
       completedTasks,
       averageCompletionTime,
