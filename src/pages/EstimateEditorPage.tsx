@@ -19,10 +19,13 @@ import {
 import { Add as AddIcon, Delete as DeleteIcon, Save as SaveIcon } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { Estimate, EstimateItem, getEstimateStream, addEstimate, updateEstimate } from '../api/estimateApi';
+import { Estimate, EstimateItem as CoreEstimateItem, getEstimateStream, addEstimate, updateEstimate } from '../api/estimateApi';
 import { Product, getProductsStream } from '../api/productApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
+
+// Extend local item type to temporarily carry price for simple calc
+type EstimateItem = CoreEstimateItem & { price?: number };
 
 const EstimateEditorPage: React.FC = () => {
   const { projectId, estimateId } = useParams<{ projectId: string; estimateId: string }>();
@@ -31,7 +34,8 @@ const EstimateEditorPage: React.FC = () => {
 
   const [estimate, setEstimate] = useState<Partial<Estimate>>({
     items: [],
-    totalAmount: 0,
+    subtotal: 0,
+    total: 0,
     status: 'draft',
   });
   const [products, setProducts] = useState<Product[]>([]);
@@ -60,9 +64,9 @@ const EstimateEditorPage: React.FC = () => {
 
   const updateItem = (index: number, field: keyof EstimateItem, value: any) => {
     const items = [...(estimate.items || [])];
-    const item = { ...items[index], [field]: value };
+    const item = { ...(items[index] as EstimateItem), [field]: value } as EstimateItem;
     if (field === 'quantity' || field === 'price') {
-      item.total = (item.quantity || 0) * (item.price || 0);
+      item.total = (item.quantity || 0) * ((item.price as number) || 0);
     }
     items[index] = item;
     recalculateTotals(items);
@@ -77,7 +81,9 @@ const EstimateEditorPage: React.FC = () => {
       quantity: 1,
       price: product.salePrice || 0,
       total: product.salePrice || 0,
-      type: product.type,
+      type: product.type === 'service' ? 'work' : 'material',
+      level: 0,
+      order: (estimate.items?.length || 0),
     };
     const items = [...(estimate.items || []), newItem];
     recalculateTotals(items);
@@ -90,8 +96,9 @@ const EstimateEditorPage: React.FC = () => {
   };
 
   const recalculateTotals = (items: EstimateItem[]) => {
-    const totalAmount = items.reduce((sum, item) => sum + item.total, 0);
-    setEstimate(prev => ({ ...prev, items, totalAmount }));
+    const subtotal = items.reduce((sum, item) => sum + (item.total || 0), 0);
+    const total = subtotal; // no tax/discount here
+    setEstimate(prev => ({ ...prev, items, subtotal, total }));
   };
 
   const handleSave = async () => {
@@ -151,7 +158,7 @@ const EstimateEditorPage: React.FC = () => {
                 </TableCell>
                 <TableCell>{item.unit}</TableCell>
                 <TableCell align="right">
-                  <TextField type="number" value={item.price} onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))} size="small" />
+                  <TextField type="number" value={(item as any).price ?? 0} onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))} size="small" />
                 </TableCell>
                 <TableCell align="right">{item.total.toFixed(2)}</TableCell>
                 <TableCell>
@@ -171,7 +178,7 @@ const EstimateEditorPage: React.FC = () => {
       />
 
       <Typography variant="h5" align="right" sx={{ mt: 2 }}>
-        Итого: {estimate.totalAmount?.toFixed(2) || '0.00'} ₽
+        Итого: {(estimate.total || 0).toFixed(2)} ₽
       </Typography>
 
       <Button

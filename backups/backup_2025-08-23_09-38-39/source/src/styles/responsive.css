@@ -1,0 +1,142 @@
+/* Responsive styles for mobile devices */
+
+/* Ensure touch targets are at least 44x44 pixels */
+button, 
+a, 
+input[type="button"], 
+input[type="submit"],
+.MuiIconButton-root,
+.MuiButton-root {
+  min-height: 44px;
+  min-width: 44px;
+}
+
+/* Improve readability on small screens */
+@media (max-width: 600px) {
+  body {
+    font-size: 14px;
+  }
+  
+  /* Stack form fields vertically on mobile */
+  .MuiFormControl-root {
+    width: 100% !important;
+  }
+  
+  /* Make tables scrollable horizontally */
+  .MuiTableContainer-root {
+    overflow-x: auto;
+  }
+  
+  /* Reduce padding on mobile */
+  .MuiCardContent-root {
+    padding: 12px;
+  }
+  
+  /* Full-width buttons on mobile */
+  .MuiButton-root.MuiButton-contained {
+    width: 100%;
+  }
+  
+  /* Adjust dialog margins */
+  .MuiDialog-paper {
+    margin: 16px;
+    max-height: calc(100vh - 32px);
+  }
+  
+  /* Hide less important columns in tables */
+  .hide-on-mobile {
+    display: none;
+  }
+}
+
+/* Tablet adjustments */
+@media (min-width: 601px) and (max-width: 960px) {
+  .MuiContainer-root {
+    padding-left: 24px;
+    padding-right: 24px;
+  }
+}
+
+/* Ensure proper spacing for fixed bottom navigation */
+body {
+  padding-bottom: 56px;
+}
+
+/* Improve tap targets for mobile */
+@media (hover: none) and (pointer: coarse) {
+  .MuiListItem-root {
+    min-height: 48px;
+  }
+  
+  .MuiChip-root {
+    height: 32px;
+    font-size: 0.875rem;
+  }
+}
+
+/* Optimize for landscape orientation on mobile */
+@media (max-width: 960px) and (orientation: landscape) {
+  .MuiAppBar-root {
+    min-height: 48px;
+  }
+  
+  .MuiBottomNavigation-root {
+    height: 48px;
+  }
+}
+
+/* Ensure modals and dialogs are accessible on all devices */
+.MuiBackdrop-root {
+  touch-action: none;
+}
+
+.MuiDialog-container {
+  height: 100%;
+  outline: 0;
+}
+
+/* Improve form input experience on mobile */
+input, 
+textarea, 
+select {
+  font-size: 16px; /* Prevents zoom on iOS */
+}
+
+/* Responsive grid adjustments */
+@media (max-width: 600px) {
+  .MuiGrid-item {
+    padding: 8px !important;
+  }
+}
+
+/* Ensure images are responsive */
+img {
+  max-width: 100%;
+  height: auto;
+}
+
+/* Improve scrolling performance */
+* {
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Accessibility improvements */
+:focus-visible {
+  outline: 2px solid #1976d2;
+  outline-offset: 2px;
+}
+
+/* Print styles */
+@media print {
+  .no-print,
+  .MuiAppBar-root,
+  .MuiBottomNavigation-root,
+  .MuiSpeedDial-root {
+    display: none !important;
+  }
+  
+  .MuiContainer-root {
+    max-width: 100% !important;
+  }
+}
+

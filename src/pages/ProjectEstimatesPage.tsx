@@ -73,7 +73,7 @@ const ProjectEstimatesPage: React.FC = () => {
                 <Box>
                   <Typography variant="h6">Смета №{estimate.number}</Typography>
                   <Typography variant="body2" color="text.secondary">{estimate.description}</Typography>
-                  <Chip label={`Сумма: ${estimate.totalAmount.toFixed(2)} ₽`} sx={{ mt: 1 }} />
+                  <Chip label={`Сумма: ${(estimate.total || 0).toFixed(2)} ₽`} sx={{ mt: 1 }} />
                 </Box>
                 <Box>
                   <IconButton onClick={() => navigate(`/projects/${projectId}/estimates/${estimate.id}`)}>

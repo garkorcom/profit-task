@@ -4,6 +4,18 @@ import { db } from '../firebase/firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp } from 'firebase/firestore';
 
 // Тип контрагента: поставщик/клиент/оба
+export interface ContactPerson {
+  id?: string;
+  name: string;
+  position?: string;
+  email?: string;
+  phone?: string;
+  whatsappPhone?: string; // Международный формат, например +7XXXXXXXXXX
+  telegramUsername?: string; // Telegram @username
+  preferredChannel?: 'email' | 'whatsapp' | 'telegram';
+  isMain?: boolean;
+}
+
 export interface Contractor {
   id: string;
   name: string;
@@ -11,6 +23,10 @@ export interface Contractor {
   contactPerson?: string;
   phone?: string;
   email?: string;
+  whatsappPhone?: string; // Основной WhatsApp компании
+  telegramUsername?: string; // Telegram @username компании
+  preferredChannel?: 'email' | 'whatsapp' | 'telegram';
+  contactPersons?: ContactPerson[]; // Контактные лица
   address?: string;
   inn?: string; // ИНН
   kpp?: string; // КПП

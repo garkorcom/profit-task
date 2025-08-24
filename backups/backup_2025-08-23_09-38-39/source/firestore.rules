@@ -1,0 +1,31 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    function isOwnerOrLinkedOwner(userId) {
+      return request.auth != null && (
+        request.auth.uid == userId ||
+        get(/databases/$(database)/documents/employeeAuthLinks/$(request.auth.uid)).data.ownerUid == userId
+      );
+    }
+
+    // Unified rules for all owner workspace collections
+    match /users/{userId}/{document=**} {
+      allow read, write: if isOwnerOrLinkedOwner(userId);
+    }
+
+    // Global links collection
+    match /employeeAuthLinks/{authUid} {
+      // Allow fetch by the employee themselves or by the owner admin
+      allow get: if request.auth != null && (
+        request.auth.uid == authUid ||
+        resource.data.ownerUid == request.auth.uid
+      );
+      // Disallow listing for privacy
+      allow list: if false;
+      // Only the owner admin can create a link for their workspace
+      allow create: if request.auth != null && request.resource.data.ownerUid == request.auth.uid;
+      // Only the owner admin can update/delete links of their workspace
+      allow update, delete: if request.auth != null && resource.data.ownerUid == request.auth.uid;
+    }
+  }
+}

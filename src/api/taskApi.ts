@@ -16,6 +16,14 @@ export interface Task {
   projectName?: string;
   questions?: string;  // Вопросы и уточнения по задаче
   whatToBuy?: string;  // Список покупок по задаче
+  // Фотофиксация
+  requirePhoto?: boolean; // Требуется фото ДО/ПОСЛЕ
+  startPhotoUrl?: string; // Зафиксированное фото перед стартом
+  endPhotoUrl?: string;   // Зафиксированное фото после завершения
+  startLocation?: { latitude: number; longitude: number };
+  endLocation?: { latitude: number; longitude: number };
+  startedAt?: any;
+  finishedAt?: any;
   reservedProducts?: Array<{  // Товары, зарезервированные под задачу
     productId: string;
     productName: string;
@@ -36,6 +44,21 @@ export interface Task {
 export const getTasksStream = (userId: string, callback: (tasks: Task[]) => void) => {
   const tasksPath = `users/${userId}/tasks`;
   const q = query(collection(db, tasksPath), orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
+    callback(tasks);
+  });
+};
+
+/**
+ * Подписка на задачи по проекту (client-side сортировка при необходимости)
+ */
+export const getTasksByProjectStream = (userId: string, projectId: string, callback: (tasks: Task[]) => void) => {
+  const tasksPath = `users/${userId}/tasks`;
+  const q = query(
+    collection(db, tasksPath),
+    where('projectId', '==', projectId)
+  );
   return onSnapshot(q, (snapshot) => {
     const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
     callback(tasks);

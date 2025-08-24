@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../auth/LoginPage';
 import PrivateRoute from '../components/layouts/PrivateRoute';
 import MainLayout from '../components/layouts/MainLayout';
-import HomePage from '../pages/HomePage';
+import HomeDashboard from '../pages/HomeDashboard';
 import TasksPage from '../pages/TasksPage';
 import ProductsPage from '../pages/ProductsPage';
 import InvoicesPage from '../pages/InvoicesPage';
@@ -24,7 +24,7 @@ const AppRouter: React.FC = () => {
         <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage />} />
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/" element={<HomePage />} />
+            <Route path="/" element={<HomeDashboard />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />

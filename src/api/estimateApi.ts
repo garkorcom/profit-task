@@ -2,29 +2,53 @@ import { db } from '../firebase/firebase';
 import {
   collection,
   doc,
-  addDoc,
   updateDoc,
-  deleteDoc,
   onSnapshot,
   query,
   where,
   serverTimestamp,
   writeBatch,
-  increment, // Импортируем increment
-  orderBy,
+  increment,
+  setDoc,
 } from 'firebase/firestore';
+
+// Типы, согласованные с UI-конструктором смет
+export type EstimateItemType = 'section' | 'work' | 'material' | 'expense';
+export type EstimationMethod = 'single' | 'pert';
+
+export interface PertEstimate {
+  optimistic: number;
+  mostLikely: number;
+  pessimistic: number;
+}
 
 /**
  * Позиция в смете
  */
 export interface EstimateItem {
-  id: string; // Обычно это ID товара/услуги из справочника
+  id: string;
   name: string;
-  unit: string;
-  quantity: number;
-  price: number;
+  description?: string;
+  type: EstimateItemType;
+  // Иерархия/порядок
+  level: number;
+  order: number;
+  parentId?: string;
+  // Поля для типа 'work'
+  unit?: string;
+  quantity?: number;
+  rate?: number;
+  hours?: number;
+  estimationMethod?: EstimationMethod;
+  pertEstimate?: PertEstimate;
+  // Поля для типа 'material'
+  materialQuantity?: number;
+  materialUnit?: string;
+  materialCost?: number;
+  // Поля для типа 'expense'
+  expenseAmount?: number;
+  // Итог по позиции
   total: number;
-  type: 'product' | 'service';
 }
 
 /**
@@ -32,18 +56,40 @@ export interface EstimateItem {
  */
 export interface Estimate {
   id: string;
-  number: string; // Номер сметы, может генерироваться
   projectId: string;
-  projectName?: string;
-  contractorId?: string;
-  contractorName?: string;
+  number?: string;
+  name?: string;
   description?: string;
   items: EstimateItem[];
-  totalAmount: number;
-  status: 'draft' | 'sent' | 'approved' | 'rejected';
+  subtotal: number;
+  total: number;
+  currency?: 'RUB' | 'USD' | 'EUR';
+  defaultRate?: number;
+  taxRate?: number;
+  discountRate?: number;
+  status?: 'draft' | 'sent' | 'approved' | 'rejected';
+  version?: string;
+  // Дополнительные поля для UI
+  validUntil?: string;
+  paymentTerms?: string;
+  notes?: string;
   createdAt?: any;
   updatedAt?: any;
 }
+
+/**
+ * Утилиты расчёта
+ */
+export const calculatePert = (p: PertEstimate): number => {
+  return (p.optimistic + 4 * p.mostLikely + p.pessimistic) / 6;
+};
+
+export const calculateEstimateTotal = (estimate: Estimate): number => {
+  const subtotal = (estimate.items || []).reduce((sum, item) => sum + (item.total || 0), 0);
+  const afterDiscount = typeof estimate.discountRate === 'number' ? subtotal * (1 - estimate.discountRate / 100) : subtotal;
+  const total = typeof estimate.taxRate === 'number' ? afterDiscount * (1 + estimate.taxRate / 100) : afterDiscount;
+  return total;
+};
 
 /**
  * Получить поток всех смет для одного проекта
@@ -54,17 +100,25 @@ export const getEstimatesStream = (
   callback: (estimates: Estimate[]) => void
 ) => {
   const estimatesPath = `users/${userId}/estimates`;
+  // Убираем orderBy с сервера, чтобы не требовать композитный индекс.
+  // Сортировку по createdAt выполним на клиенте.
   const q = query(
     collection(db, estimatesPath),
-    where('projectId', '==', projectId),
-    orderBy('createdAt', 'desc')
+    where('projectId', '==', projectId)
   );
 
   return onSnapshot(q, (snapshot) => {
-    const estimates = snapshot.docs.map((doc) => ({
-      id: doc.id,
-      ...doc.data(),
-    })) as Estimate[];
+    const estimates = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Estimate[];
+    // Клиентская сортировка по createdAt desc (учитываем Timestamp/Date/string)
+    estimates.sort((a: any, b: any) => {
+      const toMillis = (v: any): number => {
+        if (!v) return 0;
+        if (typeof v?.toMillis === 'function') return v.toMillis();
+        const dt = new Date(v);
+        return isNaN(dt.getTime()) ? 0 : dt.getTime();
+      };
+      return toMillis(b.createdAt) - toMillis(a.createdAt);
+    });
     callback(estimates);
   });
 };
@@ -80,7 +134,7 @@ export const getEstimateStream = (
   const estimatePath = `users/${userId}/estimates/${estimateId}`;
   return onSnapshot(doc(db, estimatePath), (snapshot) => {
     if (snapshot.exists()) {
-      callback({ id: snapshot.id, ...snapshot.data() } as Estimate);
+      callback({ id: snapshot.id, ...(snapshot.data() as any) } as Estimate);
     } else {
       callback(null);
     }
@@ -99,12 +153,12 @@ export const addEstimate = async (
   // 1. Создаем ссылку на новую смету
   const estimatesPath = `users/${userId}/estimates`;
   const newEstimateRef = doc(collection(db, estimatesPath));
-  
+
   const data = {
     ...estimateData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  };
+  } as any;
   batch.set(newEstimateRef, data);
 
   // 2. Обновляем счетчик в проекте
@@ -127,7 +181,7 @@ export const updateEstimate = async (
   const data = {
     ...updates,
     updatedAt: serverTimestamp(),
-  };
+  } as any;
   await updateDoc(doc(db, estimatePath), data);
 };
 
@@ -146,4 +200,41 @@ export const deleteEstimate = async (userId: string, estimateId: string, project
   batch.update(projectRef, { estimatesCount: increment(-1) });
 
   await batch.commit();
+};
+
+/**
+ * Версионирование смет (упрощённо)
+ */
+export const createEstimateVersion = async (
+  userId: string,
+  estimateId: string,
+  version: string,
+  notes?: string
+) => {
+  const estimatePath = `users/${userId}/estimates/${estimateId}`;
+  await updateDoc(doc(db, estimatePath), {
+    version,
+    updatedAt: serverTimestamp(),
+  } as any);
+
+  // Дополнительно можно сохранять запись о версии в подпапку
+  const versionRef = doc(collection(db, `${estimatePath}/versions`));
+  await setDoc(versionRef, {
+    id: versionRef.id,
+    version,
+    notes: notes || '',
+    createdAt: serverTimestamp(),
+  } as any);
+};
+
+/**
+ * Публичная ссылка (заглушка генерации)
+ */
+export const createShareLink = async (
+  _userId: string,
+  estimateId: string,
+  _options?: { isPublic?: boolean; allowComments?: boolean; requireAuth?: boolean }
+): Promise<string> => {
+  // Возвращаем относительный путь до публичной страницы
+  return `/public/estimates/${estimateId}`;
 };

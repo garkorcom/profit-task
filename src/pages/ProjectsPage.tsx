@@ -7,7 +7,6 @@ import ConfirmDialog from '../components/common/ConfirmDialog';
 import { useAuth } from '../auth/AuthContext';
 import { Project, ProjectStatus, addProject, deleteProject, getProjectsStream, updateProject } from '../api/projectApi';
 import { Contractor, getContractorsStream } from '../api/contractorApi';
-import { deleteEstimate } from '../api/estimateApi';
 import { useNavigate } from 'react-router-dom';
 
 const statusOptions: { value: ProjectStatus; label: string; color: 'default' | 'info' | 'warning' | 'success'; }[] = [
@@ -31,18 +30,24 @@ const ProjectsPage: React.FC = () => {
   const [confirm, setConfirm] = useState<Project | null>(null);
   const [notify, setNotify] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'warning' | 'info' }>({ open: false, message: '', severity: 'success' });
 
+  // Быстрая загрузка проектов для мгновенного отображения страницы
   useEffect(() => {
     if (!currentUser) return;
     const unsubProjects = getProjectsStream(currentUser.uid, (items) => {
       setProjects(items);
-      // REMOVED estimate counting logic
-    });
-    const unsubContractors = getContractorsStream(currentUser.uid, (items) => {
-      setContractors(items);
       setLoading(false);
     });
-    return () => { unsubProjects(); unsubContractors(); };
+    return () => { unsubProjects(); };
   }, [currentUser]);
+
+  // Ленивая загрузка контрагентов — только при открытом диалоге создания/редактирования
+  useEffect(() => {
+    if (!currentUser || !dialogOpen) return;
+    const unsubContractors = getContractorsStream(currentUser.uid, (items) => {
+      setContractors(items);
+    });
+    return () => { unsubContractors && unsubContractors(); };
+  }, [currentUser, dialogOpen]);
 
   const customerContractors = useMemo(() => contractors.filter(c => c.type === 'customer' || c.type === 'both'), [contractors]);
   const contractorMap = useMemo(() => Object.fromEntries(customerContractors.map(c => [c.id, c.name])), [customerContractors]);
@@ -118,7 +123,14 @@ const ProjectsPage: React.FC = () => {
                 <CardContent>
                   <Box display="flex" justifyContent="space-between" alignItems="flex-start">
                     <Box>
-                      <Typography variant="h6">{p.name}</Typography>
+                      <Typography 
+                        variant="h6"
+                        sx={{ cursor: 'pointer' }}
+                        onClick={() => navigate(`/projects/${p.id}/estimates`)}
+                        title="Открыть проект"
+                      >
+                        {p.name}
+                      </Typography>
                       {p.code && <Typography variant="caption" color="text.secondary">Код: {p.code}</Typography>}
                     </Box>
                     <Box>
@@ -145,6 +157,23 @@ const ProjectsPage: React.FC = () => {
                     {typeof p.budget === 'number' && (<Chip size="small" label={`Бюджет: ${p.budget} ₽`} variant="outlined" />)}
                   </Box>
                   {p.description && <Typography variant="body2" color="text.secondary" mt={1}>{p.description}</Typography>}
+                  <Box mt={2} display="flex" gap={1} flexWrap="wrap">
+                    <Button 
+                      variant="contained"
+                      size="small"
+                      onClick={() => navigate(`/projects/${p.id}/estimates`)}
+                    >
+                      Посмотреть проект
+                    </Button>
+                    <Button 
+                      variant="outlined"
+                      size="small"
+                      startIcon={<AddIcon />}
+                      onClick={() => navigate('/tasks', { state: { newForProjectId: p.id } })}
+                    >
+                      Добавить задачу
+                    </Button>
+                  </Box>
                 </CardContent>
               </Card>
             </Box>

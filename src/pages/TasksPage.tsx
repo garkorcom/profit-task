@@ -88,6 +88,7 @@ const TasksPage: React.FC = () => {
   useEffect(() => {
     if (loading) return;
     const newForId = location?.state?.newForContractorId as string | undefined;
+    const newForProjectId = location?.state?.newForProjectId as string | undefined;
     if (newForId) {
       const prefill = contractors.find(c => c.id === newForId);
       setEditingTask(null);
@@ -106,8 +107,25 @@ const TasksPage: React.FC = () => {
       setOpenDialog(true);
       setFilterContractorId(newForId);
       navigate('/tasks', { replace: true, state: {} });
+    } else if (newForProjectId) {
+      const prefillProject = projects.find(p => p.id === newForProjectId);
+      setEditingTask(null);
+      setFormData({
+        task: '',
+        description: '',
+        priority: 'medium',
+        status: 'pending',
+        contractorId: '',
+        contractorName: '',
+        projectId: prefillProject?.id || newForProjectId,
+        projectName: prefillProject?.name || '',
+        questions: '',
+        whatToBuy: ''
+      });
+      setOpenDialog(true);
+      navigate('/tasks', { replace: true, state: {} });
     }
-  }, [loading, contractors, location, navigate]);
+  }, [loading, contractors, projects, location, navigate]);
 
   const handleOpenDialog = (task?: Task) => {
     if (task) {

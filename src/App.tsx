@@ -3,6 +3,7 @@ import { AuthProvider } from './auth/AuthContext';
 import AppRouter from './router/AppRouter';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
+import { TimeTrackingProvider } from './contexts/TimeTrackingContext';
 
 const theme = createTheme({
   palette: {
@@ -16,7 +17,9 @@ function App() {
     <ThemeProvider theme={theme}>
       <CssBaseline />
       <AuthProvider>
-        <AppRouter />
+        <TimeTrackingProvider>
+          <AppRouter />
+        </TimeTrackingProvider>
       </AuthProvider>
     </ThemeProvider>
   );
