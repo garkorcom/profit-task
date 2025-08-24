@@ -19,7 +19,7 @@ import {
   InputLabel,
   Select,
   MenuItem,
-  Grid2 as Grid,
+  GridLegacy as Grid,
   LinearProgress,
   Tooltip,
   IconButton,

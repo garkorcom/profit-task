@@ -35,7 +35,7 @@ const TimeTrackingPage: React.FC = () => {
     currentSession, 
     elapsedSeconds, 
     startWork, 
-    stopWorkWithData,
+    stopWork,
     isPaused,
     pauseWork,
     resumeWork 
@@ -99,11 +99,9 @@ const TimeTrackingPage: React.FC = () => {
     setStarting(true);
     try {
       await startWork(
-        selectedProject.id,
-        selectedProject.name,
         selectedTask.id!,
-        selectedTask.task,
-        startPhoto
+        startPhoto,
+        geoLocation || undefined
       );
       setDialogOpen(false);
       setSelectedProject(null);
@@ -146,7 +144,7 @@ const TimeTrackingPage: React.FC = () => {
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const projectTasks = selectedProject
-    ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'done' && t.status !== 'cancelled')
+    ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'completed' && t.status !== 'cancelled')
     : [];
 
   return (
@@ -204,7 +202,7 @@ const TimeTrackingPage: React.FC = () => {
               <Button
                 variant="contained"
                 color="inherit"
-                onClick={isPaused ? resumeWork : pauseWork}
+                onClick={() => isPaused ? resumeWork() : pauseWork()}
                 sx={{ mr: 2, color: '#764ba2' }}
               >
                 {isPaused ? 'Продолжить' : 'Пауза'}
@@ -261,7 +259,7 @@ const TimeTrackingPage: React.FC = () => {
           <Box sx={{ flex: 1 }}>
             <Paper sx={{ p: 3, textAlign: 'center' }}>
               <Typography variant="h4" color="primary">
-                {tasks.filter(t => t.status !== 'done' && t.status !== 'cancelled').length}
+                {tasks.filter(t => t.status !== 'completed' && t.status !== 'cancelled').length}
               </Typography>
               <Typography variant="body2" color="text.secondary">
                 Незавершенных задач
@@ -309,7 +307,7 @@ const TimeTrackingPage: React.FC = () => {
                               </Typography>
                             )}
                             <Typography variant="caption">
-                              Задач: {tasks.filter(t => t.projectId === project.id && t.status !== 'done' && t.status !== 'cancelled').length}
+                              Задач: {tasks.filter(t => t.projectId === project.id && t.status !== 'completed' && t.status !== 'cancelled').length}
                             </Typography>
                           </Box>
                         }

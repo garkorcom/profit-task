@@ -48,7 +48,7 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const projectTasks = selectedProject
-    ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'done' && t.status !== 'cancelled')
+    ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'completed' && t.status !== 'cancelled')
     : [];
 
   const handleOpen = () => {
@@ -111,10 +111,7 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
 
     try {
       await startWork(
-        selectedProject.id,
-        selectedProject.name,
         selectedTask.id,
-        selectedTask.task,
         photoFile,
         geoLocation || undefined
       );

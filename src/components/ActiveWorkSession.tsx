@@ -110,7 +110,7 @@ const ActiveWorkSession: React.FC = () => {
         <Box>
           <IconButton 
             color="inherit" 
-            onClick={isPaused ? resumeWork : pauseWork}
+            onClick={() => isPaused ? resumeWork() : pauseWork()}
             sx={{ 
               backgroundColor: 'rgba(255, 255, 255, 0.2)',
               '&:hover': {

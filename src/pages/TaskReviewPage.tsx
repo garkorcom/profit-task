@@ -6,7 +6,7 @@ import {
   CardContent,
   CardActions,
   Button,
-  Grid2 as Grid,
+  GridLegacy as Grid,
   Chip,
   TextField,
   Dialog,

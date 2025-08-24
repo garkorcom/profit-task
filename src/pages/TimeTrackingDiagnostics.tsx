@@ -364,15 +364,13 @@ const TimeTrackingDiagnostics: React.FC = () => {
     
     const activeProject = projects.find(p => p.status === 'active') || projects[0];
     const availableTask = tasks.find(t => 
-      t.projectId === activeProject.id && t.status !== 'done' && t.status !== 'cancelled'
+      t.projectId === activeProject.id && t.status !== 'completed' && t.status !== 'cancelled'
     ) || tasks[0];
     
     try {
       await startWork(
-        activeProject.id!,
-        activeProject.name,
         availableTask.id!,
-        (availableTask as any).task || (availableTask as any).title || availableTask.id
+        new File(['test'], 'test.jpg', { type: 'image/jpeg' })
       );
       alert('Тест успешен! Работа начата.');
       runDiagnostics();

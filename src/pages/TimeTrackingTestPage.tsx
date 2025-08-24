@@ -64,7 +64,10 @@ const TimeTrackingTestPage: React.FC = () => {
                     variant="contained" 
                     color="error"
                     startIcon={<StopIcon />}
-                    onClick={stopWork}
+                    onClick={() => stopWork(
+                      new File(['test'], 'test.jpg', { type: 'image/jpeg' }),
+                      'Test completion'
+                    )}
                   >
                     Завершить работу
                   </Button>

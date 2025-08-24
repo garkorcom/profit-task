@@ -125,8 +125,15 @@ const TasksPage: React.FC = () => {
         contractorName: prefill?.name || '',
         projectId: '',
         projectName: '',
+        estimateItemId: '',
+        assigneeId: '',
+        assigneeName: '',
+        deadline: '',
+        plannedDuration: 0,
+        requirePhoto: false,
         questions: '',
-        whatToBuy: ''
+        whatToBuy: '',
+        tags: []
       });
       setOpenDialog(true);
       setFilterContractorId(newForId);
@@ -143,8 +150,15 @@ const TasksPage: React.FC = () => {
         contractorName: '',
         projectId: prefillProject?.id || newForProjectId,
         projectName: prefillProject?.name || '',
+        estimateItemId: '',
+        assigneeId: '',
+        assigneeName: '',
+        deadline: '',
+        plannedDuration: 0,
+        requirePhoto: false,
         questions: '',
-        whatToBuy: ''
+        whatToBuy: '',
+        tags: []
       });
       setOpenDialog(true);
       navigate('/tasks', { replace: true, state: {} });
@@ -212,13 +226,20 @@ const TasksPage: React.FC = () => {
       task: '',
       description: '',
       priority: 'medium',
-      status: 'pending',
+      status: 'new' as TaskStatus,
       contractorId: '',
       contractorName: '',
       projectId: '',
       projectName: '',
+      estimateItemId: '',
+      assigneeId: '',
+      assigneeName: '',
+      deadline: '',
+      plannedDuration: 0,
+      requirePhoto: false,
       questions: '',
-      whatToBuy: ''
+      whatToBuy: '',
+      tags: []
     });
   };
 

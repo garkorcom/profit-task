@@ -101,10 +101,7 @@ const TimeTrackingButton: React.FC<TimeTrackingButtonProps> = ({
 
     try {
       await startWork(
-        selectedProject.id,
-        selectedProject.name,
         selectedTask.id,
-        selectedTask.task,
         startPhoto
       );
       setOpen(false);
@@ -123,7 +120,7 @@ const TimeTrackingButton: React.FC<TimeTrackingButtonProps> = ({
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const projectTasks = selectedProject
-    ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'done' && t.status !== 'cancelled')
+    ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'completed' && t.status !== 'cancelled')
     : [];
 
   const steps = ['Выберите проект', 'Выберите задачу', 'Подтверждение'];

@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import {
   Box,
   Typography,
-  Grid2 as Grid,
+  GridLegacy as Grid,
   Card,
   CardContent,
   CardHeader,
@@ -314,7 +314,7 @@ const AnalyticsDashboard: React.FC = () => {
       case 'critical': return 'error';
       case 'high': return 'warning';
       case 'medium': return 'info';
-      default: return 'default';
+      default: return 'success';
     }
   };
   

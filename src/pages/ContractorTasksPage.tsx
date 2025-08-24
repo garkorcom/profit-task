@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Card, CardContent, Chip, IconButton, Button } from '@mui/material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { getTasksByContractorStream, Task, deleteTask, addTask } from '../api/taskApi';
+import { getTasksByContractorStream, Task, TaskStatus, deleteTask, addTask } from '../api/taskApi';
 import { useAuth } from '../auth/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import { getContractorStream, Contractor } from '../api/contractorApi';
@@ -41,7 +41,7 @@ const ContractorTasksPage: React.FC = () => {
     const newTaskBase = {
       task: `Задача для ${contractor.name}`,
       priority: 'medium',
-      status: 'pending',
+      status: 'new' as TaskStatus,
       contractorId: contractor.id,
       contractorName: contractor.name,
     } as Partial<Task>;
