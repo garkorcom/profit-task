@@ -87,6 +87,13 @@ const ReferencesPage: React.FC = () => {
       color: '#d32f2f'
     },
     {
+      title: 'Складские документы',
+      description: 'Приход, списание и инвентаризация',
+      icon: <InventoryIcon />,
+      path: '/stock-docs',
+      color: '#4e342e'
+    },
+    {
       title: 'Банки и счета',
       description: 'Банковские реквизиты и расчетные счета',
       icon: <AccountBalanceIcon />,
