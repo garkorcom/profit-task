@@ -4,6 +4,7 @@ import AppRouter from './router/AppRouter';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { TimeTrackingProvider } from './contexts/TimeTrackingContext';
+import './utils/createTestEstimate'; // Импортируем для доступа из консоли
 
 const theme = createTheme({
   palette: {

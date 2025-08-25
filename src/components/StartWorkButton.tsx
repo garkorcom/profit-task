@@ -12,8 +12,39 @@ import {
   CardContent,
   CardActionArea,
   CircularProgress,
+  Stepper,
+  Step,
+  StepLabel,
+  StepContent,
+  Paper,
+  List,
+  ListItem,
+  ListItemIcon,
+  ListItemText,
+  ListItemButton,
+  Chip,
+  Stack,
+  IconButton,
+  Fade,
+  Slide,
+  Avatar,
+  Divider
 } from '@mui/material';
-import { PlayArrow as StartIcon, CameraAlt as CameraIcon, LocationOn as LocationIcon } from '@mui/icons-material';
+import { 
+  PlayArrow as StartIcon, 
+  CameraAlt as CameraIcon, 
+  LocationOn as LocationIcon,
+  Business as ProjectIcon,
+  Assignment as TaskIcon,
+  Description as EstimateIcon,
+  Build as ServiceIcon,
+  ArrowBack as BackIcon,
+  ArrowForward as NextIcon,
+  Check as CheckIcon,
+  Close as CloseIcon,
+  Timer as TimerIcon,
+  SkipNext as SkipIcon
+} from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
 import { Project } from '../api/projectApi';
@@ -23,22 +54,14 @@ import { Estimate, EstimateItem, getEstimatesStream } from '../api/estimateApi';
 interface StartWorkButtonProps {
   projects: Project[];
   tasks: Task[];
-  variant?: 'text' | 'outlined' | 'contained';
-  size?: 'small' | 'medium' | 'large';
-  fullWidth?: boolean;
 }
 
-const StartWorkButton: React.FC<StartWorkButtonProps> = ({ 
-  projects, 
-  tasks, 
-  variant = 'contained',
-  size = 'medium',
-  fullWidth = false 
-}) => {
+const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) => {
   const { currentUser } = useAuth();
   const { startWork, isWorking } = useTimeTracking();
   
   const [open, setOpen] = useState(false);
+  const [activeStep, setActiveStep] = useState(0);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
   const [selectedEstimate, setSelectedEstimate] = useState<Estimate | null>(null);
@@ -48,7 +71,14 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
   const [geoLocation, setGeoLocation] = useState<GeolocationPosition | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'project' | 'task' | 'estimate' | 'service' | 'details'>('project');
+
+  const steps = [
+    { label: 'Проект', icon: <ProjectIcon /> },
+    { label: 'Задача', icon: <TaskIcon /> },
+    { label: 'Смета', icon: <EstimateIcon />, optional: true },
+    { label: 'Услуга', icon: <ServiceIcon />, optional: true },
+    { label: 'Детали', icon: <TimerIcon /> }
+  ];
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const projectTasks = selectedProject
@@ -62,24 +92,12 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
       return;
     }
 
-    // Временно загружаем ВСЕ сметы, не фильтруя по проекту
-    // Используем пустую строку вместо selectedProject.id
     const unsubscribe = getEstimatesStream(currentUser.uid, '', (estimatesList) => {
-      console.log('All estimates (not filtered by project):', estimatesList);
-      
-      // Фильтруем по проекту на клиенте
       const projectEstimates = estimatesList.filter(e => 
         !e.projectId || e.projectId === selectedProject.id || e.projectId === ''
       );
-      console.log('Estimates for this project:', projectEstimates);
       
-      // Показываем все сметы для тестирования (можно потом вернуть фильтр по approved)
-      setEstimates(projectEstimates);
-      
-      if (projectEstimates.length === 0) {
-        console.log('No estimates found, showing all estimates:', estimatesList);
-        setEstimates(estimatesList); // Показываем все сметы если нет привязанных к проекту
-      }
+      setEstimates(projectEstimates.length > 0 ? projectEstimates : estimatesList);
     });
 
     return () => unsubscribe();
@@ -91,7 +109,7 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
       return;
     }
     setOpen(true);
-    setStep('project');
+    setActiveStep(0);
     setSelectedProject(null);
     setSelectedTask(null);
     setSelectedEstimate(null);
@@ -108,61 +126,76 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
     setError(null);
   };
 
-  const handleProjectSelect = (project: Project) => {
-    setSelectedProject(project);
-    setStep('task');
-    setError(null);
-  };
-
-  const handleTaskSelect = (task: Task) => {
-    setSelectedTask(task);
-    // If there are approved estimates, show estimate selection
-    console.log('Task selected:', task.task);
-    console.log('Current estimates:', estimates);
-    console.log('Estimates count:', estimates.length);
-    
-    if (estimates.length > 0) {
-      console.log('Moving to estimate selection step');
-      setStep('estimate');
-    } else {
-      console.log('No estimates, moving to details step');
-      setStep('details');
+  const handleNext = () => {
+    if (activeStep === 0 && !selectedProject) {
+      setError('Выберите проект');
+      return;
     }
+    if (activeStep === 1 && !selectedTask) {
+      setError('Выберите задачу');
+      return;
+    }
+    
     setError(null);
+    
+    // Skip estimate step if no estimates
+    if (activeStep === 1 && estimates.length === 0) {
+      setActiveStep(4); // Go to details
+    } else if (activeStep === 2 && !selectedEstimate) {
+      setActiveStep(4); // Skip to details if no estimate selected
+    } else if (activeStep === 3 && !selectedService) {
+      setActiveStep(4); // Skip to details if no service selected
+    } else {
+      setActiveStep(prev => prev + 1);
+    }
   };
 
-  const handleEstimateSelect = (estimate: Estimate) => {
-    setSelectedEstimate(estimate);
-    setStep('service');
-    setError(null);
+  const handleBack = () => {
+    if (activeStep === 4 && !selectedEstimate) {
+      // If we skipped estimate, go back to task
+      setActiveStep(1);
+    } else {
+      setActiveStep(prev => prev - 1);
+    }
   };
 
-  const handleServiceSelect = (service: EstimateItem) => {
-    setSelectedService(service);
-    setStep('details');
-    setError(null);
+  const handleSkip = () => {
+    if (activeStep === 2) {
+      setSelectedEstimate(null);
+      setSelectedService(null);
+      setActiveStep(4);
+    } else if (activeStep === 3) {
+      setSelectedService(null);
+      setActiveStep(4);
+    }
+  };
+
+  const handlePhotoCapture = (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.target.files?.[0];
+    if (file) {
+      setPhotoFile(file);
+    }
   };
 
   const handleGetLocation = () => {
-    setLoading(true);
-    navigator.geolocation.getCurrentPosition(
-      (position) => {
-        setGeoLocation(position);
-        setLoading(false);
-      },
-      (error) => {
-        console.error('Failed to get location:', error);
-        setError('Не удалось получить геолокацию');
-        setLoading(false);
-      },
-      { enableHighAccuracy: true, timeout: 5000, maximumAge: 0 }
-    );
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        (position) => {
+          setGeoLocation(position);
+        },
+        (error) => {
+          console.error('Error getting location:', error);
+          setError('Не удалось получить геолокацию');
+        }
+      );
+    } else {
+      setError('Геолокация не поддерживается браузером');
+    }
   };
 
   const handleStart = async () => {
-    if (!selectedProject || !selectedTask) return;
-    if (!photoFile) {
-      setError('Требуется добавить фото ДО начала работы');
+    if (!selectedProject || !selectedTask || !currentUser) {
+      setError('Не все данные выбраны');
       return;
     }
 
@@ -172,344 +205,430 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
     try {
       await startWork(
         selectedTask.id,
-        photoFile,
+        photoFile || undefined,
         geoLocation || undefined,
         selectedEstimate?.id,
         selectedEstimate?.name || selectedEstimate?.number,
         selectedService?.id,
         selectedService?.name
       );
-
-      // Success - close dialog
       setOpen(false);
-      setStep('project');
-      setSelectedProject(null);
-      setSelectedTask(null);
-      setSelectedEstimate(null);
-      setSelectedService(null);
-      setPhotoFile(null);
-      setGeoLocation(null);
-    } catch (error: any) {
-      console.error('Failed to start work:', error);
-      setError(error.message || 'Ошибка при начале работы');
+    } catch (error) {
+      console.error('Error starting work:', error);
+      setError('Ошибка при начале работы');
     } finally {
       setLoading(false);
     }
   };
 
-  const handleBack = () => {
-    if (step === 'task') {
-      setStep('project');
-      setSelectedTask(null);
-      setEstimates([]);
-    } else if (step === 'estimate') {
-      setStep('task');
-      setSelectedEstimate(null);
-    } else if (step === 'service') {
-      setStep('estimate');
-      setSelectedService(null);
-    } else if (step === 'details') {
-      if (selectedService) {
-        setStep('service');
-      } else if (estimates.length > 0) {
-        setStep('estimate');
-      } else {
-        setStep('task');
-      }
+  const getTaskStatusColor = (status: string): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
+    switch(status) {
+      case 'new': return 'info';
+      case 'in_progress': return 'warning';
+      case 'review': return 'secondary';
+      default: return 'default';
     }
-    setError(null);
   };
-
-  if (!currentUser) return null;
 
   return (
     <>
       <Button
-        variant={variant}
-        color="success"
-        size={size}
-        fullWidth={fullWidth}
+        variant="contained"
+        color="primary"
+        size="large"
         startIcon={<StartIcon />}
         onClick={handleOpen}
         disabled={isWorking}
+        sx={{ 
+          borderRadius: 2,
+          py: 1.5,
+          px: 3,
+          boxShadow: 3,
+          '&:hover': {
+            boxShadow: 6
+          }
+        }}
       >
-        {isWorking ? 'Работа уже идет' : 'Начать зарабатывать'}
+        Начать работу
       </Button>
 
       <Dialog 
         open={open} 
-        onClose={handleClose} 
-        maxWidth="sm" 
+        onClose={handleClose}
+        maxWidth="md"
         fullWidth
-        PaperProps={{
-          sx: { minHeight: '400px' }
-        }}
+        TransitionComponent={Slide}
+        TransitionProps={{ direction: 'up' } as any}
       >
-        <DialogTitle>
-          {step === 'project' && 'Выберите проект'}
-          {step === 'task' && 'Выберите задачу'}
-          {step === 'details' && 'Подготовка к работе'}
+        <DialogTitle sx={{ pb: 0 }}>
+          <Stack direction="row" alignItems="center" justifyContent="space-between">
+            <Typography variant="h5" fontWeight="bold">
+              Начать учет времени
+            </Typography>
+            <IconButton onClick={handleClose} size="small">
+              <CloseIcon />
+            </IconButton>
+          </Stack>
         </DialogTitle>
-        
+
         <DialogContent>
           {error && (
-            <Alert severity="error" sx={{ mb: 2 }}>
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setError(null)}>
               {error}
             </Alert>
           )}
 
-          {/* Step 1: Select Project */}
-          {step === 'project' && (
-            <Box sx={{ pt: 2 }}>
-              {activeProjects.length === 0 ? (
-                <Alert severity="info">
-                  Нет активных проектов. Создайте проект для начала работы.
-                </Alert>
-              ) : (
-                <Box display="flex" flexDirection="column" gap={2}>
+          <Stepper activeStep={activeStep} orientation="vertical" sx={{ mt: 2 }}>
+            {/* Step 0: Select Project */}
+            <Step>
+              <StepLabel icon={<ProjectIcon />}>
+                Выберите проект
+              </StepLabel>
+              <StepContent>
+                <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
                   {activeProjects.map(project => (
-                    <Card key={project.id}>
-                      <CardActionArea onClick={() => handleProjectSelect(project)}>
-                        <CardContent>
-                          <Typography variant="h6">{project.name}</Typography>
-                          <Typography variant="body2" color="text.secondary">
-                            {project.contractorName || 'Без заказчика'}
-                          </Typography>
-                          {project.description && (
-                            <Typography variant="caption" color="text.secondary">
-                              {project.description}
-                            </Typography>
-                          )}
-                        </CardContent>
-                      </CardActionArea>
-                    </Card>
+                    <ListItemButton
+                      key={project.id}
+                      selected={selectedProject?.id === project.id}
+                      onClick={() => {
+                        setSelectedProject(project);
+                        setSelectedTask(null);
+                        handleNext();
+                      }}
+                      sx={{ 
+                        borderRadius: 2, 
+                        mb: 1,
+                        border: selectedProject?.id === project.id ? 2 : 0,
+                        borderColor: 'primary.main'
+                      }}
+                    >
+                      <ListItemIcon>
+                        <Avatar sx={{ bgcolor: 'primary.light' }}>
+                          <ProjectIcon />
+                        </Avatar>
+                      </ListItemIcon>
+                      <ListItemText 
+                        primary={project.name}
+                        secondary={project.description}
+                      />
+                      {selectedProject?.id === project.id && (
+                        <CheckIcon color="primary" />
+                      )}
+                    </ListItemButton>
                   ))}
-                </Box>
-              )}
-            </Box>
-          )}
+                </List>
+              </StepContent>
+            </Step>
 
-          {/* Step 2: Select Task */}
-          {step === 'task' && selectedProject && (
-            <Box sx={{ pt: 2 }}>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Проект: <strong>{selectedProject.name}</strong>
-              </Alert>
-              
-              {projectTasks.length === 0 ? (
-                <Alert severity="warning">
-                  В этом проекте нет активных задач. Создайте задачу для начала работы.
-                </Alert>
-              ) : (
-                <Box display="flex" flexDirection="column" gap={2}>
-                  {projectTasks.map(task => (
-                    <Card key={task.id}>
-                      <CardActionArea onClick={() => handleTaskSelect(task)}>
-                        <CardContent>
-                          <Typography variant="h6">{task.task}</Typography>
-                          {task.description && (
-                            <Typography variant="body2" color="text.secondary">
-                              {task.description}
-                            </Typography>
+            {/* Step 1: Select Task */}
+            <Step>
+              <StepLabel icon={<TaskIcon />}>
+                Выберите задачу
+              </StepLabel>
+              <StepContent>
+                {selectedProject && (
+                  <Box>
+                    <Alert severity="info" icon={<ProjectIcon />} sx={{ mb: 2 }}>
+                      Проект: <strong>{selectedProject.name}</strong>
+                    </Alert>
+                    
+                    <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+                      {projectTasks.map(task => (
+                        <ListItemButton
+                          key={task.id}
+                          selected={selectedTask?.id === task.id}
+                          onClick={() => {
+                            setSelectedTask(task);
+                            handleNext();
+                          }}
+                          sx={{ 
+                            borderRadius: 2, 
+                            mb: 1,
+                            border: selectedTask?.id === task.id ? 2 : 0,
+                            borderColor: 'primary.main'
+                          }}
+                        >
+                          <ListItemIcon>
+                            <Avatar sx={{ bgcolor: 'secondary.light' }}>
+                              <TaskIcon />
+                            </Avatar>
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary={task.task}
+                            secondary={
+                              <Stack direction="row" spacing={1} alignItems="center">
+                                <Chip 
+                                  label={task.status} 
+                                  size="small" 
+                                  color={getTaskStatusColor(task.status)}
+                                />
+                                <Typography variant="caption">
+                                  Приоритет: {task.priority}
+                                </Typography>
+                              </Stack>
+                            }
+                          />
+                          {selectedTask?.id === task.id && (
+                            <CheckIcon color="primary" />
                           )}
-                          <Typography variant="caption" color="text.secondary">
-                            Статус: {task.status === 'new' ? 'Ожидает' : 'В работе'}
-                          </Typography>
-                        </CardContent>
-                      </CardActionArea>
-                    </Card>
-                  ))}
-                </Box>
-              )}
-            </Box>
-          )}
+                        </ListItemButton>
+                      ))}
+                    </List>
 
-          {/* Step 3: Select Estimate */}
-          {step === 'estimate' && selectedTask && (
-            <Box sx={{ pt: 2 }}>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Задача: <strong>{selectedTask.task}</strong>
-              </Alert>
-              
-              <Typography variant="subtitle2" gutterBottom>
-                Выберите смету:
-              </Typography>
-              
-              <Box display="flex" flexDirection="column" gap={2}>
-                {estimates.length === 0 && (
-                  <Alert severity="warning">
-                    Нет доступных смет для этого проекта. 
-                    Создайте смету в разделе "Сметы" или продолжите без привязки к смете.
-                  </Alert>
+                    <Box sx={{ mt: 2 }}>
+                      <Button onClick={handleBack}>
+                        Назад
+                      </Button>
+                    </Box>
+                  </Box>
                 )}
-                
-                {estimates.map(estimate => (
-                  <Card key={estimate.id}>
-                    <CardActionArea onClick={() => handleEstimateSelect(estimate)}>
-                      <CardContent>
-                        <Typography variant="h6">
-                          Смета №{estimate.number}
-                        </Typography>
-                        <Typography variant="body2" color="text.secondary">
-                          {estimate.name || estimate.description}
-                        </Typography>
-                        <Typography variant="caption" color="primary">
-                          Сумма: {(estimate.total || 0).toFixed(2)} ₽
-                        </Typography>
-                      </CardContent>
-                    </CardActionArea>
-                  </Card>
-                ))}
-                
-                {/* Кнопка пропустить */}
-                <Button 
-                  variant="outlined" 
-                  onClick={() => {
-                    setSelectedEstimate(null);
-                    setSelectedService(null);
-                    setStep('details');
-                  }}
-                  sx={{ mt: 1 }}
-                >
-                  Работать без привязки к смете
-                </Button>
-              </Box>
-            </Box>
-          )}
+              </StepContent>
+            </Step>
 
-          {/* Step 4: Select Service */}
-          {step === 'service' && selectedEstimate && (
-            <Box sx={{ pt: 2 }}>
-              <Alert severity="info" sx={{ mb: 2 }}>
-                Смета: <strong>№{selectedEstimate.number}</strong>
-              </Alert>
-              
-              <Typography variant="subtitle2" gutterBottom>
-                Выберите услугу/работу:
-              </Typography>
-              
-              <Box display="flex" flexDirection="column" gap={1} sx={{ maxHeight: 300, overflow: 'auto' }}>
-                {(selectedEstimate.items || []).map(item => (
-                  <Card key={item.id}>
-                    <CardActionArea onClick={() => handleServiceSelect(item)}>
-                      <CardContent>
-                        <Typography variant="body1">
-                          {item.name}
-                        </Typography>
-                        {item.description && (
-                          <Typography variant="caption" color="text.secondary">
-                            {item.description}
-                          </Typography>
-                        )}
-                        <Typography variant="caption" color="primary">
-                          {item.quantity} {item.unit} × {(item.unitPrice || 0)} ₽
-                        </Typography>
-                      </CardContent>
-                    </CardActionArea>
-                  </Card>
-                ))}
-                
-                {/* Кнопка пропустить выбор услуги */}
-                <Button 
-                  variant="outlined" 
-                  onClick={() => {
-                    setSelectedService(null);
-                    setStep('details');
-                  }}
-                  sx={{ mt: 1 }}
-                >
-                  Работать без выбора конкретной услуги
-                </Button>
-              </Box>
-            </Box>
-          )}
+            {/* Step 2: Select Estimate (Optional) */}
+            <Step>
+              <StepLabel icon={<EstimateIcon />} optional={
+                <Typography variant="caption">Опционально</Typography>
+              }>
+                Выберите смету
+              </StepLabel>
+              <StepContent>
+                {selectedTask && (
+                  <Box>
+                    <Alert severity="info" icon={<TaskIcon />} sx={{ mb: 2 }}>
+                      Задача: <strong>{selectedTask.task}</strong>
+                    </Alert>
+                    
+                    {estimates.length === 0 ? (
+                      <Alert severity="warning" sx={{ mb: 2 }}>
+                        Нет доступных смет. Продолжить без привязки к смете.
+                      </Alert>
+                    ) : (
+                      <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+                        {estimates.map(estimate => (
+                          <ListItemButton
+                            key={estimate.id}
+                            selected={selectedEstimate?.id === estimate.id}
+                            onClick={() => {
+                              setSelectedEstimate(estimate);
+                              handleNext();
+                            }}
+                            sx={{ 
+                              borderRadius: 2, 
+                              mb: 1,
+                              border: selectedEstimate?.id === estimate.id ? 2 : 0,
+                              borderColor: 'primary.main'
+                            }}
+                          >
+                            <ListItemIcon>
+                              <Avatar sx={{ bgcolor: 'success.light' }}>
+                                <EstimateIcon />
+                              </Avatar>
+                            </ListItemIcon>
+                            <ListItemText 
+                              primary={`Смета №${estimate.number}`}
+                              secondary={
+                                <Stack>
+                                  <Typography variant="body2">
+                                    {estimate.name || estimate.description}
+                                  </Typography>
+                                  <Typography variant="caption" color="primary">
+                                    Сумма: {(estimate.total || 0).toFixed(2)} ₽
+                                  </Typography>
+                                </Stack>
+                              }
+                            />
+                            {selectedEstimate?.id === estimate.id && (
+                              <CheckIcon color="primary" />
+                            )}
+                          </ListItemButton>
+                        ))}
+                      </List>
+                    )}
 
-          {/* Step 5: Details */}
-          {step === 'details' && selectedProject && selectedTask && (
-            <Box sx={{ pt: 2 }}>
-              <Alert severity="success" sx={{ mb: 3 }}>
-                <Typography variant="body2">
-                  <strong>Проект:</strong> {selectedProject.name}
-                </Typography>
-                <Typography variant="body2">
-                  <strong>Задача:</strong> {selectedTask.task}
-                </Typography>
+                    <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                      <Button onClick={handleBack}>
+                        Назад
+                      </Button>
+                      <Button 
+                        variant="outlined" 
+                        onClick={handleSkip}
+                        startIcon={<SkipIcon />}
+                      >
+                        Пропустить
+                      </Button>
+                    </Stack>
+                  </Box>
+                )}
+              </StepContent>
+            </Step>
+
+            {/* Step 3: Select Service (Optional) */}
+            <Step>
+              <StepLabel icon={<ServiceIcon />} optional={
+                <Typography variant="caption">Опционально</Typography>
+              }>
+                Выберите услугу
+              </StepLabel>
+              <StepContent>
                 {selectedEstimate && (
-                  <Typography variant="body2">
-                    <strong>Смета:</strong> №{selectedEstimate.number}
-                  </Typography>
+                  <Box>
+                    <Alert severity="success" icon={<EstimateIcon />} sx={{ mb: 2 }}>
+                      Смета: <strong>№{selectedEstimate.number}</strong>
+                    </Alert>
+                    
+                    <List sx={{ width: '100%', bgcolor: 'background.paper' }}>
+                      {selectedEstimate.items?.map(item => (
+                        <ListItemButton
+                          key={item.id}
+                          selected={selectedService?.id === item.id}
+                          onClick={() => {
+                            setSelectedService(item);
+                            handleNext();
+                          }}
+                          sx={{ 
+                            borderRadius: 2, 
+                            mb: 1,
+                            border: selectedService?.id === item.id ? 2 : 0,
+                            borderColor: 'primary.main'
+                          }}
+                        >
+                          <ListItemIcon>
+                            <Avatar sx={{ bgcolor: 'warning.light' }}>
+                              <ServiceIcon />
+                            </Avatar>
+                          </ListItemIcon>
+                          <ListItemText 
+                            primary={item.name}
+                            secondary={
+                              <Stack>
+                                <Typography variant="body2">
+                                  {item.quantity} {item.unit} × {(item.unitPrice || 0)} ₽
+                                </Typography>
+                                <Typography variant="caption" color="primary">
+                                  Итого: {(item.total || 0).toFixed(2)} ₽
+                                </Typography>
+                              </Stack>
+                            }
+                          />
+                          {selectedService?.id === item.id && (
+                            <CheckIcon color="primary" />
+                          )}
+                        </ListItemButton>
+                      ))}
+                    </List>
+
+                    <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                      <Button onClick={handleBack}>
+                        Назад
+                      </Button>
+                      <Button 
+                        variant="outlined" 
+                        onClick={handleSkip}
+                        startIcon={<SkipIcon />}
+                      >
+                        Пропустить
+                      </Button>
+                    </Stack>
+                  </Box>
                 )}
-                {selectedService && (
-                  <Typography variant="body2">
-                    <strong>Услуга:</strong> {selectedService.name}
-                  </Typography>
-                )}
-              </Alert>
+              </StepContent>
+            </Step>
 
-              <Box display="flex" flexDirection="column" gap={2}>
-                {/* Photo upload */}
-                <Button
-                  component="label"
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<CameraIcon />}
-                  disabled={loading}
-                >
-                  {photoFile ? `Фото выбрано: ${photoFile.name}` : 'Добавить фото (опционально)'}
-                  <input
-                    type="file"
-                    accept="image/*"
-                    capture="environment"
-                    hidden
-                    onChange={(e) => setPhotoFile(e.target.files?.[0] || null)}
-                  />
-                </Button>
+            {/* Step 4: Details */}
+            <Step>
+              <StepLabel icon={<TimerIcon />}>
+                Детали работы
+              </StepLabel>
+              <StepContent>
+                <Paper elevation={2} sx={{ p: 3, mb: 2 }}>
+                  <Stack spacing={2}>
+                    <Alert severity="success" icon={<CheckIcon />}>
+                      <strong>Готово к началу работы!</strong>
+                    </Alert>
+                    
+                    <Divider />
+                    
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom>Проект:</Typography>
+                      <Typography variant="body1">{selectedProject?.name}</Typography>
+                    </Box>
+                    
+                    <Box>
+                      <Typography variant="subtitle2" gutterBottom>Задача:</Typography>
+                      <Typography variant="body1">{selectedTask?.task}</Typography>
+                    </Box>
+                    
+                    {selectedEstimate && (
+                      <Box>
+                        <Typography variant="subtitle2" gutterBottom>Смета:</Typography>
+                        <Typography variant="body1">№{selectedEstimate.number} - {selectedEstimate.name}</Typography>
+                      </Box>
+                    )}
+                    
+                    {selectedService && (
+                      <Box>
+                        <Typography variant="subtitle2" gutterBottom>Услуга:</Typography>
+                        <Typography variant="body1">{selectedService.name}</Typography>
+                      </Box>
+                    )}
+                    
+                    <Divider />
+                    
+                    <Stack direction="row" spacing={2}>
+                      <Button
+                        variant="outlined"
+                        startIcon={<CameraIcon />}
+                        component="label"
+                        fullWidth
+                      >
+                        {photoFile ? 'Фото загружено ✓' : 'Добавить фото'}
+                        <input
+                          type="file"
+                          hidden
+                          accept="image/*"
+                          capture="environment"
+                          onChange={handlePhotoCapture}
+                        />
+                      </Button>
+                      
+                      <Button
+                        variant="outlined"
+                        startIcon={<LocationIcon />}
+                        onClick={handleGetLocation}
+                        fullWidth
+                        color={geoLocation ? 'success' : 'primary'}
+                      >
+                        {geoLocation ? 'Локация получена ✓' : 'Получить локацию'}
+                      </Button>
+                    </Stack>
+                  </Stack>
+                </Paper>
 
-                {/* Geolocation */}
-                <Button
-                  variant="outlined"
-                  fullWidth
-                  startIcon={<LocationIcon />}
-                  onClick={handleGetLocation}
-                  disabled={loading}
-                  color={geoLocation ? 'success' : 'primary'}
-                >
-                  {loading ? (
-                    <CircularProgress size={20} />
-                  ) : geoLocation ? (
-                    `Геолокация получена (${geoLocation.coords.latitude.toFixed(4)}, ${geoLocation.coords.longitude.toFixed(4)})`
-                  ) : (
-                    'Получить геолокацию (опционально)'
-                  )}
-                </Button>
-
-                <Alert severity="info">
-                  После начала работы будет запущен таймер учета времени. 
-                  Вы сможете видеть активную сессию на главной странице.
-                </Alert>
-              </Box>
-            </Box>
-          )}
+                <Box sx={{ mt: 2 }}>
+                  <Button onClick={handleBack} sx={{ mr: 2 }}>
+                    Назад
+                  </Button>
+                </Box>
+              </StepContent>
+            </Step>
+          </Stepper>
         </DialogContent>
 
-        <DialogActions>
-          {step !== 'project' && (
-            <Button onClick={handleBack} disabled={loading}>
-              Назад
-            </Button>
-          )}
+        <DialogActions sx={{ px: 3, pb: 3 }}>
           <Button onClick={handleClose} disabled={loading}>
             Отмена
           </Button>
-          {step === 'details' && (
+          {activeStep === 4 && (
             <Button
-              onClick={handleStart}
               variant="contained"
-              color="success"
-              disabled={loading}
+              onClick={handleStart}
+              disabled={loading || !selectedProject || !selectedTask}
               startIcon={loading ? <CircularProgress size={20} /> : <StartIcon />}
+              size="large"
+              sx={{ px: 4 }}
             >
-              {loading ? 'Запуск...' : 'Начать работу'}
+              {loading ? 'Начинаем...' : 'Начать работу'}
             </Button>
           )}
         </DialogActions>
