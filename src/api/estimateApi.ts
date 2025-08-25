@@ -69,7 +69,7 @@ export interface Estimate {
   defaultRate?: number;
   taxRate?: number;
   discountRate?: number;
-  status?: 'draft' | 'sent' | 'approved' | 'rejected';
+  status?: 'draft' | 'sent' | 'approved' | 'rejected' | 'cancelled';
   version?: string;
   // Дополнительные поля для UI
   validUntil?: string;
@@ -193,7 +193,7 @@ export const updateEstimate = async (
 export const updateEstimateStatus = async (
   userId: string,
   estimateId: string,
-  nextStatus: Estimate['status'],
+  nextStatus: Estimate['status'] | 'cancelled',
   estimateSnapshot?: Estimate
 ) => {
   // 1) Обновляем статус
@@ -216,7 +216,7 @@ export const updateEstimateStatus = async (
     }
   }
 
-  if (nextStatus === 'rejected') {
+  if (nextStatus === 'rejected' || nextStatus === 'draft' || nextStatus === 'sent' || nextStatus === 'cancelled') {
     // Снимаем резерв
     for (const item of materialItems) {
       const qty = item.materialQuantity || item.quantity || 0;

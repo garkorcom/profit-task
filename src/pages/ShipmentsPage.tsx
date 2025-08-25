@@ -1,13 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { Box, Typography, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Button, Chip, Alert } from '@mui/material';
 import { useAuth } from '../auth/AuthContext';
-import { ShipmentOrder, getShipmentOrdersStream, performShipmentWriteOff, updateShipmentStatus } from '../api/shipmentApi';
+import { ShipmentOrder, getShipmentOrdersStream, performShipmentWriteOff, updateShipmentStatus, cancelShipment } from '../api/shipmentApi';
 import { getWarehousesStream, Warehouse } from '../api/inventoryApi';
-// import { useNavigate } from 'react-router-dom';
+import { useNavigate } from 'react-router-dom';
 
 const ShipmentsPage: React.FC = () => {
   const { currentUser } = useAuth();
-  // const navigate = useNavigate();
+  const navigate = useNavigate();
   const [shipments, setShipments] = useState<ShipmentOrder[]>([]);
   const [warehouses, setWarehouses] = useState<Warehouse[]>([]);
   const [notify, setNotify] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({ open: false, message: '', severity: 'success' });
@@ -60,7 +60,21 @@ const ShipmentsPage: React.FC = () => {
                     <TableCell align="right">{s.lines?.length || 0}</TableCell>
                     <TableCell>
                       {s.status === 'pending' && (
-                        <Button size="small" variant="contained" onClick={() => doWriteOff(s)}>Провести отгрузку</Button>
+                        <Button size="small" variant="contained" onClick={() => doWriteOff(s)}>Провести целиком</Button>
+                      )}
+                      {s.status !== 'completed' && s.status !== 'cancelled' && (
+                        <Button size="small" onClick={() => navigate(`/shipments/${s.id}`)}>Частично</Button>
+                      )}
+                      {s.status === 'pending' && (
+                        <Button size="small" color="error" onClick={async () => {
+                          if (!currentUser) return;
+                          try {
+                            await cancelShipment(currentUser.uid, s);
+                            setNotify({ open: true, message: 'Отгрузка отменена, резервы возвращены', severity: 'success' });
+                          } catch (e: any) {
+                            setNotify({ open: true, message: e.message || 'Ошибка отмены', severity: 'error' });
+                          }
+                        }}>Отменить</Button>
                       )}
                     </TableCell>
                   </TableRow>

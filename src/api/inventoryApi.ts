@@ -220,3 +220,27 @@ export const writeOff = async (
 };
 
 
+/**
+ * Привести остаток к фактическому значению (корректировка) через дельту.
+ * Вычисляет текущий остаток на складе и делает adjustStockLevel на разницу (actual - current).
+ */
+export const adjustStockToActual = async (
+  userId: string,
+  warehouseId: string,
+  productId: string,
+  actualQuantity: number,
+  options?: { documentId?: string; comment?: string }
+) => {
+  const levelId = stockLevelDocId(productId, warehouseId);
+  const levelSnap = await getDoc(doc(db, stockLevelsPath(userId), levelId));
+  const currentQty = (levelSnap.data() as any)?.quantity || 0;
+  const delta = (actualQuantity || 0) - currentQty;
+  if (delta === 0) return; // нечего корректировать
+  await adjustStockLevel(userId, productId, warehouseId, delta, {
+    type: 'adjustment',
+    documentId: options?.documentId,
+    documentType: 'Adjustment',
+    comment: options?.comment
+  });
+};
+

@@ -14,7 +14,7 @@ import {
   Paper,
   Autocomplete,
 } from '@mui/material';
-import { Delete as DeleteIcon, Save as SaveIcon } from '@mui/icons-material';
+import { Delete as DeleteIcon, Save as SaveIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Estimate, EstimateItem as CoreEstimateItem, getEstimateStream, addEstimate, updateEstimate, updateEstimateStatus } from '../api/estimateApi';
@@ -37,6 +37,11 @@ const EstimateEditorPage: React.FC = () => {
     status: 'draft',
   });
   const [products, setProducts] = useState<Product[]>([]);
+  const productById = React.useMemo(() => {
+    const map: Record<string, Product> = {};
+    products.forEach(p => { map[p.id] = p; });
+    return map;
+  }, [products]);
   const [loading, setLoading] = useState(true);
   const [notification, setNotification] = useState({ open: false, message: '', severity: 'success' as 'success' | 'error' });
 
@@ -105,9 +110,25 @@ const EstimateEditorPage: React.FC = () => {
     setEstimate(prev => ({ ...prev, items, subtotal, total }));
   };
 
-  const handleChangeStatus = async (next: 'sent' | 'approved' | 'rejected') => {
+  const handleChangeStatus = async (next: 'sent' | 'approved' | 'rejected' | 'cancelled') => {
     if (!currentUser || !estimateId) return;
     try {
+      // Предупреждение о превышении доступного при одобрении
+      if (next === 'approved') {
+        const over: { name: string; need: number; avail: number }[] = [];
+        (estimate.items || []).forEach((it: any) => {
+          if (it.type === 'material' && it.productId) {
+            const prod = productById[it.productId];
+            const need = it.materialQuantity ?? it.quantity ?? 0;
+            const avail = (prod?.availableStock ?? (prod?.currentStock || 0) - (prod?.reservedStock || 0)) || 0;
+            if (need > avail) over.push({ name: it.name, need, avail });
+          }
+        });
+        if (over.length > 0) {
+          // Только предупредим, не блокируем
+          setNotification({ open: true, message: `Внимание: в ${over.length} позициях недостаточно доступного остатка`, severity: 'error' });
+        }
+      }
       // Передаём текущий снимок сметы для корректной обработки резервов
       await updateEstimateStatus(currentUser.uid, estimateId, next, {
         id: estimateId,
@@ -171,6 +192,7 @@ const EstimateEditorPage: React.FC = () => {
               <TableCell>Ед.изм.</TableCell>
               <TableCell align="right">Цена</TableCell>
               <TableCell align="right">Сумма</TableCell>
+              <TableCell>Доступно для резерва</TableCell>
               <TableCell></TableCell>
             </TableRow>
           </TableHead>
@@ -186,6 +208,26 @@ const EstimateEditorPage: React.FC = () => {
                   <TextField type="number" value={(item as any).price ?? 0} onChange={(e) => updateItem(index, 'price', parseFloat(e.target.value))} size="small" />
                 </TableCell>
                 <TableCell align="right">{item.total.toFixed(2)}</TableCell>
+                <TableCell>
+                  {item.type === 'material' && (item as any).productId ? (
+                    (() => {
+                      const prod = productById[(item as any).productId as any];
+                      const avail = (prod?.availableStock ?? (prod?.currentStock || 0) - (prod?.reservedStock || 0)) || 0;
+                      const need = (item as any).materialQuantity ?? item.quantity ?? 0;
+                      const exceeds = need > avail;
+                      return (
+                        <Box display="flex" alignItems="center" gap={1}>
+                          {exceeds && <WarningIcon color="warning" fontSize="small" />}
+                          <Typography variant="caption" color={exceeds ? 'error' : 'text.secondary'}>
+                            {exceeds ? `Недостаточно: есть ${avail}, нужно ${need}` : `Доступно: ${avail}`}
+                          </Typography>
+                        </Box>
+                      );
+                    })()
+                  ) : (
+                    <Typography variant="caption" color="text.secondary">—</Typography>
+                  )}
+                </TableCell>
                 <TableCell>
                   <IconButton onClick={() => removeItem(index)}><DeleteIcon /></IconButton>
                 </TableCell>
@@ -224,6 +266,7 @@ const EstimateEditorPage: React.FC = () => {
         </Button>
         <Button size="small" onClick={() => handleChangeStatus('sent')}>Отправить</Button>
         <Button size="small" color="success" variant="outlined" onClick={() => handleChangeStatus('approved')}>Одобрить (резерв)</Button>
+        <Button size="small" color="warning" variant="outlined" onClick={() => handleChangeStatus('cancelled')}>Отменить (снять резерв)</Button>
         <Button size="small" color="error" variant="outlined" onClick={() => handleChangeStatus('rejected')}>Отклонить (снять резерв)</Button>
       </Box>
       

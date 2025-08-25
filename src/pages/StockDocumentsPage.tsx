@@ -3,7 +3,7 @@ import { Box, Typography, Button, Card, CardContent, Dialog, DialogTitle, Dialog
 import { Add as AddIcon, Delete as DeleteIcon, PostAdd as PostIcon } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { Product, getProductsStream } from '../api/productApi';
-import { getWarehousesStream, Warehouse, goodsReceipt, writeOff } from '../api/inventoryApi';
+import { getWarehousesStream, Warehouse, goodsReceipt, writeOff, adjustStockToActual } from '../api/inventoryApi';
 import { db } from '../firebase/firebase';
 import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
 
@@ -11,7 +11,8 @@ import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, serverTimestam
 export interface StockDocumentLine {
   productId: string;
   productName: string;
-  quantity: number;
+  quantity: number; // для приход/расход
+  actual?: number; // для корректировки (факт)
   unit: string;
   price: number;
   amount: number;
@@ -21,7 +22,7 @@ export interface StockDocument {
   id: string;
   number?: string;
   date?: string;
-  type: 'income' | 'expense';
+  type: 'income' | 'expense' | 'adjustment';
   status: 'draft' | 'posted';
   warehouseId?: string;
   lines: StockDocumentLine[];
@@ -82,7 +83,7 @@ const StockDocumentsPage: React.FC = () => {
   };
 
   const addLine = () => {
-    setForm(prev => ({ ...prev, lines: [ ...(prev.lines || []), { productId: '', productName: '', quantity: 1, unit: 'шт', price: 0, amount: 0 } ] }));
+    setForm(prev => ({ ...prev, lines: [ ...(prev.lines || []), { productId: '', productName: '', quantity: 1, actual: undefined, unit: 'шт', price: 0, amount: 0 } ] }));
   };
 
   const removeLine = (idx: number) => {
@@ -124,8 +125,15 @@ const StockDocumentsPage: React.FC = () => {
       if (!doc.warehouseId) throw new Error('Не выбран склад');
       if (doc.type === 'income') {
         await goodsReceipt(currentUser.uid, doc.warehouseId, (doc.lines || []).map(l => ({ productId: l.productId, quantity: l.quantity, comment: doc.comment })), doc.id);
-      } else {
+      } else if (doc.type === 'expense') {
         await writeOff(currentUser.uid, doc.warehouseId, (doc.lines || []).map(l => ({ productId: l.productId, quantity: l.quantity, comment: doc.comment })), doc.id);
+      } else if (doc.type === 'adjustment') {
+        // Корректировка: установить фактическое количество по каждой строке
+        for (const l of (doc.lines || [])) {
+          if (!l.productId) continue;
+          const actual = typeof l.actual === 'number' ? l.actual : 0;
+          await adjustStockToActual(currentUser.uid, doc.warehouseId, l.productId, actual, { documentId: doc.id, comment: doc.comment });
+        }
       }
       await updateStockDocument(currentUser.uid, doc.id, { status: 'posted' });
       setNotify({ open: true, message: 'Документ проведён', severity: 'success' });
@@ -196,8 +204,9 @@ const StockDocumentsPage: React.FC = () => {
             <FormControl fullWidth>
               <InputLabel>Тип</InputLabel>
               <Select value={form.type || 'income'} label="Тип" onChange={(e) => setForm({ ...form, type: e.target.value as any })}>
-                <MenuItem value="income">Начисление</MenuItem>
+                <MenuItem value="income">Приход</MenuItem>
                 <MenuItem value="expense">Списание</MenuItem>
+                <MenuItem value="adjustment">Корректировка</MenuItem>
               </Select>
             </FormControl>
             <TextField label="Дата" type="date" value={form.date || new Date().toISOString().slice(0,10)} onChange={(e)=>setForm({...form, date: e.target.value})} InputLabelProps={{ shrink: true }} fullWidth />
@@ -214,9 +223,12 @@ const StockDocumentsPage: React.FC = () => {
               <TableRow>
                 <TableCell>Номенклатура</TableCell>
                 <TableCell align="right">Кол-во</TableCell>
+                {form.type === 'adjustment' && (
+                  <TableCell align="right">Факт</TableCell>
+                )}
                 <TableCell align="right">Ед.</TableCell>
-                <TableCell align="right">Цена</TableCell>
-                <TableCell align="right">Сумма</TableCell>
+                {form.type !== 'adjustment' && <TableCell align="right">Цена</TableCell>}
+                {form.type !== 'adjustment' && <TableCell align="right">Сумма</TableCell>}
                 <TableCell width={48}></TableCell>
               </TableRow>
             </TableHead>
@@ -239,9 +251,16 @@ const StockDocumentsPage: React.FC = () => {
                     </Select>
                   </TableCell>
                   <TableCell align="right"><TextField type="number" value={line.quantity || 0} onChange={(e)=>updateLine(idx, { quantity: Number(e.target.value) })} size="small" /></TableCell>
+                  {form.type === 'adjustment' && (
+                    <TableCell align="right"><TextField type="number" value={line.actual ?? ''} onChange={(e)=>updateLine(idx, { actual: Number(e.target.value) })} size="small" placeholder="Факт" /></TableCell>
+                  )}
                   <TableCell align="right">{line.unit || ''}</TableCell>
-                  <TableCell align="right"><TextField type="number" value={line.price || 0} onChange={(e)=>updateLine(idx, { price: Number(e.target.value) })} size="small" /></TableCell>
-                  <TableCell align="right">{(line.amount || 0).toFixed(2)}</TableCell>
+                  {form.type !== 'adjustment' && (
+                    <TableCell align="right"><TextField type="number" value={line.price || 0} onChange={(e)=>updateLine(idx, { price: Number(e.target.value) })} size="small" /></TableCell>
+                  )}
+                  {form.type !== 'adjustment' && (
+                    <TableCell align="right">{(line.amount || 0).toFixed(2)}</TableCell>
+                  )}
                   <TableCell><IconButton size="small" onClick={()=>removeLine(idx)}><DeleteIcon fontSize="small" /></IconButton></TableCell>
                 </TableRow>
               ))}

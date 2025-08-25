@@ -16,7 +16,8 @@ import {
   where,
   serverTimestamp,
   runTransaction,
-  increment
+  increment,
+  setDoc
 } from 'firebase/firestore';
 
 // ============= ТИПЫ ДАННЫХ =============
@@ -41,6 +42,13 @@ export interface Product {
   description?: string;            // Описание
   // Для составных услуг
   components?: ServiceComponent[]; // Состав услуги (вложенные товары/услуги)
+  // Доп. поля для услуг
+  normativeTimeHours?: number;     // Норматив времени (часы)
+  assignmentType?: 'inhouse' | 'employee' | 'contractor';
+  assigneeEmployeeId?: string;
+  assigneeEmployeeName?: string;
+  assigneeContractorId?: string;
+  assigneeContractorName?: string;
   createdAt?: any;
   updatedAt?: any;
 }
@@ -124,6 +132,10 @@ export const addProduct = async (userId: string, product: Omit<Product, 'id'>) =
   };
   
   const docRef = await addDoc(collection(db, productsPath), newProduct);
+  // Сохраняем версию услуги при создании
+  if (product.type === 'service') {
+    await saveServiceVersion(userId, docRef.id, { id: docRef.id, ...(newProduct as any) } as Product, 'created');
+  }
   
   // Создаём запись о начальном остатке, если он есть
   if (product.currentStock && product.currentStock > 0) {
@@ -152,6 +164,11 @@ export const updateProduct = async (userId: string, productId: string, updates: 
     ...updates,
     updatedAt: serverTimestamp()
   });
+  // Сохраняем версию услуги при обновлении
+  if (updates.type === 'service' || typeof updates.components !== 'undefined' || typeof updates.normativeTimeHours !== 'undefined') {
+    // Часть данных может отсутствовать в updates, версию сохраняем с тем что есть
+    await saveServiceVersion(userId, productId, { id: productId, ...(updates as any) } as Product, 'updated');
+  }
 };
 
 /**
@@ -520,4 +537,22 @@ export const getCriticalStockProducts = (userId: string, callback: (products: Pr
     
     callback(products);
   });
+};
+
+/**
+ * Сохранить версию услуги (снимок состава/полей) в подпапку versions
+ */
+export const saveServiceVersion = async (
+  userId: string,
+  productId: string,
+  snapshot: Product,
+  label?: string
+) => {
+  const ref = doc(collection(db, `users/${userId}/products/${productId}/versions`));
+  await setDoc(ref, {
+    id: ref.id,
+    label: label || 'auto',
+    snapshot,
+    createdAt: serverTimestamp()
+  } as any);
 };

@@ -51,6 +51,8 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import Notification from '../components/common/Notification';
 import ServiceComponentsEditor from '../components/products/ServiceComponentsEditor';
+import { Employee, getEmployeesStream } from '../api/employeeApi';
+import { Contractor, getContractorsStream } from '../api/contractorApi';
 import {
   Product,
   StockMovement,
@@ -117,6 +119,8 @@ const ProductsPage: React.FC = () => {
   const [editingProduct, setEditingProduct] = useState<Product | null>(null);
   const [movementType, setMovementType] = useState<'income' | 'expense'>('income');
   const [selectedProduct, setSelectedProduct] = useState<Product | null>(null);
+  const [employees, setEmployees] = useState<Employee[]>([]);
+  const [contractors, setContractors] = useState<Contractor[]>([]);
   
   const [productForm, setProductForm] = useState<Partial<Product>>({
     name: '',
@@ -164,11 +168,9 @@ const ProductsPage: React.FC = () => {
       setMovements(data.slice(0, 50)); 
     });
     
-    return () => {
-      unsubProducts();
-      unsubCritical();
-      unsubMovements();
-    };
+    const unsubEmp = getEmployeesStream(currentUser.uid, setEmployees);
+    const unsubCtr = getContractorsStream(currentUser.uid, setContractors);
+    return () => { unsubProducts(); unsubCritical(); unsubMovements(); unsubEmp(); unsubCtr(); };
   }, [currentUser]);
 
   const handleOpenProductDialog = (product?: Product) => {
@@ -494,6 +496,59 @@ const ProductsPage: React.FC = () => {
                   onChange={(next: ServiceComponent[]) => setProductForm({ ...productForm, components: next })}
                   products={products}
                 />
+                <Box display="flex" gap={2} mt={2}>
+                  <FormControl fullWidth>
+                    <InputLabel>Назначение</InputLabel>
+                    <Select
+                      value={(productForm as any).assignmentType || 'inhouse'}
+                      label="Назначение"
+                      onChange={(e) => setProductForm({ ...productForm, assignmentType: e.target.value as any, assigneeEmployeeId: '', assigneeEmployeeName: '', assigneeContractorId: '', assigneeContractorName: '' })}
+                    >
+                      <MenuItem value="inhouse">Собственными силами</MenuItem>
+                      <MenuItem value="employee">Сотруднику</MenuItem>
+                      <MenuItem value="contractor">Подрядчику</MenuItem>
+                    </Select>
+                  </FormControl>
+                  <TextField
+                    label="Норматив, ч"
+                    type="number"
+                    value={(productForm as any).normativeTimeHours || 0}
+                    onChange={(e) => setProductForm({ ...productForm, normativeTimeHours: Number(e.target.value) })}
+                    fullWidth
+                  />
+                </Box>
+                {((productForm as any).assignmentType === 'employee') && (
+                  <FormControl fullWidth sx={{ mt: 2 }}>
+                    <InputLabel>Сотрудник</InputLabel>
+                    <Select
+                      value={(productForm as any).assigneeEmployeeId || ''}
+                      label="Сотрудник"
+                      onChange={(e) => {
+                        const emp = employees.find(x => x.id === e.target.value);
+                        setProductForm({ ...productForm, assigneeEmployeeId: emp?.id, assigneeEmployeeName: emp?.fullName });
+                      }}
+                    >
+                      <MenuItem value=""><em>Не выбран</em></MenuItem>
+                      {employees.map(emp => (<MenuItem key={emp.id} value={emp.id}>{emp.fullName}</MenuItem>))}
+                    </Select>
+                  </FormControl>
+                )}
+                {((productForm as any).assignmentType === 'contractor') && (
+                  <FormControl fullWidth sx={{ mt: 2 }}>
+                    <InputLabel>Подрядчик</InputLabel>
+                    <Select
+                      value={(productForm as any).assigneeContractorId || ''}
+                      label="Подрядчик"
+                      onChange={(e) => {
+                        const ctr = contractors.find(x => x.id === e.target.value);
+                        setProductForm({ ...productForm, assigneeContractorId: ctr?.id, assigneeContractorName: ctr?.name });
+                      }}
+                    >
+                      <MenuItem value=""><em>Не выбран</em></MenuItem>
+                      {contractors.map(c => (<MenuItem key={c.id} value={c.id}>{c.name}</MenuItem>))}
+                    </Select>
+                  </FormControl>
+                )}
               </Box>
             )}
             <TextField label="Цена продажи" type="number" value={productForm.salePrice || 0} onChange={e => setProductForm({ ...productForm, salePrice: Number(e.target.value) })} fullWidth InputProps={{ endAdornment: <InputAdornment position="end">₽</InputAdornment> }} />

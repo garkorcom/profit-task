@@ -74,10 +74,39 @@ service cloud.firestore {
       allow write: if isAuthenticated();
     }
     
-    // Правила для складских документов
-    match /stockDocuments/{documentId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+    // Новая модель: все сущности под users/{userId}
+    match /users/{userId} {
+      allow read, write: if isOwner(userId);
+
+      // Склады
+      match /warehouses/{warehouseId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Уровни остатков
+      match /stockLevels/{stockLevelId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Движения по складу
+      match /inventoryTransactions/{txId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Документы склада (приход/расход/корректировка)
+      match /stockDocs/{docId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Отгрузки
+      match /shipments/{shipmentId} {
+        allow read, write: if isOwner(userId);
+      }
+
+      // Шаблоны услуг
+      match /serviceTemplates/{tplId} {
+        allow read, write: if isOwner(userId);
+      }
     }
     
     // Правила для счетов

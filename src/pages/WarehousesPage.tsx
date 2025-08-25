@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useState } from 'react';
-import { Box, Typography, Button, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Chip, Alert } from '@mui/material';
+import { Box, Typography, Button, Card, CardContent, Table, TableHead, TableRow, TableCell, TableBody, Dialog, DialogTitle, DialogContent, DialogActions, TextField, FormControl, InputLabel, Select, MenuItem, Chip, Alert, IconButton } from '@mui/material';
+import DownloadIcon from '@mui/icons-material/Download';
 import { Add as AddIcon, Edit as EditIcon } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { Warehouse, getWarehousesStream, addWarehouse, updateWarehouse, getStockLevelsStream, getInventoryTransactionsStream, StockLevel, InventoryTransaction } from '../api/inventoryApi';
@@ -18,6 +19,9 @@ const WarehousesPage: React.FC = () => {
   const [editing, setEditing] = useState<Warehouse | null>(null);
   const [form, setForm] = useState<Partial<Warehouse>>({ name: '', address: '', isActive: true });
   const [notify, setNotify] = useState<{ open: boolean; message: string; severity: 'success' | 'error' | 'info' | 'warning' }>({ open: false, message: '', severity: 'success' });
+  const [productFilter, setProductFilter] = useState<string>('');
+  const [dateFrom, setDateFrom] = useState<string>('');
+  const [dateTo, setDateTo] = useState<string>('');
 
   // Maps for quick lookup
   const productById = useMemo(() => {
@@ -40,6 +44,36 @@ const WarehousesPage: React.FC = () => {
     const unsubT = getInventoryTransactionsStream(currentUser.uid, setTransactions, selectedWarehouseId ? { warehouseId: selectedWarehouseId } : undefined);
     return () => { unsubL(); unsubT(); };
   }, [currentUser, selectedWarehouseId]);
+
+  const filteredTransactions = transactions.filter(t => {
+    if (productFilter && t.productId !== productFilter) return false;
+    const ts = (t.createdAt as any)?.toDate?.()?.getTime?.() || 0;
+    const fromOk = !dateFrom || ts >= new Date(dateFrom).getTime();
+    const toOk = !dateTo || ts <= new Date(dateTo).getTime() + 86399999;
+    return fromOk && toOk;
+  });
+
+  const exportCsv = () => {
+    const rows = [
+      ['Дата', 'Товар', 'Тип', 'Склад', 'Кол-во', 'Комментарий'] as string[],
+      ...filteredTransactions.map(t => [
+        (t.createdAt as any)?.toDate?.()?.toLocaleString?.('ru-RU') || '',
+        productById[t.productId]?.name || t.productId,
+        t.type,
+        warehouses.find(w => w.id === t.warehouseId)?.name || t.warehouseId,
+        String(t.quantity),
+        t.comment || ''
+      ])
+    ];
+    const csv = rows.map(r => r.map(v => `"${String(v).replace(/"/g, '""')}"`).join(';')).join('\n');
+    const blob = new Blob([csv], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `movements_${new Date().toISOString().slice(0,10)}.csv`;
+    a.click();
+    URL.revokeObjectURL(url);
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -148,10 +182,24 @@ const WarehousesPage: React.FC = () => {
       </Card>
 
       {/* Transactions */}
-      <Typography variant="h5" gutterBottom>Движение товаров</Typography>
+      <Box display="flex" alignItems="center" justifyContent="space-between">
+        <Typography variant="h5" gutterBottom>Движение товаров</Typography>
+        <Box display="flex" gap={1} alignItems="center">
+          <FormControl size="small" sx={{ minWidth: 220 }}>
+            <InputLabel>Товар</InputLabel>
+            <Select value={productFilter} label="Товар" onChange={(e) => setProductFilter(e.target.value)}>
+              <MenuItem value=""><em>Все</em></MenuItem>
+              {products.map(p => (<MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>))}
+            </Select>
+          </FormControl>
+          <TextField type="date" size="small" label="С" InputLabelProps={{ shrink: true }} value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} />
+          <TextField type="date" size="small" label="По" InputLabelProps={{ shrink: true }} value={dateTo} onChange={(e) => setDateTo(e.target.value)} />
+          <IconButton onClick={exportCsv} title="Экспорт CSV"><DownloadIcon /></IconButton>
+        </Box>
+      </Box>
       <Card>
         <CardContent>
-          {transactions.length === 0 ? (
+          {filteredTransactions.length === 0 ? (
             <Typography color="text.secondary">Нет движений</Typography>
           ) : (
             <Table size="small">
@@ -166,7 +214,7 @@ const WarehousesPage: React.FC = () => {
                 </TableRow>
               </TableHead>
               <TableBody>
-                {transactions.map(t => (
+                {filteredTransactions.map(t => (
                   <TableRow key={t.id}>
                     <TableCell>{(t.createdAt as any)?.toDate?.()?.toLocaleString?.('ru-RU') || ''}</TableCell>
                     <TableCell>{productById[t.productId]?.name || t.productId}</TableCell>

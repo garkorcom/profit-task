@@ -21,6 +21,8 @@ import UserProfilePage from '../pages/UserProfilePage';
 import WarehousesPage from '../pages/WarehousesPage';
 import ShipmentsPage from '../pages/ShipmentsPage';
 import StockDocumentsPage from '../pages/StockDocumentsPage';
+import ShipmentDetailsPage from '../pages/ShipmentDetailsPage';
+import NotificationsPage from '../pages/NotificationsPage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -46,7 +48,9 @@ const AppRouter: React.FC = () => {
             <Route path="/references" element={<ReferencesPage />} />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/shipments" element={<ShipmentsPage />} />
+            <Route path="/shipments/:shipmentId" element={<ShipmentDetailsPage />} />
             <Route path="/stock-docs" element={<StockDocumentsPage />} />
+            <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/contractors" element={<ContractorsPage />} />
             <Route path="/contractors/:contractorId/tasks" element={<ContractorTasksPage />} />
           </Route>
