@@ -19,6 +19,30 @@ import {
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
 
+/**
+ * Утилита для очистки объекта от undefined значений
+ * Firebase не принимает undefined значения
+ */
+const cleanUndefinedValues = (obj: any): any => {
+  const cleaned = {} as any;
+  
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      if (typeof obj[key] === 'object' && obj[key] !== null && !(obj[key] instanceof Date)) {
+        // Рекурсивно очищаем вложенные объекты
+        const cleanedNested = cleanUndefinedValues(obj[key]);
+        if (Object.keys(cleanedNested).length > 0) {
+          cleaned[key] = cleanedNested;
+        }
+      } else {
+        cleaned[key] = obj[key];
+      }
+    }
+  }
+  
+  return cleaned;
+};
+
 // Статусы сессии работы
 export type TimeEntryStatus = 
   | 'active'      // Активная - работа идет прямо сейчас
@@ -104,8 +128,11 @@ export const createTimeEntry = async (
 ): Promise<string> => {
   const entriesPath = `users/${userId}/timeEntries`;
   
+  // Очищаем объект от undefined значений
+  const cleanEntry = cleanUndefinedValues(entry);
+  
   const entryWithTimestamp = {
-    ...entry,
+    ...cleanEntry,
     status: 'active' as TimeEntryStatus,
     startTime: serverTimestamp(),
     createdAt: serverTimestamp(),
@@ -126,8 +153,11 @@ export const updateTimeEntry = async (
 ): Promise<void> => {
   const entryRef = doc(db, `users/${userId}/timeEntries`, entryId);
   
+  // Очищаем объект от undefined значений
+  const cleanUpdates = cleanUndefinedValues(updates);
+  
   // Если есть endTime, автоматически рассчитываем duration
-  let updatesWithDuration = { ...updates };
+  let updatesWithDuration = { ...cleanUpdates };
   if (updates.endTime && !updates.duration) {
     // Получаем текущую запись для расчета duration
     const snapshot = await getDocs(query(collection(db, `users/${userId}/timeEntries`), where('__name__', '==', entryId)));
@@ -195,8 +225,8 @@ export const resumeTimeEntry = async (
   entryId: string
 ): Promise<void> => {
   const updates: Partial<TimeEntry> = {
-    status: 'active',
-    pauseReason: undefined
+    status: 'active'
+    // pauseReason будет удален автоматически при очистке undefined значений
   };
   
   await updateTimeEntry(userId, entryId, updates);
