@@ -9,8 +9,7 @@ import {
   CardActions,
   Alert,
   Chip,
-  Stack,
-  Grid2 as Grid
+  Stack
 } from '@mui/material';
 import { useAuth } from '../auth/AuthContext';
 import { 
@@ -187,10 +186,9 @@ const EstimatesDebugPage: React.FC = () => {
           Все сметы ({estimates.length})
         </Typography>
 
-        <Grid container spacing={2}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 2 }}>
           {estimates.map(estimate => (
-            <Grid size={{ xs: 12, md: 6 }} key={estimate.id}>
-              <Card>
+            <Card key={estimate.id}>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
                     <Typography variant="h6">
@@ -245,9 +243,8 @@ const EstimatesDebugPage: React.FC = () => {
                   </Button>
                 </CardActions>
               </Card>
-            </Grid>
           ))}
-        </Grid>
+        </Box>
 
         {estimates.length === 0 && (
           <Alert severity="info">
