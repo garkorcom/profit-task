@@ -40,7 +40,8 @@ import {
   StepLabel,
   StepContent,
   ListItemButton,
-  Fab
+  Fab,
+  CircularProgress
 } from '@mui/material';
 import {
   Timer as TimerIcon,
@@ -172,6 +173,7 @@ const TimeControlPage: React.FC = () => {
   const [selectedWorkService, setSelectedWorkService] = useState<any>(null);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [geoLocation, setGeoLocation] = useState<GeolocationPosition | null>(null);
+  const [startingWork, setStartingWork] = useState(false);
 
   // Статистика
   const [stats, setStats] = useState({
@@ -360,16 +362,22 @@ const TimeControlPage: React.FC = () => {
       return;
     }
 
+    setStartingWork(true);
     try {
       // Если выбрана смета но не задача, создаем временную задачу
       const taskId = selectedWorkTask?.id || `estimate-${selectedWorkEstimate?.id}`;
+      
+      // Для виртуальной задачи передаем имя как часть ID
+      const estimateName = selectedWorkEstimate ? 
+        `${selectedWorkEstimate.name || `Смета №${selectedWorkEstimate.number}`}` : 
+        undefined;
       
       await startWork(
         taskId,
         photoFile || undefined,
         geoLocation || undefined,
         selectedWorkEstimate?.id,
-        selectedWorkEstimate?.name || selectedWorkEstimate?.number,
+        estimateName,
         selectedWorkService?.id,
         selectedWorkService?.name
       );
@@ -378,6 +386,9 @@ const TimeControlPage: React.FC = () => {
       resetStartDialog();
     } catch (error) {
       console.error('Error starting work:', error);
+      alert('Ошибка при начале работы: ' + (error as Error).message);
+    } finally {
+      setStartingWork(false);
     }
   };
 
@@ -1302,14 +1313,14 @@ const TimeControlPage: React.FC = () => {
                               <ListItemText
                                 primary={`Смета №${estimate.number}`}
                                 secondary={
-                                  <Stack>
-                                    <Typography variant="body2">
+                                  <Box component="span">
+                                    <Box component="span" display="block">
                                       {estimate.name || estimate.description}
-                                    </Typography>
-                                    <Typography variant="caption" color="primary">
+                                    </Box>
+                                    <Box component="span" display="block" color="primary.main">
                                       Сумма: {(estimate.total || 0).toFixed(2)} ₽
-                                    </Typography>
-                                  </Stack>
+                                    </Box>
+                                  </Box>
                                 }
                               />
                               {selectedWorkEstimate?.id === estimate.id && (
@@ -1369,18 +1380,18 @@ const TimeControlPage: React.FC = () => {
                               <ServiceIcon />
                             </Avatar>
                           </ListItemAvatar>
-                          <ListItemText
-                            primary={item.name}
-                            secondary={
-                              <Stack>
-                                <Typography variant="body2">
-                                  {item.quantity} {item.unit} × {(item.unitPrice || 0)} ₽
-                                </Typography>
-                                <Typography variant="caption" color="primary">
-                                  Итого: {(item.total || 0).toFixed(2)} ₽
-                                </Typography>
-                              </Stack>
-                            }
+                                                        <ListItemText
+                                primary={item.name}
+                                secondary={
+                                  <Box component="span">
+                                    <Box component="span" display="block">
+                                      {item.quantity} {item.unit} × {(item.unitPrice || 0)} ₽
+                                    </Box>
+                                    <Box component="span" display="block" color="primary.main">
+                                      Итого: {(item.total || 0).toFixed(2)} ₽
+                                    </Box>
+                                  </Box>
+                                }
                           />
                           {selectedWorkService?.id === item.id && (
                             <CheckIcon color="primary" />
@@ -1497,10 +1508,10 @@ const TimeControlPage: React.FC = () => {
                   <Button
                     variant="contained"
                     onClick={handleStartWork}
-                    startIcon={<PlayIcon />}
-                    disabled={!selectedWorkProject || (!selectedWorkTask && !selectedWorkEstimate)}
+                    startIcon={startingWork ? <CircularProgress size={20} color="inherit" /> : <PlayIcon />}
+                    disabled={!selectedWorkProject || (!selectedWorkTask && !selectedWorkEstimate) || startingWork}
                   >
-                    Начать работу
+                    {startingWork ? 'Начинаем...' : 'Начать работу'}
                   </Button>
                 </Stack>
               </StepContent>

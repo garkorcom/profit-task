@@ -181,27 +181,46 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   ) => {
     if (!currentUser) throw new Error('User not authenticated');
     
-    // Находим задачу
-    const task = allTasks.find(t => t.id === taskId);
-    if (!task) throw new Error('Task not found');
+    // Проверяем, это реальная задача или виртуальная (для сметы)
+    const isEstimateTask = taskId.startsWith('estimate-');
+    let task = null;
+    let taskName = '';
+    let projectId = '';
+    let projectName = '';
     
-    // Проверяем, можно ли начать работу
-    if (!canStartWork(task)) {
-      throw new Error(`Cannot start work on task with status: ${task.status}`);
-    }
-    
-    // Проверяем обязательность фото
-    if (requiresPhoto(task) && !startPhoto) {
-      throw new Error('Photo is required for this task');
+    if (!isEstimateTask) {
+      // Находим задачу
+      task = allTasks.find(t => t.id === taskId);
+      if (!task) throw new Error('Task not found');
+      
+      // Проверяем, можно ли начать работу
+      if (!canStartWork(task)) {
+        throw new Error(`Cannot start work on task with status: ${task.status}`);
+      }
+      
+      // Проверяем обязательность фото
+      if (requiresPhoto(task) && !startPhoto) {
+        throw new Error('Photo is required for this task');
+      }
+      
+      taskName = task.task;
+      projectId = task.projectId || '';
+      projectName = task.projectName || '';
+    } else {
+      // Для виртуальной задачи используем данные сметы
+      taskName = serviceName || estimateName || 'Работа по смете';
+      // Проект можно будет передать дополнительно если нужно
+      projectId = '';
+      projectName = '';
     }
     
     try {
       // Создаем новую сессию работы
       const entry: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'> = {
-        taskId: task.id,
-        taskName: task.task,
-        projectId: task.projectId || '',
-        projectName: task.projectName || '',
+        taskId: taskId,
+        taskName: taskName,
+        projectId: projectId,
+        projectName: projectName,
         estimateId,
         estimateName,
         serviceId,
@@ -237,8 +256,8 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         await updateTimeEntry(currentUser.uid, entryId, { startPhotoUrl });
       }
       
-      // Обновляем статус задачи
-      if (task.status !== 'in_progress') {
+      // Обновляем статус задачи (только для реальных задач)
+      if (!isEstimateTask && task && task.status !== 'in_progress') {
         await changeTaskStatus(currentUser.uid, taskId, 'in_progress');
       }
       
