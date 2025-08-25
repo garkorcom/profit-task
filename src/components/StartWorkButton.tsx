@@ -18,6 +18,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
 import { Project } from '../api/projectApi';
 import { Task } from '../api/taskApi';
+import { Estimate, EstimateItem, getEstimatesStream } from '../api/estimateApi';
 
 interface StartWorkButtonProps {
   projects: Project[];
@@ -40,11 +41,14 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
   const [open, setOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [selectedTask, setSelectedTask] = useState<Task | null>(null);
+  const [selectedEstimate, setSelectedEstimate] = useState<Estimate | null>(null);
+  const [selectedService, setSelectedService] = useState<EstimateItem | null>(null);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [geoLocation, setGeoLocation] = useState<GeolocationPosition | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
-  const [step, setStep] = useState<'project' | 'task' | 'details'>('project');
+  const [step, setStep] = useState<'project' | 'task' | 'estimate' | 'service' | 'details'>('project');
 
   const activeProjects = projects.filter(p => p.status === 'active');
   const projectTasks = selectedProject
@@ -73,12 +77,37 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
 
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
+    // Load estimates for the project
+    if (currentUser) {
+      const unsubscribe = getEstimatesStream(currentUser.uid, project.id, (estimatesList) => {
+        setEstimates(estimatesList.filter(e => e.status === 'approved'));
+      });
+      // Clean up subscription when component unmounts or project changes
+      return () => unsubscribe();
+    }
     setStep('task');
     setError(null);
   };
 
   const handleTaskSelect = (task: Task) => {
     setSelectedTask(task);
+    // If there are approved estimates, show estimate selection
+    if (estimates.length > 0) {
+      setStep('estimate');
+    } else {
+      setStep('details');
+    }
+    setError(null);
+  };
+
+  const handleEstimateSelect = (estimate: Estimate) => {
+    setSelectedEstimate(estimate);
+    setStep('service');
+    setError(null);
+  };
+
+  const handleServiceSelect = (service: EstimateItem) => {
+    setSelectedService(service);
     setStep('details');
     setError(null);
   };
@@ -113,7 +142,11 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
       await startWork(
         selectedTask.id,
         photoFile,
-        geoLocation || undefined
+        geoLocation || undefined,
+        selectedEstimate?.id,
+        selectedEstimate?.name || selectedEstimate?.number,
+        selectedService?.id,
+        selectedService?.name
       );
 
       // Success - close dialog
@@ -121,6 +154,8 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
       setStep('project');
       setSelectedProject(null);
       setSelectedTask(null);
+      setSelectedEstimate(null);
+      setSelectedService(null);
       setPhotoFile(null);
       setGeoLocation(null);
     } catch (error: any) {
@@ -135,8 +170,21 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
     if (step === 'task') {
       setStep('project');
       setSelectedTask(null);
-    } else if (step === 'details') {
+      setEstimates([]);
+    } else if (step === 'estimate') {
       setStep('task');
+      setSelectedEstimate(null);
+    } else if (step === 'service') {
+      setStep('estimate');
+      setSelectedService(null);
+    } else if (step === 'details') {
+      if (selectedService) {
+        setStep('service');
+      } else if (estimates.length > 0) {
+        setStep('estimate');
+      } else {
+        setStep('task');
+      }
     }
     setError(null);
   };
@@ -245,7 +293,75 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
             </Box>
           )}
 
-          {/* Step 3: Details */}
+          {/* Step 3: Select Estimate */}
+          {step === 'estimate' && selectedTask && (
+            <Box sx={{ pt: 2 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Задача: <strong>{selectedTask.task}</strong>
+              </Alert>
+              
+              <Typography variant="subtitle2" gutterBottom>
+                Выберите смету:
+              </Typography>
+              
+              <Box display="flex" flexDirection="column" gap={2}>
+                {estimates.map(estimate => (
+                  <Card key={estimate.id}>
+                    <CardActionArea onClick={() => handleEstimateSelect(estimate)}>
+                      <CardContent>
+                        <Typography variant="h6">
+                          Смета №{estimate.number}
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          {estimate.name || estimate.description}
+                        </Typography>
+                        <Typography variant="caption" color="primary">
+                          Сумма: {(estimate.total || 0).toFixed(2)} ₽
+                        </Typography>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          {/* Step 4: Select Service */}
+          {step === 'service' && selectedEstimate && (
+            <Box sx={{ pt: 2 }}>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Смета: <strong>№{selectedEstimate.number}</strong>
+              </Alert>
+              
+              <Typography variant="subtitle2" gutterBottom>
+                Выберите услугу/работу:
+              </Typography>
+              
+              <Box display="flex" flexDirection="column" gap={1} sx={{ maxHeight: 300, overflow: 'auto' }}>
+                {(selectedEstimate.items || []).map(item => (
+                  <Card key={item.id}>
+                    <CardActionArea onClick={() => handleServiceSelect(item)}>
+                      <CardContent>
+                        <Typography variant="body1">
+                          {item.name}
+                        </Typography>
+                        {item.description && (
+                          <Typography variant="caption" color="text.secondary">
+                            {item.description}
+                          </Typography>
+                        )}
+                        <Typography variant="caption" color="primary">
+                          {item.quantity} {item.unit} × {(item.unitPrice || 0)} ₽
+                        </Typography>
+                      </CardContent>
+                    </CardActionArea>
+                  </Card>
+                ))}
+              </Box>
+            </Box>
+          )}
+
+          {/* Step 5: Details */}
           {step === 'details' && selectedProject && selectedTask && (
             <Box sx={{ pt: 2 }}>
               <Alert severity="success" sx={{ mb: 3 }}>
@@ -255,6 +371,16 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
                 <Typography variant="body2">
                   <strong>Задача:</strong> {selectedTask.task}
                 </Typography>
+                {selectedEstimate && (
+                  <Typography variant="body2">
+                    <strong>Смета:</strong> №{selectedEstimate.number}
+                  </Typography>
+                )}
+                {selectedService && (
+                  <Typography variant="body2">
+                    <strong>Услуга:</strong> {selectedService.name}
+                  </Typography>
+                )}
               </Alert>
 
               <Box display="flex" flexDirection="column" gap={2}>

@@ -32,7 +32,11 @@ interface TimeTrackingContextType {
   startWork: (
     taskId: string,
     startPhoto?: File,
-    location?: GeolocationPosition
+    location?: GeolocationPosition,
+    estimateId?: string,
+    estimateName?: string,
+    serviceId?: string,
+    serviceName?: string
   ) => Promise<void>;
   
   stopWork: (
@@ -169,7 +173,11 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const startWork = async (
     taskId: string,
     startPhoto?: File,
-    location?: GeolocationPosition
+    location?: GeolocationPosition,
+    estimateId?: string,
+    estimateName?: string,
+    serviceId?: string,
+    serviceName?: string
   ) => {
     if (!currentUser) throw new Error('User not authenticated');
     
@@ -194,6 +202,10 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         taskName: task.task,
         projectId: task.projectId || '',
         projectName: task.projectName || '',
+        estimateId,
+        estimateName,
+        serviceId,
+        serviceName,
         employeeId: currentUser.uid,
         employeeName: currentUser.displayName || currentUser.email || '',
         startTime: new Date(),

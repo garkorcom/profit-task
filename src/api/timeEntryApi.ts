@@ -32,6 +32,10 @@ export interface TimeEntry {
   taskName?: string;
   projectId?: string;  // Привязка к проекту через задачу
   projectName?: string;
+  estimateId?: string;  // Привязка к смете
+  estimateName?: string;
+  serviceId?: string;  // ID услуги/позиции из сметы
+  serviceName?: string;
   employeeId: string;  // ID исполнителя
   employeeName?: string;
   
