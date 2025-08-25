@@ -7,11 +7,15 @@ import TasksIcon from '@mui/icons-material/ListAlt';
 import WarehouseIcon from '@mui/icons-material/Inventory';
 import InvoiceIcon from '@mui/icons-material/Receipt';
 import FolderIcon from '@mui/icons-material/Folder';
+import NotificationsIcon from '@mui/icons-material/Notifications';
 import LogoutIcon from '@mui/icons-material/Logout';
+import EstimateIcon from '@mui/icons-material/RequestQuote';
+import CriticalStockBell from '../dashboard/CriticalStockBell';
 
 const navItems = [
   { path: '/', label: 'Главная', value: 'home', icon: <HomeIcon /> },
   { path: '/tasks', label: 'Задачи', value: 'tasks', icon: <TasksIcon /> },
+  { path: '/mobile/estimate', label: 'Сметы', value: 'estimates', icon: <EstimateIcon /> },
   { path: '/products', label: 'Склад', value: 'warehouse', icon: <WarehouseIcon /> },
   { path: '/invoices', label: 'Счета', value: 'invoices', icon: <InvoiceIcon /> },
   { path: '/references', label: 'Справочники', value: 'references', icon: <FolderIcon /> },
@@ -26,7 +30,7 @@ const MainLayout: React.FC = () => {
   // Определяем активный пункт меню, учитывая вложенные маршруты
   const getCurrentNav = () => {
     // Все маршруты справочников должны показывать "Справочники" как активный пункт
-    const referenceRoutes = ['/contractors', '/products', '/warehouses', '/units', '/delivery-methods', '/bank-accounts'];
+    const referenceRoutes = ['/contractors', '/products', '/warehouses', '/shipments', '/units', '/delivery-methods', '/bank-accounts'];
     
     if (referenceRoutes.some(route => location.pathname.startsWith(route))) {
       return navItems.find(item => item.value === 'references') || navItems[0];
@@ -46,6 +50,8 @@ const MainLayout: React.FC = () => {
         return 'Товары и услуги';
       case '/warehouses':
         return 'Склады';
+      case '/shipments':
+        return 'Отгрузки';
       case '/units':
         return 'Единицы измерения';
       case '/delivery-methods':
@@ -62,6 +68,7 @@ const MainLayout: React.FC = () => {
       <AppBar position="sticky">
         <Toolbar>
           <Typography variant="h6" sx={{ flexGrow: 1 }}>{getPageTitle()}</Typography>
+          <CriticalStockBell />
           <Button color="inherit" onClick={logout}><LogoutIcon /></Button>
         </Toolbar>
       </AppBar>
