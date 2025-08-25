@@ -10,14 +10,15 @@ import FolderIcon from '@mui/icons-material/Folder';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import LogoutIcon from '@mui/icons-material/Logout';
 import EstimateIcon from '@mui/icons-material/RequestQuote';
+import TimerIcon from '@mui/icons-material/Timer';
 import CriticalStockBell from '../dashboard/CriticalStockBell';
 
 const navItems = [
   { path: '/', label: 'Главная', value: 'home', icon: <HomeIcon /> },
   { path: '/tasks', label: 'Задачи', value: 'tasks', icon: <TasksIcon /> },
+  { path: '/time-control', label: 'Время', value: 'time', icon: <TimerIcon /> },
   { path: '/mobile/estimate', label: 'Сметы', value: 'estimates', icon: <EstimateIcon /> },
   { path: '/products', label: 'Склад', value: 'warehouse', icon: <WarehouseIcon /> },
-  { path: '/invoices', label: 'Счета', value: 'invoices', icon: <InvoiceIcon /> },
   { path: '/references', label: 'Справочники', value: 'references', icon: <FolderIcon /> },
 ];
 
