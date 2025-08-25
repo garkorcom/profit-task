@@ -2,6 +2,7 @@ import { db } from '../firebase/firebase';
 import {
   collection,
   doc,
+  getDoc,
   updateDoc,
   onSnapshot,
   query,
@@ -14,7 +15,7 @@ import {
 import { reserveForEstimate, unreserveForEstimate } from './productApi';
 
 // Типы, согласованные с UI-конструктором смет
-export type EstimateItemType = 'section' | 'work' | 'material' | 'expense';
+export type EstimateItemType = 'section' | 'work' | 'material' | 'expense' | 'service';
 export type EstimationMethod = 'single' | 'pert';
 
 export interface PertEstimate {
@@ -40,6 +41,7 @@ export interface EstimateItem {
   quantity?: number;
   rate?: number;
   hours?: number;
+  unitPrice?: number; // цена за единицу
   estimationMethod?: EstimationMethod;
   pertEstimate?: PertEstimate;
   // Поля для типа 'material'
@@ -51,6 +53,8 @@ export interface EstimateItem {
   expenseAmount?: number;
   // Итог по позиции
   total: number;
+  // Вложенные элементы
+  children?: EstimateItem[];
 }
 
 /**
@@ -216,7 +220,7 @@ export const updateEstimateStatus = async (
     }
   }
 
-  if (nextStatus === 'rejected' || nextStatus === 'draft' || nextStatus === 'sent' || nextStatus === 'cancelled') {
+  if (nextStatus === 'rejected' || nextStatus === 'draft' || nextStatus === 'sent' || (nextStatus as string) === 'cancelled') {
     // Снимаем резерв
     for (const item of materialItems) {
       const qty = item.materialQuantity || item.quantity || 0;
@@ -279,4 +283,93 @@ export const createShareLink = async (
 ): Promise<string> => {
   // Возвращаем относительный путь до публичной страницы
   return `/public/estimates/${estimateId}`;
+};
+
+/**
+ * Group multiple estimate items under a new parent item
+ */
+export const groupEstimateItems = async (
+  userId: string,
+  estimateId: string,
+  newParentName: string,
+  childItemIds: string[]
+): Promise<Estimate> => {
+  // Get current estimate
+  const estimateDoc = await getDoc(doc(db, `users/${userId}/estimates`, estimateId));
+  if (!estimateDoc.exists()) {
+    throw new Error('Estimate not found');
+  }
+  
+  const estimate = { id: estimateDoc.id, ...estimateDoc.data() } as Estimate;
+  const items = estimate.items || [];
+  
+  // Create new parent item
+  const parentId = `group-${Date.now()}`;
+  const parentItem: EstimateItem = {
+    id: parentId,
+    name: newParentName,
+    quantity: 1,
+    unit: 'компл',
+    unitPrice: 0,
+    total: 0,
+    type: 'service',
+    level: 0,
+    order: 0,
+    children: []
+  };
+  
+  // Update items to set parentId and calculate total
+  let childrenTotal = 0;
+  const updatedItems = items.map(item => {
+    if (childItemIds.includes(item.id)) {
+      childrenTotal += item.total || ((item.quantity || 0) * (item.unitPrice || 0));
+      return { ...item, parentId };
+    }
+    return item;
+  });
+  
+  // Set parent item total
+  parentItem.unitPrice = childrenTotal;
+  parentItem.total = childrenTotal;
+  parentItem.children = updatedItems.filter(i => childItemIds.includes(i.id));
+  
+  // Add parent item and update estimate
+  const finalItems = [parentItem, ...updatedItems];
+  
+  await updateDoc(doc(db, `users/${userId}/estimates`, estimateId), {
+    items: finalItems,
+    updatedAt: serverTimestamp()
+  });
+  
+  return { ...estimate, items: finalItems };
+};
+
+/**
+ * Create new estimate (alias for addEstimate)
+ */
+export const createEstimate = async (
+  userId: string,
+  estimate: Omit<Estimate, 'id'>
+): Promise<string> => {
+  return addEstimate(userId, estimate);
+};
+
+/**
+ * Generate PDF for estimate (stub - requires backend service)
+ */
+export const generateEstimatePDF = async (
+  userId: string,
+  estimateId: string
+): Promise<string> => {
+  // In production, this would call a backend service to generate PDF
+  // For now, return a placeholder URL
+  console.log(`Generating PDF for estimate ${estimateId} for user ${userId}`);
+  
+  // Mock implementation - in real app would call Cloud Function or API
+  const pdfUrl = `https://example.com/estimates/${estimateId}.pdf`;
+  
+  // Simulate API delay
+  await new Promise(resolve => setTimeout(resolve, 1000));
+  
+  return pdfUrl;
 };

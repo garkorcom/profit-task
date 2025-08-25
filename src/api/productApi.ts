@@ -155,6 +155,14 @@ export const addProduct = async (userId: string, product: Omit<Product, 'id'>) =
 };
 
 /**
+ * Create new product (alias for addProduct with return of full product)
+ */
+export const createProduct = async (userId: string, product: Omit<Product, 'id'>): Promise<Product> => {
+  const id = await addProduct(userId, product);
+  return { ...product, id } as Product;
+};
+
+/**
  * Обновить товар
  */
 export const updateProduct = async (userId: string, productId: string, updates: Partial<Product>) => {

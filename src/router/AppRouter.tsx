@@ -23,6 +23,7 @@ import ShipmentsPage from '../pages/ShipmentsPage';
 import StockDocumentsPage from '../pages/StockDocumentsPage';
 import ShipmentDetailsPage from '../pages/ShipmentDetailsPage';
 import NotificationsPage from '../pages/NotificationsPage';
+import MobileEstimatePage from '../pages/MobileEstimatePage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -45,6 +46,7 @@ const AppRouter: React.FC = () => {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId/estimates" element={<ProjectEstimatesPage />} />
             <Route path="/projects/:projectId/estimates/:estimateId" element={<EstimateEditorPage />} />
+            <Route path="/mobile/estimate/:estimateId?" element={<MobileEstimatePage />} />
             <Route path="/references" element={<ReferencesPage />} />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/shipments" element={<ShipmentsPage />} />

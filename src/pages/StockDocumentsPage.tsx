@@ -5,7 +5,7 @@ import { useAuth } from '../auth/AuthContext';
 import { Product, getProductsStream } from '../api/productApi';
 import { getWarehousesStream, Warehouse, goodsReceipt, writeOff, adjustStockToActual } from '../api/inventoryApi';
 import { db } from '../firebase/firebase';
-import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { addDoc, collection, deleteDoc, doc, onSnapshot, orderBy, query, serverTimestamp, updateDoc } from 'firebase/firestore';
 
 // Local types for stock documents (UI layer)
 export interface StockDocumentLine {
@@ -34,13 +34,9 @@ export interface StockDocument {
 const docsPath = (userId: string) => `users/${userId}/stockDocs`;
 const getStockDocumentsStream = (userId: string, cb: (docs: StockDocument[]) => void) => {
   const c = collection(db, docsPath(userId));
-  return onSnapshot(c, (snap) => {
+  const q = query(c, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snap) => {
     const data = snap.docs.map(d => ({ id: d.id, ...(d.data() as any) })) as StockDocument[];
-    // клиентская сортировка
-    data.sort((a: any, b: any) => {
-      const toMs = (v: any) => (typeof v?.toMillis === 'function' ? v.toMillis() : (new Date(v || 0)).getTime());
-      return toMs(b.createdAt) - toMs(a.createdAt);
-    });
     cb(data);
   });
 };

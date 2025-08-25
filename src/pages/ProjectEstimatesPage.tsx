@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, Button, IconButton, Chip, Alert, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
-import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon } from '@mui/icons-material';
+import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, PhoneAndroid as MobileIcon } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { Estimate, getEstimatesStream, deleteEstimate } from '../api/estimateApi';
@@ -105,6 +105,9 @@ const ProjectEstimatesPage: React.FC = () => {
                 <Box display="flex" gap={1}>
                   <IconButton onClick={() => navigate(`/projects/${projectId}/estimates/${estimate.id}`)}>
                     <EditIcon />
+                  </IconButton>
+                  <IconButton color="primary" onClick={() => navigate(`/mobile/estimate/${estimate.id}`)}>
+                    <MobileIcon />
                   </IconButton>
                   <IconButton onClick={() => setConfirmDelete(estimate)}>
                     <DeleteIcon />
