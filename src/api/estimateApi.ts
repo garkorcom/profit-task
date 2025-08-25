@@ -108,10 +108,14 @@ export const getEstimatesStream = (
   const estimatesPath = `users/${userId}/estimates`;
   // Убираем orderBy с сервера, чтобы не требовать композитный индекс.
   // Сортировку по createdAt выполним на клиенте.
-  const q = query(
-    collection(db, estimatesPath),
-    where('projectId', '==', projectId)
-  );
+  
+  // Если projectId пустой, загружаем все сметы
+  const q = projectId 
+    ? query(
+        collection(db, estimatesPath),
+        where('projectId', '==', projectId)
+      )
+    : collection(db, estimatesPath);
 
   return onSnapshot(q, (snapshot) => {
     const estimates = snapshot.docs.map((d) => ({ id: d.id, ...(d.data() as any) })) as Estimate[];

@@ -62,9 +62,24 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
       return;
     }
 
-    const unsubscribe = getEstimatesStream(currentUser.uid, selectedProject.id, (estimatesList) => {
-      const approvedEstimates = estimatesList.filter(e => e.status === 'approved');
-      setEstimates(approvedEstimates);
+    // Временно загружаем ВСЕ сметы, не фильтруя по проекту
+    // Используем пустую строку вместо selectedProject.id
+    const unsubscribe = getEstimatesStream(currentUser.uid, '', (estimatesList) => {
+      console.log('All estimates (not filtered by project):', estimatesList);
+      
+      // Фильтруем по проекту на клиенте
+      const projectEstimates = estimatesList.filter(e => 
+        !e.projectId || e.projectId === selectedProject.id || e.projectId === ''
+      );
+      console.log('Estimates for this project:', projectEstimates);
+      
+      // Показываем все сметы для тестирования (можно потом вернуть фильтр по approved)
+      setEstimates(projectEstimates);
+      
+      if (projectEstimates.length === 0) {
+        console.log('No estimates found, showing all estimates:', estimatesList);
+        setEstimates(estimatesList); // Показываем все сметы если нет привязанных к проекту
+      }
     });
 
     return () => unsubscribe();
@@ -79,6 +94,9 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
     setStep('project');
     setSelectedProject(null);
     setSelectedTask(null);
+    setSelectedEstimate(null);
+    setSelectedService(null);
+    setEstimates([]);
     setPhotoFile(null);
     setGeoLocation(null);
     setError(null);
@@ -99,10 +117,15 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
   const handleTaskSelect = (task: Task) => {
     setSelectedTask(task);
     // If there are approved estimates, show estimate selection
-    console.log('Estimates available:', estimates.length);
+    console.log('Task selected:', task.task);
+    console.log('Current estimates:', estimates);
+    console.log('Estimates count:', estimates.length);
+    
     if (estimates.length > 0) {
+      console.log('Moving to estimate selection step');
       setStep('estimate');
     } else {
+      console.log('No estimates, moving to details step');
       setStep('details');
     }
     setError(null);
@@ -313,6 +336,13 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
               </Typography>
               
               <Box display="flex" flexDirection="column" gap={2}>
+                {estimates.length === 0 && (
+                  <Alert severity="warning">
+                    Нет доступных смет для этого проекта. 
+                    Создайте смету в разделе "Сметы" или продолжите без привязки к смете.
+                  </Alert>
+                )}
+                
                 {estimates.map(estimate => (
                   <Card key={estimate.id}>
                     <CardActionArea onClick={() => handleEstimateSelect(estimate)}>
