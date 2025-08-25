@@ -221,19 +221,19 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         taskName: taskName,
         projectId: projectId,
         projectName: projectName,
-        estimateId,
-        estimateName,
-        serviceId,
-        serviceName,
         employeeId: currentUser.uid,
         employeeName: currentUser.displayName || currentUser.email || '',
         startTime: new Date(),
         status: 'active' as TimeEntryStatus,
+        ...(estimateId && { estimateId }),
+        ...(estimateName && { estimateName }),
+        ...(serviceId && { serviceId }),
+        ...(serviceName && { serviceName }),
         ...(location && {
           startLocation: {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
-            accuracy: location.coords.accuracy || undefined,
+            ...(location.coords.accuracy && { accuracy: location.coords.accuracy }),
             timestamp: new Date(location.timestamp)
           }
         })
@@ -320,14 +320,16 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
           location ? {
             latitude: location.coords.latitude,
             longitude: location.coords.longitude,
-            accuracy: location.coords.accuracy || undefined,
+            ...(location.coords.accuracy && { accuracy: location.coords.accuracy }),
             timestamp: new Date(location.timestamp)
           } : undefined
         );
       }
       
-      // Отправляем задачу на проверку
-      await submitTaskForReview(currentUser.uid, currentTask.id);
+      // Отправляем задачу на проверку (только для реальных задач)
+      if (currentTask && !currentTask.id.startsWith('estimate-')) {
+        await submitTaskForReview(currentUser.uid, currentTask.id);
+      }
       
       // Очищаем состояние
       setCurrentEntry(null);
