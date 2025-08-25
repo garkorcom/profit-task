@@ -33,7 +33,7 @@ import {
 } from '../api/productApi';
 import { Project, getProjectsStream } from '../api/projectApi';
 import { Contractor, getContractorsStream } from '../api/contractorApi';
-import { debounce } from 'lodash';
+import debounce from 'lodash/debounce';
 
 interface MobileEstimateItem extends Omit<EstimateItem, 'type' | 'level' | 'order'> {
   isExpanded?: boolean;
