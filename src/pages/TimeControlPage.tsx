@@ -351,13 +351,21 @@ const TimeControlPage: React.FC = () => {
   };
 
   const handleStartWork = async () => {
-    if (!selectedWorkProject || !selectedWorkTask || !currentUser) {
+    if (!selectedWorkProject || !currentUser) {
+      return;
+    }
+    
+    // Нужна либо задача, либо смета
+    if (!selectedWorkTask && !selectedWorkEstimate) {
       return;
     }
 
     try {
+      // Если выбрана смета но не задача, создаем временную задачу
+      const taskId = selectedWorkTask?.id || `estimate-${selectedWorkEstimate?.id}`;
+      
       await startWork(
-        selectedWorkTask.id,
+        taskId,
         photoFile || undefined,
         geoLocation || undefined,
         selectedWorkEstimate?.id,
@@ -385,15 +393,27 @@ const TimeControlPage: React.FC = () => {
 
   const handleNext = () => {
     if (activeStep === 0 && !selectedWorkProject) return;
-    if (activeStep === 1 && !selectedWorkTask) return;
     
-    // Skip estimate step if no estimates
-    if (activeStep === 1 && estimates.length === 0) {
-      setActiveStep(4);
-    } else if (activeStep === 2 && !selectedWorkEstimate) {
-      setActiveStep(4);
-    } else if (activeStep === 3 && !selectedWorkService) {
-      setActiveStep(4);
+    // На шаге выбора типа работы
+    if (activeStep === 1) {
+      // Переход на соответствующий шаг
+      setActiveStep(prev => prev + 1);
+    } else if (activeStep === 2) {
+      // После выбора задачи или сметы
+      if (selectedWorkTask && !selectedWorkEstimate) {
+        // Если выбрана только задача, переходим к деталям
+        setActiveStep(5);
+      } else if (!selectedWorkTask && selectedWorkEstimate) {
+        // Если выбрана только смета, переходим к выбору услуги
+        setActiveStep(4);
+      } else if (selectedWorkTask && selectedWorkEstimate) {
+        // Если выбраны оба, переходим к выбору услуги
+        setActiveStep(4);
+      }
+    } else if (activeStep === 3 && !selectedWorkEstimate) {
+      setActiveStep(5);
+    } else if (activeStep === 4 && !selectedWorkService) {
+      setActiveStep(5);
     } else {
       setActiveStep(prev => prev + 1);
     }
@@ -1102,7 +1122,73 @@ const TimeControlPage: React.FC = () => {
               </StepContent>
             </Step>
 
-            {/* Step 1: Выбор задачи */}
+            {/* Step 1: Выбор типа работы */}
+            <Step>
+              <StepLabel>Выберите тип учета</StepLabel>
+              <StepContent>
+                <Alert severity="info" sx={{ mb: 2 }}>
+                  Проект: <strong>{selectedWorkProject?.name}</strong>
+                </Alert>
+                
+                <Stack spacing={2}>
+                  <Card 
+                    sx={{ 
+                      cursor: 'pointer',
+                      border: 2,
+                      borderColor: 'transparent',
+                      '&:hover': { borderColor: 'primary.main' }
+                    }}
+                    onClick={() => setActiveStep(2)}
+                  >
+                    <CardContent>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          <TaskIcon />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="h6">По задаче</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Учет времени по конкретной задаче проекта
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                  
+                  <Card 
+                    sx={{ 
+                      cursor: 'pointer',
+                      border: 2,
+                      borderColor: 'transparent',
+                      '&:hover': { borderColor: 'success.main' }
+                    }}
+                    onClick={() => setActiveStep(3)}
+                  >
+                    <CardContent>
+                      <Stack direction="row" spacing={2} alignItems="center">
+                        <Avatar sx={{ bgcolor: 'success.main' }}>
+                          <EstimateIcon />
+                        </Avatar>
+                        <Box>
+                          <Typography variant="h6">По смете</Typography>
+                          <Typography variant="body2" color="text.secondary">
+                            Учет времени по смете и услугам
+                          </Typography>
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Stack>
+                
+                <Box sx={{ mt: 2 }}>
+                  <Button onClick={handleBack} startIcon={<BackIcon />}>
+                    Назад
+                  </Button>
+                </Box>
+              </StepContent>
+            </Step>
+
+            {/* Step 2: Выбор задачи */}
             <Step>
               <StepLabel>Выберите задачу</StepLabel>
               <StepContent>
@@ -1155,16 +1241,16 @@ const TimeControlPage: React.FC = () => {
                     </List>
 
                     <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                      <Button onClick={handleBack} startIcon={<BackIcon />}>
+                      <Button onClick={() => setActiveStep(1)} startIcon={<BackIcon />}>
                         Назад
                       </Button>
                       {selectedWorkTask && (
                         <Button
                           variant="contained"
-                          onClick={handleNext}
+                          onClick={() => setActiveStep(5)}
                           endIcon={<NextIcon />}
                         >
-                          Далее
+                          Далее к деталям
                         </Button>
                       )}
                     </Stack>
@@ -1173,31 +1259,34 @@ const TimeControlPage: React.FC = () => {
               </StepContent>
             </Step>
 
-            {/* Step 2: Выбор сметы (опционально) */}
+            {/* Step 3: Выбор сметы */}
             <Step>
-              <StepLabel optional={<Typography variant="caption">Опционально</Typography>}>
+              <StepLabel>
                 Выберите смету
               </StepLabel>
               <StepContent>
-                {selectedWorkTask && (
+                {selectedWorkProject && (
                   <Box>
                     <Alert severity="info" sx={{ mb: 2 }}>
-                      Задача: <strong>{selectedWorkTask.task}</strong>
+                      Проект: <strong>{selectedWorkProject.name}</strong>
                     </Alert>
 
-                    {estimates.filter(e => e.projectId === selectedWorkProject?.id).length === 0 ? (
+                    {estimates.filter(e => e.projectId === selectedWorkProject?.id || !e.projectId).length === 0 ? (
                       <Alert severity="warning" sx={{ mb: 2 }}>
                         Нет доступных смет для этого проекта
                       </Alert>
                     ) : (
                       <List sx={{ width: '100%' }}>
                         {estimates
-                          .filter(e => e.projectId === selectedWorkProject?.id)
+                          .filter(e => e.projectId === selectedWorkProject?.id || !e.projectId)
                           .map(estimate => (
                             <ListItemButton
                               key={estimate.id}
                               selected={selectedWorkEstimate?.id === estimate.id}
-                              onClick={() => setSelectedWorkEstimate(estimate)}
+                              onClick={() => {
+                                setSelectedWorkEstimate(estimate);
+                                setSelectedWorkTask(null); // Сбрасываем задачу при выборе сметы
+                              }}
                               sx={{
                                 borderRadius: 2,
                                 mb: 1,
@@ -1232,32 +1321,25 @@ const TimeControlPage: React.FC = () => {
                     )}
 
                     <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                      <Button onClick={handleBack} startIcon={<BackIcon />}>
+                      <Button onClick={() => setActiveStep(1)} startIcon={<BackIcon />}>
                         Назад
                       </Button>
                       {selectedWorkEstimate && (
                         <Button
                           variant="contained"
-                          onClick={handleNext}
+                          onClick={() => setActiveStep(4)}
                           endIcon={<NextIcon />}
                         >
-                          Далее
+                          Выбрать услугу
                         </Button>
                       )}
-                      <Button
-                        variant="outlined"
-                        onClick={handleSkip}
-                        startIcon={<SkipIcon />}
-                      >
-                        Пропустить
-                      </Button>
                     </Stack>
                   </Box>
                 )}
               </StepContent>
             </Step>
 
-            {/* Step 3: Выбор услуги (опционально) */}
+            {/* Step 4: Выбор услуги (опционально) */}
             <Step>
               <StepLabel optional={<Typography variant="caption">Опционально</Typography>}>
                 Выберите услугу
@@ -1308,24 +1390,15 @@ const TimeControlPage: React.FC = () => {
                     </List>
 
                     <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                      <Button onClick={handleBack} startIcon={<BackIcon />}>
+                      <Button onClick={() => setActiveStep(3)} startIcon={<BackIcon />}>
                         Назад
                       </Button>
-                      {selectedWorkService && (
-                        <Button
-                          variant="contained"
-                          onClick={handleNext}
-                          endIcon={<NextIcon />}
-                        >
-                          Далее
-                        </Button>
-                      )}
                       <Button
-                        variant="outlined"
-                        onClick={handleSkip}
-                        startIcon={<SkipIcon />}
+                        variant="contained"
+                        onClick={() => setActiveStep(5)}
+                        endIcon={<NextIcon />}
                       >
-                        Пропустить
+                        {selectedWorkService ? 'Далее к деталям' : 'Пропустить выбор услуги'}
                       </Button>
                     </Stack>
                   </Box>
@@ -1333,7 +1406,7 @@ const TimeControlPage: React.FC = () => {
               </StepContent>
             </Step>
 
-            {/* Step 4: Детали */}
+            {/* Step 5: Детали */}
             <Step>
               <StepLabel>Детали работы</StepLabel>
               <StepContent>
@@ -1350,10 +1423,12 @@ const TimeControlPage: React.FC = () => {
                       <Typography variant="body1">{selectedWorkProject?.name}</Typography>
                     </Box>
 
-                    <Box>
-                      <Typography variant="subtitle2" gutterBottom>Задача:</Typography>
-                      <Typography variant="body1">{selectedWorkTask?.task}</Typography>
-                    </Box>
+                    {selectedWorkTask && (
+                      <Box>
+                        <Typography variant="subtitle2" gutterBottom>Задача:</Typography>
+                        <Typography variant="body1">{selectedWorkTask.task}</Typography>
+                      </Box>
+                    )}
 
                     {selectedWorkEstimate && (
                       <Box>
@@ -1404,14 +1479,26 @@ const TimeControlPage: React.FC = () => {
                 </Paper>
 
                 <Stack direction="row" spacing={2}>
-                  <Button onClick={handleBack} startIcon={<BackIcon />}>
+                  <Button 
+                    onClick={() => {
+                      // Возвращаемся к соответствующему шагу
+                      if (selectedWorkTask) {
+                        setActiveStep(2);
+                      } else if (selectedWorkEstimate) {
+                        setActiveStep(4);
+                      } else {
+                        setActiveStep(1);
+                      }
+                    }} 
+                    startIcon={<BackIcon />}
+                  >
                     Назад
                   </Button>
                   <Button
                     variant="contained"
                     onClick={handleStartWork}
                     startIcon={<PlayIcon />}
-                    disabled={!selectedWorkProject || !selectedWorkTask}
+                    disabled={!selectedWorkProject || (!selectedWorkTask && !selectedWorkEstimate)}
                   >
                     Начать работу
                   </Button>
