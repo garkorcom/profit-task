@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import {
   Button,
   Dialog,
@@ -55,6 +55,21 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
     ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'completed' && t.status !== 'cancelled')
     : [];
 
+  // Load estimates when project is selected
+  useEffect(() => {
+    if (!selectedProject || !currentUser) {
+      setEstimates([]);
+      return;
+    }
+
+    const unsubscribe = getEstimatesStream(currentUser.uid, selectedProject.id, (estimatesList) => {
+      const approvedEstimates = estimatesList.filter(e => e.status === 'approved');
+      setEstimates(approvedEstimates);
+    });
+
+    return () => unsubscribe();
+  }, [selectedProject, currentUser]);
+
   const handleOpen = () => {
     if (isWorking) {
       setError('Уже идет учет времени. Завершите текущую работу перед началом новой.');
@@ -77,14 +92,6 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
 
   const handleProjectSelect = (project: Project) => {
     setSelectedProject(project);
-    // Load estimates for the project
-    if (currentUser) {
-      const unsubscribe = getEstimatesStream(currentUser.uid, project.id, (estimatesList) => {
-        setEstimates(estimatesList.filter(e => e.status === 'approved'));
-      });
-      // Clean up subscription when component unmounts or project changes
-      return () => unsubscribe();
-    }
     setStep('task');
     setError(null);
   };
@@ -92,6 +99,7 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
   const handleTaskSelect = (task: Task) => {
     setSelectedTask(task);
     // If there are approved estimates, show estimate selection
+    console.log('Estimates available:', estimates.length);
     if (estimates.length > 0) {
       setStep('estimate');
     } else {
@@ -322,6 +330,19 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
                     </CardActionArea>
                   </Card>
                 ))}
+                
+                {/* Кнопка пропустить */}
+                <Button 
+                  variant="outlined" 
+                  onClick={() => {
+                    setSelectedEstimate(null);
+                    setSelectedService(null);
+                    setStep('details');
+                  }}
+                  sx={{ mt: 1 }}
+                >
+                  Работать без привязки к смете
+                </Button>
               </Box>
             </Box>
           )}
@@ -357,6 +378,18 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({
                     </CardActionArea>
                   </Card>
                 ))}
+                
+                {/* Кнопка пропустить выбор услуги */}
+                <Button 
+                  variant="outlined" 
+                  onClick={() => {
+                    setSelectedService(null);
+                    setStep('details');
+                  }}
+                  sx={{ mt: 1 }}
+                >
+                  Работать без выбора конкретной услуги
+                </Button>
               </Box>
             </Box>
           )}
