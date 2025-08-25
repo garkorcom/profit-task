@@ -293,7 +293,8 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                       onClick={() => {
                         setSelectedProject(project);
                         setSelectedTask(null);
-                        handleNext();
+                        setSelectedEstimate(null);
+                        setSelectedService(null);
                       }}
                       sx={{ 
                         borderRadius: 2, 
@@ -317,6 +318,17 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                     </ListItemButton>
                   ))}
                 </List>
+                {selectedProject && (
+                  <Box sx={{ mt: 2 }}>
+                    <Button 
+                      variant="contained" 
+                      onClick={handleNext}
+                      endIcon={<NextIcon />}
+                    >
+                      Далее
+                    </Button>
+                  </Box>
+                )}
               </StepContent>
             </Step>
 
@@ -339,7 +351,6 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                           selected={selectedTask?.id === task.id}
                           onClick={() => {
                             setSelectedTask(task);
-                            handleNext();
                           }}
                           sx={{ 
                             borderRadius: 2, 
@@ -375,11 +386,20 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                       ))}
                     </List>
 
-                    <Box sx={{ mt: 2 }}>
-                      <Button onClick={handleBack}>
+                    <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                      <Button onClick={handleBack} startIcon={<BackIcon />}>
                         Назад
                       </Button>
-                    </Box>
+                      {selectedTask && (
+                        <Button 
+                          variant="contained" 
+                          onClick={handleNext}
+                          endIcon={<NextIcon />}
+                        >
+                          Далее
+                        </Button>
+                      )}
+                    </Stack>
                   </Box>
                 )}
               </StepContent>
@@ -411,7 +431,6 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                             selected={selectedEstimate?.id === estimate.id}
                             onClick={() => {
                               setSelectedEstimate(estimate);
-                              handleNext();
                             }}
                             sx={{ 
                               borderRadius: 2, 
@@ -447,9 +466,18 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                     )}
 
                     <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                      <Button onClick={handleBack}>
+                      <Button onClick={handleBack} startIcon={<BackIcon />}>
                         Назад
                       </Button>
+                      {selectedEstimate && (
+                        <Button 
+                          variant="contained" 
+                          onClick={handleNext}
+                          endIcon={<NextIcon />}
+                        >
+                          Далее
+                        </Button>
+                      )}
                       <Button 
                         variant="outlined" 
                         onClick={handleSkip}
@@ -484,7 +512,6 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                           selected={selectedService?.id === item.id}
                           onClick={() => {
                             setSelectedService(item);
-                            handleNext();
                           }}
                           sx={{ 
                             borderRadius: 2, 
@@ -519,9 +546,18 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                     </List>
 
                     <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
-                      <Button onClick={handleBack}>
+                      <Button onClick={handleBack} startIcon={<BackIcon />}>
                         Назад
                       </Button>
+                      {selectedService && (
+                        <Button 
+                          variant="contained" 
+                          onClick={handleNext}
+                          endIcon={<NextIcon />}
+                        >
+                          Далее
+                        </Button>
+                      )}
                       <Button 
                         variant="outlined" 
                         onClick={handleSkip}
@@ -605,11 +641,20 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                   </Stack>
                 </Paper>
 
-                <Box sx={{ mt: 2 }}>
-                  <Button onClick={handleBack} sx={{ mr: 2 }}>
+                <Stack direction="row" spacing={2} sx={{ mt: 2 }}>
+                  <Button onClick={handleBack} startIcon={<BackIcon />}>
                     Назад
                   </Button>
-                </Box>
+                  <Button
+                    variant="contained"
+                    onClick={handleStart}
+                    disabled={loading || !selectedProject || !selectedTask}
+                    startIcon={loading ? <CircularProgress size={20} /> : <StartIcon />}
+                    size="large"
+                  >
+                    {loading ? 'Начинаем...' : 'Начать работу'}
+                  </Button>
+                </Stack>
               </StepContent>
             </Step>
           </Stepper>
@@ -619,18 +664,6 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
           <Button onClick={handleClose} disabled={loading}>
             Отмена
           </Button>
-          {activeStep === 4 && (
-            <Button
-              variant="contained"
-              onClick={handleStart}
-              disabled={loading || !selectedProject || !selectedTask}
-              startIcon={loading ? <CircularProgress size={20} /> : <StartIcon />}
-              size="large"
-              sx={{ px: 4 }}
-            >
-              {loading ? 'Начинаем...' : 'Начать работу'}
-            </Button>
-          )}
         </DialogActions>
       </Dialog>
     </>
