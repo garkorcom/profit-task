@@ -5,7 +5,6 @@ import {
   Typography,
   Card,
   CardContent,
-  Grid,
   Button,
   Stack,
   Alert,
@@ -64,7 +63,45 @@ import {
 import { getProjectsStream, Project } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
 import { getEstimatesStream, Estimate } from '../api/estimateApi';
-import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isToday, isThisWeek, isThisMonth } from 'date-fns';
+// import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isToday, isThisWeek, isThisMonth } from 'date-fns';
+
+// Временные функции для работы с датами
+const format = (date: Date, formatString: string): string => {
+  const d = new Date(date);
+  const day = d.getDate().toString().padStart(2, '0');
+  const month = (d.getMonth() + 1).toString().padStart(2, '0');
+  const year = d.getFullYear();
+  const hours = d.getHours().toString().padStart(2, '0');
+  const minutes = d.getMinutes().toString().padStart(2, '0');
+  
+  if (formatString === 'dd.MM.yyyy HH:mm') {
+    return `${day}.${month}.${year} ${hours}:${minutes}`;
+  }
+  return `${year}-${month}-${day}`;
+};
+
+const isToday = (date: Date): boolean => {
+  const today = new Date();
+  const d = new Date(date);
+  return d.toDateString() === today.toDateString();
+};
+
+const isThisWeek = (date: Date, options?: any): boolean => {
+  const now = new Date();
+  const weekStart = new Date(now);
+  weekStart.setDate(now.getDate() - now.getDay() + 1);
+  weekStart.setHours(0, 0, 0, 0);
+  const weekEnd = new Date(weekStart);
+  weekEnd.setDate(weekStart.getDate() + 7);
+  const d = new Date(date);
+  return d >= weekStart && d < weekEnd;
+};
+
+const isThisMonth = (date: Date): boolean => {
+  const now = new Date();
+  const d = new Date(date);
+  return d.getMonth() === now.getMonth() && d.getFullYear() === now.getFullYear();
+};
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -390,7 +427,7 @@ const TimeControlPage: React.FC = () => {
                       variant="contained"
                       size="large"
                       startIcon={<PauseIcon />}
-                      onClick={pauseWork}
+                      onClick={() => pauseWork()}
                       sx={{ bgcolor: 'white', color: 'warning.main' }}
                     >
                       Пауза
@@ -400,7 +437,7 @@ const TimeControlPage: React.FC = () => {
                     variant="contained"
                     size="large"
                     startIcon={<StopIcon />}
-                    onClick={stopWork}
+                    onClick={() => stopWork()}
                     sx={{ bgcolor: 'white', color: 'error.main' }}
                   >
                     Завершить
@@ -412,8 +449,8 @@ const TimeControlPage: React.FC = () => {
         )}
 
         {/* Статистика */}
-        <Grid container spacing={3} mb={3}>
-          <Grid item xs={12} md={3}>
+        <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(4, 1fr)' }, gap: 3, mb: 3 }}>
+          <Box>
             <Card>
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -431,9 +468,9 @@ const TimeControlPage: React.FC = () => {
                 </Stack>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
           
-          <Grid item xs={12} md={3}>
+          <Box>
             <Card>
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -451,9 +488,9 @@ const TimeControlPage: React.FC = () => {
                 </Stack>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
           
-          <Grid item xs={12} md={3}>
+          <Box>
             <Card>
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -471,9 +508,9 @@ const TimeControlPage: React.FC = () => {
                 </Stack>
               </CardContent>
             </Card>
-          </Grid>
+          </Box>
           
-          <Grid item xs={12} md={3}>
+          <Box>
             <Card>
               <CardContent>
                 <Stack direction="row" justifyContent="space-between" alignItems="center">
@@ -491,8 +528,8 @@ const TimeControlPage: React.FC = () => {
                 </Stack>
               </CardContent>
             </Card>
-          </Grid>
-        </Grid>
+          </Box>
+        </Box>
 
         {/* Табы */}
         <Box sx={{ borderBottom: 1, borderColor: 'divider', mb: 3 }}>
@@ -622,15 +659,14 @@ const TimeControlPage: React.FC = () => {
 
         {/* Проекты */}
         <TabPanel value={tabValue} index={1}>
-          <Grid container spacing={3}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
             {projects.map(project => {
               const projectEntries = timeEntries.filter(e => e.projectId === project.id);
               const projectHours = projectEntries.reduce((sum, e) => sum + (e.duration || 0), 0) / 60;
               const projectTasks = tasks.filter(t => t.projectId === project.id);
               
               return (
-                <Grid item xs={12} md={6} key={project.id}>
-                  <Card>
+                <Card key={project.id}>
                     <CardContent>
                       <Typography variant="h6" gutterBottom>
                         {project.name}
@@ -663,22 +699,20 @@ const TimeControlPage: React.FC = () => {
                       </Stack>
                     </CardContent>
                   </Card>
-                </Grid>
               );
             })}
-          </Grid>
+          </Box>
         </TabPanel>
 
         {/* Сметы */}
         <TabPanel value={tabValue} index={2}>
-          <Grid container spacing={3}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(2, 1fr)' }, gap: 3 }}>
             {estimates.map(estimate => {
               const estimateEntries = timeEntries.filter(e => e.estimateId === estimate.id);
               const estimateHours = estimateEntries.reduce((sum, e) => sum + (e.duration || 0), 0) / 60;
               
               return (
-                <Grid item xs={12} md={6} key={estimate.id}>
-                  <Card>
+                <Card key={estimate.id}>
                     <CardContent>
                       <Stack direction="row" justifyContent="space-between" alignItems="center" mb={2}>
                         <Typography variant="h6">
@@ -748,16 +782,15 @@ const TimeControlPage: React.FC = () => {
                       </Stack>
                     </CardContent>
                   </Card>
-                </Grid>
               );
             })}
-          </Grid>
+          </Box>
         </TabPanel>
 
         {/* Аналитика */}
         <TabPanel value={tabValue} index={3}>
-          <Grid container spacing={3}>
-            <Grid item xs={12} md={4}>
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', md: 'repeat(3, 1fr)' }, gap: 3 }}>
+            <Box>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -794,9 +827,9 @@ const TimeControlPage: React.FC = () => {
                   </List>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={4}>
+            <Box>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -828,9 +861,9 @@ const TimeControlPage: React.FC = () => {
                   </List>
                 </CardContent>
               </Card>
-            </Grid>
+            </Box>
 
-            <Grid item xs={12} md={4}>
+            <Box>
               <Card>
                 <CardContent>
                   <Typography variant="h6" gutterBottom>
@@ -864,8 +897,8 @@ const TimeControlPage: React.FC = () => {
                   </Stack>
                 </CardContent>
               </Card>
-            </Grid>
-          </Grid>
+            </Box>
+          </Box>
         </TabPanel>
       </Box>
     </Container>
