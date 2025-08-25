@@ -9,6 +9,7 @@ export const createTestEstimate = async (userId: string, projectId: string) => {
     projectId: projectId,
     contractorId: '',
     status: 'draft' as const,
+    subtotal: 6000,
     items: [
       {
         id: 'item-1',

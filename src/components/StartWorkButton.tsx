@@ -358,9 +358,9 @@ const StartWorkButton: React.FC<StartWorkButtonProps> = ({ projects, tasks }) =>
                             secondary={
                               <Stack direction="row" spacing={1} alignItems="center">
                                 <Chip 
-                                  label={task.status} 
+                                  label={task.status || 'new'} 
                                   size="small" 
-                                  color={getTaskStatusColor(task.status)}
+                                  color={getTaskStatusColor(task.status || 'new')}
                                 />
                                 <Typography variant="caption">
                                   Приоритет: {task.priority}

@@ -10,7 +10,7 @@ import {
   Alert,
   Chip,
   Stack,
-  Grid
+  Grid2 as Grid
 } from '@mui/material';
 import { useAuth } from '../auth/AuthContext';
 import { 
@@ -61,6 +61,7 @@ const EstimatesDebugPage: React.FC = () => {
         projectId: projectId || projects[0]?.id || '',
         contractorId: '',
         status: 'draft' as const,
+        subtotal: 6000,
         items: [
           {
             id: 'item-1',
@@ -126,7 +127,7 @@ const EstimatesDebugPage: React.FC = () => {
     }
   };
 
-  const getStatusColor = (status: string) => {
+  const getStatusColor = (status: string | undefined): 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning' => {
     switch (status) {
       case 'draft': return 'default';
       case 'sent': return 'info';
@@ -188,7 +189,7 @@ const EstimatesDebugPage: React.FC = () => {
 
         <Grid container spacing={2}>
           {estimates.map(estimate => (
-            <Grid item xs={12} md={6} key={estimate.id}>
+            <Grid size={{ xs: 12, md: 6 }} key={estimate.id}>
               <Card>
                 <CardContent>
                   <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={1}>
