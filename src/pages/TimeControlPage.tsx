@@ -177,9 +177,14 @@ const TimeControlPage: React.FC = () => {
   const [geoLocation, setGeoLocation] = useState<GeolocationPosition | null>(null);
   const [startingWork, setStartingWork] = useState(false);
   const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  const [accountingType, setAccountingType] = useState<'task' | 'estimate' | null>(null);
   
   // Хук валидации
   const { validateTimeEntry } = useFirebaseValidation();
+  
+  // Фильтруем задачи и сметы для выбранного проекта
+  const projectTasks = tasks.filter(t => t.projectId === selectedWorkProject?.id);
+  const projectEstimates = estimates.filter(e => e.projectId === selectedWorkProject?.id);
 
   // Статистика
   const [stats, setStats] = useState({
@@ -434,13 +439,34 @@ const TimeControlPage: React.FC = () => {
     setSelectedWorkService(null);
     setPhotoFile(null);
     setGeoLocation(null);
+    setAccountingType(null);
+    setValidationErrors([]);
   };
 
   const handleNext = () => {
     if (activeStep === 0 && !selectedWorkProject) return;
     
+    // После выбора проекта
+    if (activeStep === 0) {
+      // Проверяем доступные варианты
+      if (projectTasks.length === 0 && projectEstimates.length === 0) {
+        // Нет ни задач, ни смет - показываем шаг с предложением создать
+        setActiveStep(1);
+      } else if (projectTasks.length > 0 && projectEstimates.length === 0) {
+        // Есть только задачи - пропускаем выбор типа и идем сразу к задачам
+        setAccountingType('task');
+        setActiveStep(2);
+      } else if (projectTasks.length === 0 && projectEstimates.length > 0) {
+        // Есть только сметы - пропускаем выбор типа и идем сразу к сметам
+        setAccountingType('estimate');
+        setActiveStep(3);
+      } else {
+        // Есть и задачи, и сметы - показываем выбор типа
+        setActiveStep(1);
+      }
+    }
     // На шаге выбора типа работы
-    if (activeStep === 1) {
+    else if (activeStep === 1) {
       // Переход на соответствующий шаг
       setActiveStep(prev => prev + 1);
     } else if (activeStep === 2) {
@@ -1185,57 +1211,132 @@ const TimeControlPage: React.FC = () => {
               <StepContent>
                 <Alert severity="info" sx={{ mb: 2 }}>
                   Проект: <strong>{selectedWorkProject?.name}</strong>
+                  {projectTasks.length > 0 && projectEstimates.length === 0 && (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Автоматически выбран учет по задачам (сметы отсутствуют)
+                      </Typography>
+                    </Box>
+                  )}
+                  {projectTasks.length === 0 && projectEstimates.length > 0 && (
+                    <Box sx={{ mt: 0.5 }}>
+                      <Typography variant="caption" color="text.secondary">
+                        Автоматически выбран учет по сметам (задачи отсутствуют)
+                      </Typography>
+                    </Box>
+                  )}
                 </Alert>
                 
                 <Stack spacing={2}>
                   <Card 
                     sx={{ 
-                      cursor: 'pointer',
+                      cursor: projectTasks.length > 0 ? 'pointer' : 'default',
                       border: 2,
                       borderColor: 'transparent',
-                      '&:hover': { borderColor: 'primary.main' }
+                      opacity: projectTasks.length === 0 ? 0.6 : 1,
+                      '&:hover': projectTasks.length > 0 ? { borderColor: 'primary.main' } : {}
                     }}
-                    onClick={() => setActiveStep(2)}
+                    onClick={() => projectTasks.length > 0 && setActiveStep(2)}
                   >
                     <CardContent>
                       <Stack direction="row" spacing={2} alignItems="center">
                         <Avatar sx={{ bgcolor: 'primary.main' }}>
                           <TaskIcon />
                         </Avatar>
-                        <Box>
+                        <Box flex={1}>
                           <Typography variant="h6">По задаче</Typography>
                           <Typography variant="body2" color="text.secondary">
                             Учет времени по конкретной задаче проекта
                           </Typography>
                         </Box>
+                        {projectTasks.length > 0 ? (
+                          <Chip 
+                            label={`${projectTasks.length} ${projectTasks.length === 1 ? 'задача' : projectTasks.length < 5 ? 'задачи' : 'задач'}`}
+                            color="primary"
+                            size="small"
+                          />
+                        ) : (
+                          <Chip 
+                            label="Нет задач"
+                            color="default"
+                            size="small"
+                          />
+                        )}
                       </Stack>
                     </CardContent>
                   </Card>
                   
                   <Card 
                     sx={{ 
-                      cursor: 'pointer',
+                      cursor: projectEstimates.length > 0 ? 'pointer' : 'default',
                       border: 2,
                       borderColor: 'transparent',
-                      '&:hover': { borderColor: 'success.main' }
+                      opacity: projectEstimates.length === 0 ? 0.6 : 1,
+                      '&:hover': projectEstimates.length > 0 ? { borderColor: 'success.main' } : {}
                     }}
-                    onClick={() => setActiveStep(3)}
+                    onClick={() => projectEstimates.length > 0 && setActiveStep(3)}
                   >
                     <CardContent>
                       <Stack direction="row" spacing={2} alignItems="center">
                         <Avatar sx={{ bgcolor: 'success.main' }}>
                           <EstimateIcon />
                         </Avatar>
-                        <Box>
+                        <Box flex={1}>
                           <Typography variant="h6">По смете</Typography>
                           <Typography variant="body2" color="text.secondary">
                             Учет времени по смете и услугам
                           </Typography>
                         </Box>
+                        {projectEstimates.length > 0 ? (
+                          <Chip 
+                            label={`${projectEstimates.length} ${projectEstimates.length === 1 ? 'смета' : projectEstimates.length < 5 ? 'сметы' : 'смет'}`}
+                            color="success"
+                            size="small"
+                          />
+                        ) : (
+                          <Chip 
+                            label="Нет смет"
+                            color="default"
+                            size="small"
+                          />
+                        )}
                       </Stack>
                     </CardContent>
                   </Card>
                 </Stack>
+                
+                {/* Предложение создать, если нет данных */}
+                {projectTasks.length === 0 && projectEstimates.length === 0 && (
+                  <Alert severity="warning" sx={{ mt: 2 }}>
+                    <AlertTitle>Нет доступных задач или смет</AlertTitle>
+                    Для проекта "{selectedWorkProject?.name}" еще не созданы задачи или сметы.
+                    <Box sx={{ mt: 1 }}>
+                      <Button 
+                        size="small" 
+                        variant="outlined"
+                        onClick={() => {
+                          setStartDialogOpen(false);
+                          // Переход на страницу задач
+                          window.location.href = '/tasks';
+                        }}
+                      >
+                        Создать задачу
+                      </Button>
+                      <Button 
+                        size="small" 
+                        variant="outlined"
+                        sx={{ ml: 1 }}
+                        onClick={() => {
+                          setStartDialogOpen(false);
+                          // Переход на страницу смет
+                          window.location.href = '/mobile/estimate';
+                        }}
+                      >
+                        Создать смету
+                      </Button>
+                    </Box>
+                  </Alert>
+                )}
                 
                 <Box sx={{ mt: 2 }}>
                   <Button onClick={handleBack} startIcon={<BackIcon />}>
