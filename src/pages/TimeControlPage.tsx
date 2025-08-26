@@ -41,7 +41,8 @@ import {
   StepContent,
   ListItemButton,
   Fab,
-  CircularProgress
+  CircularProgress,
+  AlertTitle
 } from '@mui/material';
 import {
   Timer as TimerIcon,
@@ -80,6 +81,7 @@ import {
 import { getProjectsStream, Project } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
 import { getEstimatesStream, Estimate } from '../api/estimateApi';
+import { useFirebaseValidation } from '../utils/firebaseConverters';
 // import { format, startOfWeek, endOfWeek, startOfMonth, endOfMonth, isToday, isThisWeek, isThisMonth } from 'date-fns';
 
 // Временные функции для работы с датами
@@ -174,6 +176,10 @@ const TimeControlPage: React.FC = () => {
   const [photoFile, setPhotoFile] = useState<File | null>(null);
   const [geoLocation, setGeoLocation] = useState<GeolocationPosition | null>(null);
   const [startingWork, setStartingWork] = useState(false);
+  const [validationErrors, setValidationErrors] = useState<string[]>([]);
+  
+  // Хук валидации
+  const { validateTimeEntry } = useFirebaseValidation();
 
   // Статистика
   const [stats, setStats] = useState({
@@ -354,24 +360,52 @@ const TimeControlPage: React.FC = () => {
 
   const handleStartWork = async () => {
     if (!selectedWorkProject || !currentUser) {
+      setValidationErrors(['Выберите проект']);
       return;
     }
     
     // Нужна либо задача, либо смета
     if (!selectedWorkTask && !selectedWorkEstimate) {
+      setValidationErrors(['Выберите задачу или смету']);
       return;
     }
 
+    // Создаем объект для валидации
+    const taskId = selectedWorkTask?.id || `estimate-${selectedWorkEstimate?.id}`;
+    const taskName = selectedWorkTask?.task || 
+                    selectedWorkService?.name || 
+                    selectedWorkEstimate?.name || 
+                    'Работа по смете';
+    
+    const estimateName = selectedWorkEstimate ? 
+      `${selectedWorkEstimate.name || `Смета №${selectedWorkEstimate.number}`}` : 
+      undefined;
+    
+    // Валидируем данные перед отправкой
+    const entryToValidate = {
+      taskId,
+      taskName,
+      employeeId: currentUser?.uid || '',
+      employeeName: currentUser?.displayName || currentUser?.email || '',
+      status: 'active' as const,
+      projectId: selectedWorkProject?.id || '',
+      projectName: selectedWorkProject?.name || '',
+      estimateId: selectedWorkEstimate?.id,
+      estimateName,
+      serviceId: selectedWorkService?.id,
+      serviceName: selectedWorkService?.name
+    };
+    
+    const errors = validateTimeEntry(entryToValidate);
+    if (errors.length > 0) {
+      setValidationErrors(errors);
+      return;
+    }
+    
+    setValidationErrors([]);
     setStartingWork(true);
+    
     try {
-      // Если выбрана смета но не задача, создаем временную задачу
-      const taskId = selectedWorkTask?.id || `estimate-${selectedWorkEstimate?.id}`;
-      
-      // Для виртуальной задачи передаем имя как часть ID
-      const estimateName = selectedWorkEstimate ? 
-        `${selectedWorkEstimate.name || `Смета №${selectedWorkEstimate.number}`}` : 
-        undefined;
-      
       await startWork(
         taskId,
         photoFile || undefined,
@@ -386,7 +420,7 @@ const TimeControlPage: React.FC = () => {
       resetStartDialog();
     } catch (error) {
       console.error('Error starting work:', error);
-      alert('Ошибка при начале работы: ' + (error as Error).message);
+      setValidationErrors([`Ошибка: ${(error as Error).message}`]);
     } finally {
       setStartingWork(false);
     }
@@ -1081,6 +1115,18 @@ const TimeControlPage: React.FC = () => {
         </DialogTitle>
         
         <DialogContent>
+          {/* Показываем ошибки валидации */}
+          {validationErrors.length > 0 && (
+            <Alert severity="error" sx={{ mb: 2 }} onClose={() => setValidationErrors([])}>
+              <AlertTitle>Ошибки валидации</AlertTitle>
+              <ul style={{ margin: 0, paddingLeft: 20 }}>
+                {validationErrors.map((error, index) => (
+                  <li key={index}>{error}</li>
+                ))}
+              </ul>
+            </Alert>
+          )}
+          
           <Stepper activeStep={activeStep} orientation="vertical" sx={{ mt: 2 }}>
             {/* Step 0: Выбор проекта */}
             <Step>

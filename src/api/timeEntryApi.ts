@@ -18,6 +18,12 @@ import {
   getDocs
 } from 'firebase/firestore';
 import { ref, uploadBytes, getDownloadURL } from 'firebase/storage';
+import { 
+  toFirebaseTimeEntry, 
+  safeFirebaseOperation,
+  toFirebaseLocation 
+} from '../utils/firebaseConverters';
+import { validateForFirebase } from '../types/firebase.types';
 
 /**
  * Утилита для очистки объекта от undefined значений
@@ -126,21 +132,18 @@ export const createTimeEntry = async (
   userId: string,
   entry: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'>
 ): Promise<string> => {
-  const entriesPath = `users/${userId}/timeEntries`;
-  
-  // Очищаем объект от undefined значений
-  const cleanEntry = cleanUndefinedValues(entry);
-  
-  const entryWithTimestamp = {
-    ...cleanEntry,
-    status: 'active' as TimeEntryStatus,
-    startTime: serverTimestamp(),
-    createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp()
-  };
-  
-  const docRef = await addDoc(collection(db, entriesPath), entryWithTimestamp);
-  return docRef.id;
+  return safeFirebaseOperation(async () => {
+    const entriesPath = `users/${userId}/timeEntries`;
+    
+    // Преобразуем в Firebase формат с валидацией
+    const firebaseEntry = toFirebaseTimeEntry(entry, { isNew: true });
+    
+    // Дополнительная очистка на всякий случай
+    const cleanEntry = cleanUndefinedValues(firebaseEntry);
+    
+    const docRef = await addDoc(collection(db, entriesPath), cleanEntry);
+    return docRef.id;
+  }, 'Failed to create time entry');
 };
 
 /**
