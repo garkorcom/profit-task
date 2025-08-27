@@ -22,7 +22,9 @@ import {
   List,
   ListItem,
   ListItemText,
-  ListItemSecondaryAction
+  ListItemSecondaryAction,
+  InputAdornment,
+  SelectChangeEvent
 } from '@mui/material';
 import { GridLegacy as Grid } from '@mui/material';
 import {
@@ -61,6 +63,8 @@ const UserProfilePage: React.FC = () => {
     preferredNotificationChannel: 'email'
   });
 
+  const [formErrors, setFormErrors] = useState<{ [key: string]: string }>({});
+
   useEffect(() => {
     if (userProfile) {
       setFormData({
@@ -70,7 +74,8 @@ const UserProfilePage: React.FC = () => {
         position: userProfile.position || '',
         whatsappPhone: userProfile.whatsappPhone || '',
         telegramUsername: userProfile.telegramUsername || '',
-        preferredNotificationChannel: userProfile.preferredNotificationChannel || 'email'
+        preferredNotificationChannel: userProfile.preferredNotificationChannel || 'email',
+        hourlyRate: userProfile.hourlyRate || 0, // Добавляем hourlyRate
       });
     }
   }, [userProfile]);
@@ -92,12 +97,53 @@ const UserProfilePage: React.FC = () => {
     };
   }, [currentUser]);
 
+  const handleChange = (e: React.ChangeEvent<HTMLInputElement | { name?: string; value: unknown }>) => {
+    const name = e.target.name as keyof typeof formData;
+    const value = e.target.value;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleSelectChange = (e: SelectChangeEvent<any>) => {
+    const { name, value } = e.target;
+    setFormData(prev => ({ ...prev, [name]: value }));
+  };
+
+  const handleRateChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const { name, value } = e.target;
+    // Позволяем вводить только числа
+    if (/^\d*\.?\d*$/.test(value)) {
+      setFormData(prev => ({ ...prev, [name]: Number(value) }));
+    }
+  };
+
+  const validateForm = (): boolean => {
+    const errors: { [key: string]: string } = {};
+    const rate = formData.hourlyRate;
+
+    if (rate !== undefined && rate !== null && rate.toString().trim() !== '') {
+      if (isNaN(Number(rate)) || Number(rate) < 0) {
+        errors.hourlyRate = 'Ставка должна быть положительным числом';
+      }
+    } else {
+        // Можно сделать поле обязательным, если нужно
+        // errors.hourlyRate = 'Часовая ставка обязательна';
+    }
+    
+    setFormErrors(errors);
+    return Object.keys(errors).length === 0;
+  };
+
   const handleSave = async () => {
-    if (!currentUser || !userProfile) return;
+    if (!currentUser || !userProfile || !validateForm()) return;
     
     setLoading(true);
     try {
-      await updateUserProfile(userProfile.id, formData);
+      const dataToSave = { 
+        ...formData,
+        hourlyRate: Number(formData.hourlyRate || 0) // Гарантируем число
+      };
+
+      await updateUserProfile(userProfile.id, dataToSave);
       setMessage({ type: 'success', text: 'Профиль успешно обновлен!' });
       setEditing(false);
     } catch (error) {
@@ -207,7 +253,7 @@ const UserProfilePage: React.FC = () => {
                   fullWidth
                   label="Имя"
                   value={formData.displayName}
-                  onChange={(e) => setFormData({ ...formData, displayName: e.target.value })}
+                  onChange={handleChange}
                   disabled={!editing}
                   InputProps={{
                     startAdornment: <PersonIcon sx={{ mr: 1, color: 'action.active' }} />
@@ -219,7 +265,7 @@ const UserProfilePage: React.FC = () => {
                   fullWidth
                   label="Телефон"
                   value={formData.phoneNumber}
-                  onChange={(e) => setFormData({ ...formData, phoneNumber: e.target.value })}
+                  onChange={handleChange}
                   disabled={!editing}
                   InputProps={{
                     startAdornment: <PhoneIcon sx={{ mr: 1, color: 'action.active' }} />
@@ -231,7 +277,7 @@ const UserProfilePage: React.FC = () => {
                   fullWidth
                   label="Отдел"
                   value={formData.department}
-                  onChange={(e) => setFormData({ ...formData, department: e.target.value })}
+                  onChange={handleChange}
                   disabled={!editing}
                   InputProps={{
                     startAdornment: <WorkIcon sx={{ mr: 1, color: 'action.active' }} />
@@ -243,8 +289,23 @@ const UserProfilePage: React.FC = () => {
                   fullWidth
                   label="Должность"
                   value={formData.position}
-                  onChange={(e) => setFormData({ ...formData, position: e.target.value })}
+                  onChange={handleChange}
                   disabled={!editing}
+                />
+              </Grid>
+              <Grid item xs={12} sm={6}>
+                <TextField
+                  fullWidth
+                  label="Часовая ставка (себестоимость), ₽"
+                  type="number"
+                  value={formData.hourlyRate || ''}
+                  onChange={handleRateChange}
+                  InputProps={{
+                    startAdornment: <InputAdornment position="start">₽</InputAdornment>,
+                  }}
+                  disabled={!editing}
+                  error={!!formErrors.hourlyRate}
+                  helperText={formErrors.hourlyRate}
                 />
               </Grid>
             </Grid>
@@ -261,7 +322,7 @@ const UserProfilePage: React.FC = () => {
                   fullWidth
                   label="WhatsApp"
                   value={formData.whatsappPhone}
-                  onChange={(e) => setFormData({ ...formData, whatsappPhone: e.target.value })}
+                  onChange={handleChange}
                   disabled={!editing}
                   InputProps={{
                     startAdornment: <WhatsAppIcon sx={{ mr: 1, color: 'action.active' }} />
@@ -273,7 +334,7 @@ const UserProfilePage: React.FC = () => {
                   fullWidth
                   label="Telegram Username"
                   value={formData.telegramUsername}
-                  onChange={(e) => setFormData({ ...formData, telegramUsername: e.target.value })}
+                  onChange={handleChange}
                   disabled={!editing}
                   InputProps={{
                     startAdornment: <TelegramIcon sx={{ mr: 1, color: 'action.active' }} />
@@ -284,9 +345,11 @@ const UserProfilePage: React.FC = () => {
                 <FormControl fullWidth disabled={!editing}>
                   <InputLabel>Предпочитаемый канал</InputLabel>
                   <Select
-                    value={formData.preferredNotificationChannel}
-                    onChange={(e) => setFormData({ ...formData, preferredNotificationChannel: e.target.value as any })}
+                    value={formData.preferredNotificationChannel || ''}
+                    name="preferredNotificationChannel"
+                    onChange={handleSelectChange}
                     label="Предпочитаемый канал"
+                    disabled={!editing}
                   >
                     <MenuItem value="email">
                       <Box sx={{ display: 'flex', alignItems: 'center' }}>

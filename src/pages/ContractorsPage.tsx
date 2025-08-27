@@ -47,6 +47,8 @@ import {
   Contractor
 } from '../api/contractorApi';
 import { getTasksStream, Task } from '../api/taskApi';
+import StartWorkFromContractorDialog from '../components/StartWorkFromContractorDialog'; // Импортируем новый компонент
+import { Estimate, getEstimatesStream } from '../api/estimateApi';
 
 const ContractorsPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -88,6 +90,9 @@ const ContractorsPage: React.FC = () => {
   const [debouncedSearch, setDebouncedSearch] = useState('');
   const [filterType, setFilterType] = useState<'all' | 'supplier' | 'customer' | 'both'>('all');
   const [confirm, setConfirm] = useState<{ open: boolean; contractorId?: string }>({ open: false });
+  const [startWorkContractor, setStartWorkContractor] = useState<Contractor | null>(null);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
 
   useEffect(() => {
     const t = setTimeout(() => setDebouncedSearch(searchTerm), 300);
@@ -96,30 +101,17 @@ const ContractorsPage: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    const unsubscribeContractors = getContractorsStream(currentUser.uid, (data) => {
-      setContractors(data);
-      setLoading(false);
-    });
-    const unsubscribeTasks = getTasksStream(currentUser.uid, (tasks: Task[]) => {
-      const counts: Record<string, number> = {};
-      const wtb: Record<string, string[]> = {};
-      tasks.forEach(t => {
-        if (t.contractorId) {
-          counts[t.contractorId] = (counts[t.contractorId] || 0) + 1;
-          const item = (t as any).whatToBuy?.toString().trim();
-          if (item) {
-            const arr = wtb[t.contractorId] || [];
-            if (!arr.includes(item)) arr.push(item);
-            wtb[t.contractorId] = arr;
-          }
-        }
-      });
-      setContractorIdToTaskCount(counts);
-      setWhatToBuyByContractor(wtb);
-    });
+
+    // Загружаем все необходимые данные
+    const unsubContractors = getContractorsStream(currentUser.uid, setContractors);
+    const unsubTasks = getTasksStream(currentUser.uid, setTasks);
+    const unsubEstimates = getEstimatesStream(currentUser.uid, '', setEstimates);
+    
+    setLoading(false);
     return () => {
-      unsubscribeContractors();
-      unsubscribeTasks();
+      unsubContractors();
+      unsubTasks();
+      unsubEstimates();
     };
   }, [currentUser]);
 
@@ -211,6 +203,12 @@ const ContractorsPage: React.FC = () => {
 
   const requestDelete = (contractorId: string) => {
     setConfirm({ open: true, contractorId });
+  };
+
+  const contractorHasLinks = (contractorId: string) => {
+    const hasTasks = tasks.some(t => t.contractorId === contractorId);
+    const hasEstimates = estimates.some(e => e.contractorId === contractorId);
+    return hasTasks || hasEstimates;
   };
 
   const getTypeColor = (type: string) => {
@@ -316,15 +314,34 @@ const ContractorsPage: React.FC = () => {
                             Добавить задачу
                           </Button>
                         )}
+                        <Button 
+                          size="small" 
+                          variant="contained" 
+                          onClick={() => setStartWorkContractor(contractor)}
+                          sx={{ ml: 1 }}
+                        >
+                          Начать работу
+                        </Button>
                       </Box>
                     </Box>
                     <Box>
                       <IconButton aria-label="edit-contractor" onClick={() => handleOpenDialog(contractor)} size="small">
                         <EditIcon />
                       </IconButton>
-                      <IconButton aria-label="delete-contractor" onClick={() => requestDelete(contractor.id)} size="small" color="error">
-                        <DeleteIcon />
+                      <IconButton 
+                        aria-label="delete-contractor" 
+                        onClick={() => requestDelete(contractor.id)} 
+                        size="small" 
+                        color="error"
+                        disabled={contractorHasLinks(contractor.id)} // Блокируем кнопку
+                      >
+                        <DeleteIcon fontSize="small" />
                       </IconButton>
+                      {contractorHasLinks(contractor.id) && (
+                        <Typography variant="caption" color="error">
+                          Есть связанные задачи/сметы
+                        </Typography>
+                      )}
                     </Box>
                   </Box>
 
@@ -429,8 +446,14 @@ const ContractorsPage: React.FC = () => {
         </Card>
       )}
 
-      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="md" fullWidth>
-        <DialogTitle>{editingContractor ? 'Редактировать контрагента' : 'Новый контрагент'}</DialogTitle>
+      <StartWorkFromContractorDialog
+        open={!!startWorkContractor}
+        onClose={() => setStartWorkContractor(null)}
+        contractor={startWorkContractor}
+      />
+
+      <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
+        <DialogTitle>{editingContractor ? 'Редактировать' : 'Новый'} контрагент</DialogTitle>
         <DialogContent>
           <Box sx={{ mt: 1 }}>
             <Box display="flex" flexWrap="wrap" gap={2} mb={2}>

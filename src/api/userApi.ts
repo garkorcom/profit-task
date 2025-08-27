@@ -28,11 +28,23 @@ export interface UserProfile {
   telegramUsername?: string;
   telegramUserId?: string;
   preferredNotificationChannel?: 'email' | 'telegram' | 'whatsapp';
+  hourlyRate?: number; // Часовая ставка (себестоимость часа работы)
   isActive: boolean;
   lastLogin?: any;
   createdAt: any;
   updatedAt: any;
 }
+
+// Утилита для очистки объекта от undefined полей
+const cleanObject = (obj: { [key: string]: any }): { [key: string]: any } => {
+  const cleaned: { [key: string]: any } = {};
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key];
+    }
+  }
+  return cleaned;
+};
 
 // Создание или обновление профиля пользователя при входе
 export const createOrUpdateUserProfile = async (
@@ -41,64 +53,55 @@ export const createOrUpdateUserProfile = async (
 ): Promise<UserProfile> => {
   const userRef = doc(db, 'users', firebaseUser.uid);
   const userSnap = await getDoc(userRef);
-  
+
   if (!userSnap.exists()) {
-    // Создаем новый профиль (убираем undefined поля)
-    const newProfile: any = {
+    // Создаем новый профиль, тщательно отбирая поля
+    const newProfile: UserProfile = {
       id: firebaseUser.uid,
-      email: firebaseUser.email!,
-      role: 'employee', // По умолчанию
+      email: firebaseUser.email || '',
+      displayName: firebaseUser.displayName || '',
+      photoURL: firebaseUser.photoURL || '',
+      phoneNumber: firebaseUser.phoneNumber || '',
+      role: additionalData?.role || 'employee',
+      department: additionalData?.department || '',
+      position: additionalData?.position || '',
+      employeeId: additionalData?.employeeId || '',
+      contractorId: additionalData?.contractorId || '',
+      whatsappPhone: additionalData?.whatsappPhone || '',
+      telegramUsername: additionalData?.telegramUsername || '',
+      telegramUserId: additionalData?.telegramUserId || '',
+      preferredNotificationChannel: additionalData?.preferredNotificationChannel || 'email',
+      hourlyRate: additionalData?.hourlyRate || 0,
       isActive: true,
       createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp()
-    };
-    
-    // Добавляем только существующие поля
-    if (firebaseUser.displayName) newProfile.displayName = firebaseUser.displayName;
-    if (firebaseUser.photoURL) newProfile.photoURL = firebaseUser.photoURL;
-    if (firebaseUser.phoneNumber) newProfile.phoneNumber = firebaseUser.phoneNumber;
-    
-    // Добавляем дополнительные данные
-    if (additionalData) {
-      Object.keys(additionalData).forEach(key => {
-        if (additionalData[key as keyof UserProfile] !== undefined) {
-          newProfile[key] = additionalData[key as keyof UserProfile];
-        }
-      });
-    }
-    
-    await setDoc(userRef, newProfile);
-    return { ...newProfile, id: firebaseUser.uid };
-  } else {
-    // Обновляем существующий профиль (убираем undefined поля)
-    const updates: any = {
-      email: firebaseUser.email,
+      updatedAt: serverTimestamp(),
       lastLogin: serverTimestamp(),
-      updatedAt: serverTimestamp()
     };
+    await setDoc(userRef, newProfile);
+    return newProfile;
+  } else {
+    // Обновляем существующий профиль, тщательно отбирая поля
+    const updates: { [key: string]: any } = {
+      lastLogin: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    };
+    if (firebaseUser.email) updates.email = firebaseUser.email;
+    if (firebaseUser.displayName) updates.displayName = firebaseUser.displayName;
+    if (firebaseUser.photoURL) updates.photoURL = firebaseUser.photoURL;
+    if (firebaseUser.phoneNumber) updates.phoneNumber = firebaseUser.phoneNumber;
     
-    // Добавляем только существующие поля
-    if (firebaseUser.displayName) {
-      updates.displayName = firebaseUser.displayName;
-    }
-    if (firebaseUser.photoURL) {
-      updates.photoURL = firebaseUser.photoURL;
-    }
-    if (firebaseUser.phoneNumber) {
-      updates.phoneNumber = firebaseUser.phoneNumber;
-    }
-    
-    // Добавляем дополнительные данные
+    // Добавляем доп. данные, если они есть
     if (additionalData) {
-      Object.keys(additionalData).forEach(key => {
-        if (additionalData[key as keyof UserProfile] !== undefined) {
-          updates[key] = additionalData[key as keyof UserProfile];
+      for (const [key, value] of Object.entries(additionalData)) {
+        if (value !== undefined) {
+          updates[key] = value;
         }
-      });
+      }
     }
     
     await updateDoc(userRef, updates);
-    return { ...userSnap.data(), ...updates, id: firebaseUser.uid } as UserProfile;
+    const updatedProfile = await getDoc(userRef);
+    return { ...updatedProfile.data(), id: userRef.id } as UserProfile;
   }
 };
 
@@ -133,8 +136,12 @@ export const updateUserProfile = async (
   updates: Partial<UserProfile>
 ): Promise<void> => {
   const userRef = doc(db, 'users', userId);
+  
+  // Очищаем объект от undefined перед отправкой
+  const cleanedUpdates = cleanObject(updates);
+
   await updateDoc(userRef, {
-    ...updates,
+    ...cleanedUpdates,
     updatedAt: serverTimestamp()
   });
 };

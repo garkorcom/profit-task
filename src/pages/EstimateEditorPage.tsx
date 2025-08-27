@@ -25,6 +25,17 @@ import Notification from '../components/common/Notification';
 // Extend local item type to temporarily carry price for simple calc
 type EstimateItem = CoreEstimateItem & { price?: number };
 
+// Утилита для очистки объекта от undefined полей
+const cleanObject = (obj: { [key: string]: any }): { [key: string]: any } => {
+  const cleaned: { [key: string]: any } = {};
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key];
+    }
+  }
+  return cleaned;
+};
+
 const EstimateEditorPage: React.FC = () => {
   const { projectId, estimateId } = useParams<{ projectId: string; estimateId: string }>();
   const { currentUser } = useAuth();
@@ -142,28 +153,34 @@ const EstimateEditorPage: React.FC = () => {
       } as Estimate);
       setEstimate(prev => ({ ...prev, status: next }));
       setNotification({ open: true, message: `Статус изменён: ${next}`, severity: 'success' });
-    } catch (e) {
-      setNotification({ open: true, message: 'Ошибка смены статуса', severity: 'error' });
+    } catch (e: any) {
+      console.error("Error changing status:", e);
+      const errorMessage = e.message || 'Произошла неизвестная ошибка';
+      setNotification({ open: true, message: `Ошибка смены статуса: ${errorMessage}`, severity: 'error' });
     }
   };
 
   const handleSave = async () => {
     if (!currentUser || !projectId) return;
     try {
+      const dataToSave = cleanObject(estimate); // Очищаем данные перед сохранением
+      
       if (estimateId === 'new') {
         const newEstimate = {
-          ...estimate,
+          ...dataToSave,
           projectId,
-          number: `СМ-${Date.now()}`, // Simple number generation
+          number: `СМ-${Date.now()}`,
         } as Omit<Estimate, 'id'>;
         await addEstimate(currentUser.uid, newEstimate);
       } else if(estimateId) {
-        await updateEstimate(currentUser.uid, estimateId, estimate);
+        await updateEstimate(currentUser.uid, estimateId, dataToSave);
       }
       setNotification({ open: true, message: 'Смета сохранена', severity: 'success' });
       navigate(`/projects/${projectId}/estimates`);
-    } catch (error) {
-      setNotification({ open: true, message: 'Ошибка сохранения', severity: 'error' });
+    } catch (error: any) {
+      console.error("Error saving estimate:", error);
+      const errorMessage = error.message || 'Произошла неизвестная ошибка';
+      setNotification({ open: true, message: `Ошибка сохранения: ${errorMessage}`, severity: 'error' });
     }
   };
 

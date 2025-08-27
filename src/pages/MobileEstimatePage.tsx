@@ -1,35 +1,28 @@
 import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box, Typography, IconButton, Fab, TextField, Button, Chip,
-  List, ListItem, ListItemButton, ListItemText, ListItemSecondaryAction,
+  List, ListItem, ListItemButton, ListItemText,
   Dialog, DialogTitle, DialogContent, DialogActions,
-  Accordion, AccordionSummary, AccordionDetails,
   InputAdornment, Select, MenuItem, FormControl, InputLabel,
-  Checkbox, AppBar, Toolbar, Paper, Divider, SwipeableDrawer,
-  Alert, Snackbar, CircularProgress, Badge
+  AppBar, Toolbar, Paper, SwipeableDrawer,
+  Alert, Snackbar, CircularProgress, Stack
 } from '@mui/material';
 import {
   Add as AddIcon,
-  ExpandMore as ExpandMoreIcon,
-  Delete as DeleteIcon,
-  Edit as EditIcon,
-  Send as SendIcon,
   Search as SearchIcon,
   Group as GroupIcon,
-  Save as SaveIcon,
   ArrowBack as BackIcon,
   Share as ShareIcon,
-  CheckCircle as CheckIcon
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
-  Estimate, EstimateItem, getEstimatesStream, createEstimate,
-  updateEstimate, deleteEstimate, generateEstimatePDF
+  Estimate, EstimateItem, getEstimatesStream,
+  updateEstimate, generateEstimatePDF
 } from '../api/estimateApi';
 import {
-  Product, ServiceComponent, getProductsStream,
-  createProduct, updateProduct
+  Product, getProductsStream,
+  createProduct
 } from '../api/productApi';
 import { Project, getProjectsStream } from '../api/projectApi';
 import { Contractor, getContractorsStream } from '../api/contractorApi';
@@ -45,6 +38,23 @@ interface MobileEstimateItem extends Omit<EstimateItem, 'type' | 'level' | 'orde
   level?: number;
   order?: number;
 }
+
+const sanitizeItemsForFirebase = (items: MobileEstimateItem[]): EstimateItem[] => {
+  return items.map(({ isExpanded, isSelected, children, type, ...rest }) => {
+    
+    // Приводим тип к одному из двух допустимых
+    const sanitizedType = (type === 'product' || type === 'material') ? 'material' : 'service';
+    
+    const sanitizedRest: EstimateItem = {
+      ...rest,
+      level: rest.level ?? 0,
+      order: rest.order ?? 0,
+      type: sanitizedType,
+      children: children ? sanitizeItemsForFirebase(children as MobileEstimateItem[]) : []
+    };
+    return sanitizedRest;
+  });
+};
 
 const MobileEstimatePage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -85,8 +95,6 @@ const MobileEstimatePage: React.FC = () => {
     const unsubContractors = getContractorsStream(currentUser.uid, setContractors);
     
     if (estimateId) {
-      // For mobile view, we need to get all estimates and filter
-      // In production, we'd have a direct getEstimateById function
       const unsubEstimates = getEstimatesStream(currentUser.uid, '', (estimates) => {
         const found = estimates.find(e => e.id === estimateId);
         if (found) {
@@ -110,8 +118,7 @@ const MobileEstimatePage: React.FC = () => {
   }, [currentUser, estimateId]);
   
   // Search with debounce
-  const debouncedSearch = useMemo(
-    () => debounce((query: string) => {
+  const debouncedSearch = useMemo(() => debounce((query: string) => {
       if (!query) {
         setSearchResults([]);
         return;
@@ -146,6 +153,12 @@ const MobileEstimatePage: React.FC = () => {
       return sum;
     }, 0);
   }, [items, calculateItemTotal]);
+
+  const totalCost = useMemo(() => {
+    return items.reduce((sum, item) => {
+      return sum + (item.totalLaborCost || 0);
+    }, 0);
+  }, [items]);
   
   // Handle item selection
   const handleLongPress = (itemId: string) => {
@@ -287,9 +300,12 @@ const MobileEstimatePage: React.FC = () => {
   const saveEstimate = async (updatedItems: MobileEstimateItem[]) => {
     if (!currentUser || !estimate) return;
     
+    // Очищаем данные перед сохранением
+    const sanitizedItems = sanitizeItemsForFirebase(updatedItems);
+
     try {
       await updateEstimate(currentUser.uid, estimate.id, {
-        items: updatedItems as EstimateItem[],
+        items: sanitizedItems,
         total: updatedItems.reduce((sum, item) => {
           if (!item.parentEstimateItemId) {
             return sum + calculateItemTotal(item);
@@ -342,117 +358,45 @@ const MobileEstimatePage: React.FC = () => {
   
   // Render item with hierarchy
   const renderItem = (item: MobileEstimateItem, level: number = 0) => {
-    const hasChildren = item.children && item.children.length > 0;
     const itemTotal = calculateItemTotal(item);
     
     return (
-      <Accordion
-        key={item.id}
-        expanded={item.isExpanded}
-        onChange={() => {
-          if (hasChildren) {
-            setItems(items.map(i => 
-              i.id === item.id ? { ...i, isExpanded: !i.isExpanded } : i
-            ));
-          }
-        }}
-        sx={{
-          ml: level * 2,
-          mb: 0.5,
-          boxShadow: level === 0 ? 1 : 0,
-          '&:before': { display: 'none' }
-        }}
-      >
-        <AccordionSummary
-          expandIcon={hasChildren ? <ExpandMoreIcon /> : null}
-          sx={{
-            minHeight: 48,
-            '& .MuiAccordionSummary-content': {
-              margin: '8px 0',
-              alignItems: 'center'
+      <React.Fragment key={item.id}>
+        <ListItem sx={{ pl: level * 2 }}>
+          <ListItemText
+            primary={item.name}
+            secondary={
+              <Box component="span">
+                <Typography component="span" variant="body2" display="block">
+                  {item.quantity} {item.unit} x {(item.unitPrice || 0).toFixed(2)} = <Box component="strong" sx={{ color: 'text.primary' }}>{itemTotal.toFixed(2)} ₽</Box>
+                </Typography>
+                {item.totalLaborCost && item.totalLaborCost > 0 && (
+                  <Typography component="span" variant="caption" display="block" sx={{ color: 'success.main', fontWeight: 'bold' }}>
+                    Себестоимость: {item.totalLaborCost.toFixed(2)} ₽
+                  </Typography>
+                )}
+              </Box>
             }
-          }}
-          onTouchStart={(e) => {
-            const timer = setTimeout(() => {
-              handleLongPress(item.id);
-              e.preventDefault();
-            }, 500);
-            (e.currentTarget as any).longPressTimer = timer;
-          }}
-          onTouchEnd={(e) => {
-            clearTimeout((e.currentTarget as any).longPressTimer);
-          }}
-        >
-          {isSelectionMode && (
-            <Checkbox
-              checked={selectedItems.has(item.id)}
-              onChange={() => toggleItemSelection(item.id)}
-              onClick={(e) => e.stopPropagation()}
-              size="small"
-              sx={{ mr: 1 }}
-            />
-          )}
-          
-          <Box sx={{ flexGrow: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: hasChildren ? 600 : 400 }}>
-              {item.name}
-            </Typography>
-            <Box sx={{ display: 'flex', gap: 1, mt: 0.5 }}>
-              <TextField
-                size="small"
-                type="number"
-                value={item.quantity}
-                onChange={(e) => handleInlineEdit(item.id, 'quantity', parseFloat(e.target.value) || 0)}
-                onClick={(e) => e.stopPropagation()}
-                sx={{ width: 60 }}
-                InputProps={{
-                  style: { fontSize: 12 }
-                }}
-              />
-              <Typography variant="caption" sx={{ alignSelf: 'center' }}>
-                {item.unit} ×
-              </Typography>
-              <TextField
-                size="small"
-                type="number"
-                value={item.unitPrice}
-                onChange={(e) => handleInlineEdit(item.id, 'unitPrice', parseFloat(e.target.value) || 0)}
-                onClick={(e) => e.stopPropagation()}
-                sx={{ width: 80 }}
-                InputProps={{
-                  style: { fontSize: 12 },
-                  endAdornment: <InputAdornment position="end">₽</InputAdornment>
-                }}
-              />
-            </Box>
-          </Box>
-          
-          <Box sx={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end', ml: 1 }}>
-            <Typography variant="body2" sx={{ fontWeight: 600 }}>
-              {itemTotal.toFixed(2)} ₽
-            </Typography>
-            {!isSelectionMode && (
-              <IconButton
-                size="small"
-                onClick={(e) => {
-                  e.stopPropagation();
-                  handleDeleteItem(item.id);
-                }}
-                sx={{ mt: -0.5 }}
-              >
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            )}
-          </Box>
-        </AccordionSummary>
-        
-        {hasChildren && (
-          <AccordionDetails sx={{ pt: 0, pb: 1 }}>
-            {item.children?.map(child => renderItem(child as MobileEstimateItem, level + 1))}
-          </AccordionDetails>
-        )}
-      </Accordion>
+          />
+          {/* Actions like delete, etc. */}
+        </ListItem>
+        {item.children && item.children.map((child: MobileEstimateItem) => renderItem(child, level + 1))}
+      </React.Fragment>
     );
+  };
+
+  const getTreeItems = () => {
+    const itemMap = new Map<string, MobileEstimateItem & { children: MobileEstimateItem[] }>(items.map(i => [i.id, { ...i, children: [] }]));
+    const roots: MobileEstimateItem[] = [];
+    
+    items.forEach(item => {
+      if (item.parentEstimateItemId && itemMap.has(item.parentEstimateItemId)) {
+        itemMap.get(item.parentEstimateItemId)!.children.push(itemMap.get(item.id)!);
+      } else {
+        roots.push(itemMap.get(item.id)!);
+      }
+    });
+    return roots;
   };
   
   return (
@@ -502,21 +446,28 @@ const MobileEstimatePage: React.FC = () => {
       
       {/* Total */}
       <Paper sx={{ p: 2, m: 2, bgcolor: 'primary.main', color: 'white' }}>
-        <Typography variant="h5" align="center">
-          Итого: {total.toFixed(2)} ₽
-        </Typography>
+        <Stack direction="row" justifyContent="space-between" alignItems="center">
+          <Typography variant="h5" fontWeight="bold">Итого:</Typography>
+          <Typography variant="h5" fontWeight="bold">{total.toFixed(2)} ₽</Typography>
+        </Stack>
+        {totalCost > 0 && (
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mt: 1 }}>
+            <Typography variant="body1" color="success.main">Общая себестоимость:</Typography>
+            <Typography variant="body1" color="success.main" fontWeight="bold">{totalCost.toFixed(2)} ₽</Typography>
+          </Stack>
+        )}
       </Paper>
       
       {/* Items List */}
-      <Box sx={{ px: 1 }}>
-        {items.filter(item => !item.parentEstimateItemId).map(item => renderItem(item))}
+      <List sx={{ px: 1 }}>
+        {getTreeItems().map(item => renderItem(item))}
         
         {items.length === 0 && (
           <Alert severity="info" sx={{ m: 2 }}>
             Нажмите + чтобы добавить позиции в смету
           </Alert>
         )}
-      </Box>
+      </List>
       
       {/* FAB */}
       <Fab
@@ -561,23 +512,39 @@ const MobileEstimatePage: React.FC = () => {
             sx={{ mb: 2 }}
           />
           
-          {/* Search Results */}
           <List sx={{ maxHeight: 300, overflow: 'auto' }}>
-            {searchResults.map(product => (
-              <ListItem key={product.id} disablePadding>
-                <ListItemButton onClick={() => handleAddItem(product)}>
-                  <ListItemText
-                    primary={product.name}
-                    secondary={`${product.salePrice || product.costPrice || 0} ₽ / ${product.unit}`}
-                  />
-                  <Chip
-                    label={product.type === 'service' ? 'Услуга' : 'Товар'}
-                    size="small"
-                    color={product.type === 'service' ? 'primary' : 'default'}
-                  />
-                </ListItemButton>
-              </ListItem>
-            ))}
+            {searchResults.map(product => {
+              const availableStock = (product.currentStock || 0) - (product.reservedStock || 0);
+              return (
+                <ListItem key={product.id} disablePadding>
+                  <ListItemButton onClick={() => handleAddItem(product)}>
+                    <ListItemText
+                      primary={product.name}
+                      secondary={
+                        <Box component="span" sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+                          <Typography component="span" variant="body2">
+                            {`${product.salePrice || product.costPrice || 0} ₽ / ${product.unit}`}
+                          </Typography>
+                          {product.type === 'product' && (
+                            <Chip 
+                              label={`Доступно: ${availableStock}`}
+                              size="small"
+                              color={availableStock > 0 ? 'success' : 'error'}
+                              variant="outlined"
+                            />
+                          )}
+                        </Box>
+                      }
+                    />
+                    <Chip
+                      label={product.type === 'service' ? 'Услуга' : 'Товар'}
+                      size="small"
+                      color={product.type === 'service' ? 'primary' : 'default'}
+                    />
+                  </ListItemButton>
+                </ListItem>
+              );
+            })}
             
             {searchQuery && searchResults.length === 0 && (
               <ListItem disablePadding>

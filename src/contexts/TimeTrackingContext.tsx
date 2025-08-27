@@ -10,14 +10,19 @@ import {
 import { 
   createTimeEntry, 
   updateTimeEntry, 
-  completeTimeEntry,
-  pauseTimeEntry,
-  resumeTimeEntry,
-  uploadTimeEntryPhoto,
-  getTimeEntriesByTaskStream,
   TimeEntry,
-  TimeEntryStatus
+  TimeEntryStatus,
+  getTimeEntriesByTaskStream,
+  uploadTimeEntryPhoto // Возвращаем импорт
 } from '../api/timeEntryApi';
+import {
+  pauseTimeEntryEnhanced,
+  completeTimeEntryEnhanced,
+} from '../api/timeEntryEnhanced';
+import { deleteField, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { Estimate, EstimateItem } from '../api/estimateApi';
+import { Project } from '../api/projectApi';
+import { db } from '../firebase/firebase';
 
 interface TimeTrackingContextType {
   // Текущее состояние
@@ -29,15 +34,7 @@ interface TimeTrackingContextType {
   elapsedSeconds: number;
   
   // Управление сессиями работы
-  startWork: (
-    taskId: string,
-    startPhoto?: File,
-    location?: GeolocationPosition,
-    estimateId?: string,
-    estimateName?: string,
-    serviceId?: string,
-    serviceName?: string
-  ) => Promise<void>;
+  startWork: (payload: StartWorkPayload) => Promise<void>;
   
   stopWork: (
     endPhoto?: File,
@@ -55,6 +52,15 @@ interface TimeTrackingContextType {
   // Проверки
   canStartWork: (task: Task) => boolean;
   requiresPhoto: (task: Task) => boolean;
+}
+
+export interface StartWorkPayload {
+  task?: Task;
+  estimate?: Estimate;
+  service?: EstimateItem;
+  project: Project; // Проект теперь обязателен
+  startPhoto?: File;
+  location?: GeolocationPosition;
 }
 
 const TimeTrackingContext = createContext<TimeTrackingContextType | undefined>(undefined);
@@ -76,6 +82,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
   const [taskEntries, setTaskEntries] = useState<Record<string, TimeEntry[]>>({});
   const [allTasks, setAllTasks] = useState<Task[]>([]);
+  const [tasksLoaded, setTasksLoaded] = useState(false);
 
   // Загрузка всех задач пользователя
   useEffect(() => {
@@ -83,6 +90,8 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     const unsubscribe = getTasksStream(currentUser.uid, (tasks) => {
       setAllTasks(tasks);
+      setTasksLoaded(true);
+      console.log('✅ Задачи загружены:', tasks.length);
       
       // Проверяем, есть ли активная задача
       const activeTask = tasks.find(t => t.status === 'in_progress');
@@ -98,15 +107,49 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   useEffect(() => {
     const savedEntry = localStorage.getItem('currentTimeEntry');
     const savedTaskId = localStorage.getItem('currentTaskId');
+    const savedEntryId = localStorage.getItem('currentEntryId');
     
-    if (savedEntry && savedTaskId && currentUser) {
+    console.log('🔄 Проверка сохраненной сессии:', { 
+      hasSavedEntry: !!savedEntry, 
+      savedTaskId, 
+      savedEntryId,
+      hasCurrentUser: !!currentUser,
+      tasksLoaded
+    });
+    
+    // Ждем загрузки задач перед восстановлением
+    if (savedEntry && savedTaskId && currentUser && tasksLoaded) {
       try {
         const entry = JSON.parse(savedEntry);
-        const task = allTasks.find(t => t.id === savedTaskId);
         
-        if (task && task.status === 'in_progress') {
+        // Восстанавливаем ID если он не сохранился в entry
+        if (!entry.id && savedEntryId) {
+          entry.id = savedEntryId;
+          console.log('📝 Восстановлен ID записи:', savedEntryId);
+        }
+        
+        // Проверяем, является ли это виртуальной задачей для сметы
+        const isEstimateTask = savedTaskId.startsWith('estimate-');
+        
+        if (isEstimateTask) {
+          // Для виртуальной задачи просто восстанавливаем сессию
+          console.log('📊 Восстанавливаем сессию учета времени по смете', entry);
+          if (!entry.id) {
+            console.error('⚠️ Восстановленная запись не имеет ID!');
+            // Пытаемся восстановить ID из отдельного ключа
+            if (savedEntryId) {
+              entry.id = savedEntryId;
+              console.log('✅ ID записи восстановлен из localStorage:', savedEntryId);
+            } else {
+              console.error('❌ Не удалось восстановить ID записи, очищаем сессию');
+              localStorage.removeItem('currentTimeEntry');
+              localStorage.removeItem('currentTaskId');
+              localStorage.removeItem('currentEntryId');
+              return;
+            }
+          }
           setCurrentEntry(entry);
-          setCurrentTask(task);
+          setCurrentTask({ id: savedTaskId, task: entry.taskName } as Task);
           setIsWorking(true);
           setIsPaused(entry.status === 'paused');
           
@@ -116,27 +159,65 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
           const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
           setElapsedSeconds(elapsed);
         } else {
-          // Очищаем устаревшую сессию
-          localStorage.removeItem('currentTimeEntry');
-          localStorage.removeItem('currentTaskId');
+          // Для реальной задачи проверяем ее статус
+          const task = allTasks.find(t => t.id === savedTaskId);
+          
+          if (task && (task.status === 'in_progress' || task.status === 'assigned' || task.status === 'new')) {
+            console.log('📋 Восстанавливаем сессию учета времени по задаче', entry);
+            if (!entry.id) {
+              console.error('⚠️ Восстановленная запись не имеет ID!');
+            }
+            setCurrentEntry(entry);
+            setCurrentTask(task);
+            setIsWorking(true);
+            setIsPaused(entry.status === 'paused');
+            
+            // Рассчитываем прошедшее время
+            const startTime = new Date(entry.startTime);
+            const now = new Date();
+            const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+            setElapsedSeconds(elapsed);
+          } else {
+            // Очищаем устаревшую сессию
+            console.warn('⚠️ Задача не найдена или завершена, очищаем сессию');
+            localStorage.removeItem('currentTimeEntry');
+            localStorage.removeItem('currentTaskId');
+            localStorage.removeItem('currentEntryId');
+          }
         }
       } catch (error) {
         console.error('Error restoring time entry:', error);
         localStorage.removeItem('currentTimeEntry');
         localStorage.removeItem('currentTaskId');
+        localStorage.removeItem('currentEntryId');
       }
     }
-  }, [currentUser, allTasks]);
+  }, [currentUser, allTasks, tasksLoaded]);
 
-  // Таймер
+  // Таймер с учетом пауз
   useEffect(() => {
-    if (!isWorking || !currentEntry || isPaused) return;
+    if (!isWorking || !currentEntry) return;
 
     const interval = setInterval(() => {
-      const now = new Date();
-      const startTime = new Date(currentEntry.startTime);
-      const elapsed = Math.floor((now.getTime() - startTime.getTime()) / 1000);
-      setElapsedSeconds(elapsed);
+      if (!isPaused) {
+        const now = new Date();
+        const startTime = new Date(currentEntry.startTime);
+        
+        // Получаем сохраненное время пауз из localStorage
+        const savedPauseDuration = parseInt(localStorage.getItem('totalPauseDuration') || '0', 10);
+        
+        // Если сейчас на паузе, не обновляем счетчик
+        if (currentEntry.status === 'paused') {
+          return;
+        }
+        
+        // Рассчитываем общее время
+        const totalSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
+        
+        // Вычитаем время пауз для получения активного времени
+        const activeSeconds = Math.max(0, totalSeconds - savedPauseDuration);
+        setElapsedSeconds(activeSeconds);
+      }
     }, 1000);
 
     return () => clearInterval(interval);
@@ -162,73 +243,47 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
 
   const canStartWork = (task: Task): boolean => {
     // Проверяем, можно ли начать работу над задачей
-    const validStatuses: TaskStatus[] = ['assigned', 'in_progress', 'rework'];
+    const validStatuses: TaskStatus[] = ['new', 'assigned', 'in_progress', 'rework'];
     return validStatuses.includes(task.status as TaskStatus);
   };
 
   const requiresPhoto = (task: Task): boolean => {
+    // На localhost временно отключаем обязательность фото из-за CORS
+    if (window.location.hostname === 'localhost') {
+      return false;
+    }
     return task.requirePhoto === true;
   };
 
-  const startWork = async (
-    taskId: string,
-    startPhoto?: File,
-    location?: GeolocationPosition,
-    estimateId?: string,
-    estimateName?: string,
-    serviceId?: string,
-    serviceName?: string
-  ) => {
+  const startWork = async (payload: StartWorkPayload) => {
     if (!currentUser) throw new Error('User not authenticated');
     
-    // Проверяем, это реальная задача или виртуальная (для сметы)
-    const isEstimateTask = taskId.startsWith('estimate-');
-    let task = null;
-    let taskName = '';
-    let projectId = '';
-    let projectName = '';
-    
-    if (!isEstimateTask) {
-      // Находим задачу
-      task = allTasks.find(t => t.id === taskId);
-      if (!task) throw new Error('Task not found');
-      
-      // Проверяем, можно ли начать работу
-      if (!canStartWork(task)) {
-        throw new Error(`Cannot start work on task with status: ${task.status}`);
-      }
-      
-      // Проверяем обязательность фото
-      if (requiresPhoto(task) && !startPhoto) {
-        throw new Error('Photo is required for this task');
-      }
-      
-      taskName = task.task;
-      projectId = task.projectId || '';
-      projectName = task.projectName || '';
-    } else {
-      // Для виртуальной задачи используем данные сметы
-      taskName = serviceName || estimateName || 'Работа по смете';
-      // Проект можно будет передать дополнительно если нужно
-      projectId = '';
-      projectName = '';
+    const { task, estimate, service, project, startPhoto, location } = payload;
+
+    // Определяем, что является основной "задачей" для учета времени
+    const isEstimateWork = !task && !!estimate;
+    const workTarget = task || service || estimate;
+    if (!workTarget) {
+      throw new Error('Необходимо указать задачу или смету для начала работы');
     }
     
+    // ID для записи в TimeEntry. Для сметы это будет "виртуальный" ID.
+    const taskId = task?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
+    const taskName = task?.task || service?.name || estimate?.name || 'Работа';
+
     try {
       // Создаем новую сессию работы
       const entry: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'> = {
         taskId: taskId,
         taskName: taskName,
-        projectId: projectId,
-        projectName: projectName,
+        projectId: project.id,
+        projectName: project.name,
         employeeId: currentUser.uid,
         employeeName: currentUser.displayName || currentUser.email || '',
         startTime: new Date(),
         status: 'active' as TimeEntryStatus,
-        ...(estimateId && { estimateId }),
-        ...(estimateName && { estimateName }),
-        ...(serviceId && { serviceId }),
-        ...(serviceName && { serviceName }),
+        ...(estimate && { estimateId: estimate.id, estimateName: estimate.name }),
+        ...(service && { serviceId: service.id, serviceName: service.name }),
         ...(location && {
           startLocation: {
             latitude: location.coords.latitude,
@@ -241,24 +296,40 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       
       // Создаем запись в БД
       const entryId = await createTimeEntry(currentUser.uid, entry);
+      console.log('✅ Запись времени создана с ID:', entryId);
+      
+      if (!entryId) {
+        throw new Error('Failed to create time entry - no ID returned');
+      }
       
       // Загружаем фото, если есть
       let startPhotoUrl: string | undefined;
       if (startPhoto) {
-        startPhotoUrl = await uploadTimeEntryPhoto(
-          currentUser.uid,
-          entryId,
-          startPhoto,
-          'start'
-        );
-        
-        // Обновляем запись с URL фото
-        await updateTimeEntry(currentUser.uid, entryId, { startPhotoUrl });
+        try {
+          console.log('📸 Пытаемся загрузить фото...');
+          startPhotoUrl = await uploadTimeEntryPhoto(
+            currentUser.uid,
+            entryId,
+            startPhoto,
+            'start'
+          );
+          
+          // Обновляем запись с URL фото
+          if (startPhotoUrl && startPhotoUrl !== 'placeholder-photo-url') {
+            await updateTimeEntry(currentUser.uid, entryId, { startPhotoUrl });
+            console.log('✅ Фото успешно загружено');
+          }
+        } catch (photoError) {
+          console.error('Failed to upload start photo:', photoError);
+          console.warn('⚠️ Фото не загружено из-за CORS на localhost, но учет времени продолжается');
+          console.warn('⚠️ Запись времени создана БЕЗ фото, но работа началась!');
+          // Продолжаем без фото - не блокируем начало работы
+        }
       }
       
       // Обновляем статус задачи (только для реальных задач)
-      if (!isEstimateTask && task && task.status !== 'in_progress') {
-        await changeTaskStatus(currentUser.uid, taskId, 'in_progress');
+      if (task && task.status !== 'in_progress') {
+        await changeTaskStatus(currentUser.uid, task.id, 'in_progress');
       }
       
       // Обновляем локальное состояние
@@ -268,8 +339,16 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         startPhotoUrl
       };
       
+      // Определяем, что будет "текущей задачей" в UI
+      const currentTaskObject = task || {
+        id: taskId,
+        task: taskName,
+        projectId: project.id,
+        projectName: project.name,
+      } as Task;
+
       setCurrentEntry(fullEntry);
-      setCurrentTask(task);
+      setCurrentTask(currentTaskObject);
       setIsWorking(true);
       setIsPaused(false);
       setElapsedSeconds(0);
@@ -277,6 +356,22 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       // Сохраняем в localStorage
       localStorage.setItem('currentTimeEntry', JSON.stringify(fullEntry));
       localStorage.setItem('currentTaskId', taskId);
+      localStorage.setItem('currentEntryId', entryId); // Сохраняем ID записи отдельно
+      
+      // Проверяем, что сохранилось
+      const savedId = localStorage.getItem('currentEntryId');
+      console.log('📝 Проверка сохранения ID в localStorage:', { entryId, savedId, match: entryId === savedId });
+      
+      // Очищаем данные о паузах для новой сессии
+      localStorage.removeItem('totalPauseDuration');
+      localStorage.removeItem('pauseStartTime');
+      localStorage.removeItem('activeTimeAtPause');
+      
+      console.log('🎉 УЧЕТ ВРЕМЕНИ УСПЕШНО НАЧАТ!');
+      console.log('🏢 Проект:', project.name);
+      console.log('ktiv:', taskName);
+      if (estimate) console.log('📊 Смета:', estimate.name);
+      if (service) console.log('🔧 Услуга:', service.name);
       
     } catch (error) {
       console.error('Error starting work:', error);
@@ -289,32 +384,89 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     comment?: string,
     location?: GeolocationPosition
   ) => {
-    if (!currentUser || !currentEntry || !currentTask) {
-      throw new Error('No active work session');
+    if (!currentUser) {
+      throw new Error('No authenticated user');
+    }
+    
+    // Пытаемся восстановить данные если они отсутствуют
+    let workingEntry = currentEntry;
+    let workingTask = currentTask;
+    
+    if (!workingEntry) {
+      console.error('No currentEntry found, trying to restore from localStorage');
+      const savedEntry = localStorage.getItem('currentTimeEntry');
+      const savedEntryId = localStorage.getItem('currentEntryId');
+      if (savedEntry) {
+        workingEntry = JSON.parse(savedEntry);
+        if (workingEntry && !workingEntry.id && savedEntryId) {
+          workingEntry.id = savedEntryId;
+        }
+        console.log('⚠️ Восстановлена запись из localStorage:', workingEntry);
+      }
+    }
+    
+    if (!workingEntry) {
+      throw new Error('No active work session - entry missing');
+    }
+    
+    if (!workingEntry.id) {
+      // Последняя попытка получить ID
+      const savedEntryId = localStorage.getItem('currentEntryId');
+      if (savedEntryId) {
+        workingEntry.id = savedEntryId;
+        console.log('⚠️ ID восстановлен из localStorage:', savedEntryId);
+      } else {
+        console.error('Entry has no ID and cannot restore:', workingEntry);
+        throw new Error('No active work session - entry ID missing');
+      }
+    }
+    
+    if (!workingTask) {
+      console.error('No currentTask found, trying to restore');
+      const savedTaskId = localStorage.getItem('currentTaskId');
+      if (savedTaskId) {
+        // Для виртуальной задачи
+        if (savedTaskId.startsWith('estimate-')) {
+          workingTask = { id: savedTaskId, task: workingEntry.taskName } as Task;
+        } else {
+          // Для реальной задачи
+          workingTask = allTasks.find(t => t.id === savedTaskId) || null;
+        }
+        console.log('⚠️ Задача восстановлена:', workingTask);
+      }
+    }
+    
+    if (!workingTask) {
+      throw new Error('No active work session - task missing');
     }
     
     // Проверяем обязательность фото
-    if (requiresPhoto(currentTask) && !endPhoto) {
+    if (requiresPhoto(workingTask) && !endPhoto) {
       throw new Error('End photo is required for this task');
     }
     
     try {
       // Загружаем фото, если есть
       let endPhotoUrl: string | undefined;
-      if (endPhoto && currentEntry.id) {
-        endPhotoUrl = await uploadTimeEntryPhoto(
-          currentUser.uid,
-          currentEntry.id,
-          endPhoto,
-          'end'
-        );
+      if (endPhoto && workingEntry.id) {
+        try {
+          endPhotoUrl = await uploadTimeEntryPhoto(
+            currentUser.uid,
+            workingEntry.id,
+            endPhoto,
+            'end'
+          );
+        } catch (photoError) {
+          console.error('Failed to upload end photo:', photoError);
+          // Продолжаем без фото - не блокируем завершение работы
+        }
       }
       
-      // Завершаем сессию работы
-      if (currentEntry.id) {
-        await completeTimeEntry(
+      // Завершаем сессию работы с корректным расчетом времени
+      if (workingEntry.id) {
+        await completeTimeEntryEnhanced(
           currentUser.uid,
-          currentEntry.id,
+          workingEntry.id,
           endPhotoUrl,
           comment,
           location ? {
@@ -327,8 +479,8 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       }
       
       // Отправляем задачу на проверку (только для реальных задач)
-      if (currentTask && !currentTask.id.startsWith('estimate-')) {
-        await submitTaskForReview(currentUser.uid, currentTask.id);
+      if (workingTask && !workingTask.id.startsWith('estimate-')) {
+        await submitTaskForReview(currentUser.uid, workingTask.id);
       }
       
       // Очищаем состояние
@@ -341,6 +493,10 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       // Очищаем localStorage
       localStorage.removeItem('currentTimeEntry');
       localStorage.removeItem('currentTaskId');
+      localStorage.removeItem('currentEntryId');
+      localStorage.removeItem('pauseStartTime');
+      localStorage.removeItem('activeTimeAtPause');
+      localStorage.removeItem('totalPauseDuration');
       
     } catch (error) {
       console.error('Error stopping work:', error);
@@ -354,13 +510,25 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
     
     try {
-      await pauseTimeEntry(currentUser.uid, currentEntry.id, reason);
+      // Используем улучшенную версию с корректным учетом времени
+      await pauseTimeEntryEnhanced(currentUser.uid, currentEntry.id, reason);
       setIsPaused(true);
       
-      // Обновляем сохраненную сессию
-      const updatedEntry = { ...currentEntry, status: 'paused' as TimeEntryStatus };
+      // Обновляем запись в localStorage с новым статусом и временем паузы
+      const now = new Date();
+      const updatedEntry = { 
+        ...currentEntry, 
+        status: 'paused' as TimeEntryStatus,
+        currentPauseStart: now
+      };
       setCurrentEntry(updatedEntry);
       localStorage.setItem('currentTimeEntry', JSON.stringify(updatedEntry));
+      localStorage.setItem('pauseStartTime', now.toISOString());
+      
+      // Сохраняем текущее активное время на момент паузы
+      localStorage.setItem('activeTimeAtPause', elapsedSeconds.toString());
+      
+      console.log('⏸️ Работа поставлена на паузу в', now.toLocaleTimeString());
       
     } catch (error) {
       console.error('Error pausing work:', error);
@@ -374,13 +542,56 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
     
     try {
-      await resumeTimeEntry(currentUser.uid, currentEntry.id);
+      const entryRef = doc(db, `users/${currentUser.uid}/timeEntries`, currentEntry.id);
+      const entryDoc = await getDoc(entryRef);
+
+      if (!entryDoc.exists()) {
+        throw new Error('Time entry not found');
+      }
+
+      const currentData = entryDoc.data();
+      const now = new Date();
+      
+      let pauseDuration = 0;
+      let updatedPauses = currentData.pauses || [];
+      
+      if (currentData.currentPauseStart) {
+        const pauseStart = currentData.currentPauseStart.toDate ? currentData.currentPauseStart.toDate() : new Date(currentData.currentPauseStart);
+        pauseDuration = Math.floor((now.getTime() - pauseStart.getTime()) / 1000); // Считаем в секундах
+        
+        updatedPauses.push({
+          startTime: pauseStart,
+          endTime: now,
+          duration: Math.floor(pauseDuration / 60),
+          reason: currentData.pauseReason
+        });
+      }
+      
+      const totalPauseDuration = (currentData.totalPauseDuration || 0) + pauseDuration;
+
+      const updates = {
+        status: 'active' as TimeEntryStatus,
+        pauses: updatedPauses,
+        totalPauseDuration,
+        currentPauseStart: deleteField(),
+        pauseReason: deleteField(),
+        updatedAt: serverTimestamp()
+      };
+      
+      await updateDoc(entryRef, updates);
+
       setIsPaused(false);
       
-      // Обновляем сохраненную сессию
-      const updatedEntry = { ...currentEntry, status: 'active' as TimeEntryStatus };
+      const updatedEntry = { 
+        ...currentEntry, 
+        status: 'active' as TimeEntryStatus,
+        currentPauseStart: undefined
+      };
       setCurrentEntry(updatedEntry);
       localStorage.setItem('currentTimeEntry', JSON.stringify(updatedEntry));
+      localStorage.removeItem('pauseStartTime');
+      
+      console.log('▶️ Работа возобновлена в', now.toLocaleTimeString());
       
     } catch (error) {
       console.error('Error resuming work:', error);

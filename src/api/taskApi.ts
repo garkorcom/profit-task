@@ -2,7 +2,7 @@
 // Структура хранения: users/{userId}/tasks/{taskId}
 // Здесь собраны функции для подписки на изменения и для операций создания/обновления/удаления задач.
 import { db } from '../firebase/firebase';
-import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, limit, Unsubscribe, Query, DocumentData } from 'firebase/firestore';
 
 // Статусы жизненного цикла задачи
 export type TaskStatus = 
@@ -87,18 +87,34 @@ export interface Task {
 }
 
 /**
- * Подписка на список задач пользователя в реальном времени.
- * Возвращает функцию для отписки от стрима.
- *
- * Важно: используется orderBy('createdAt', 'desc'), поэтому при первом добавлении
- * нужно убедиться, что у документов есть поле createdAt (мы его выставляем serverTimestamp()).
+ * Получение потока задач в реальном времени
+ * @param userId - ID пользователя
+ * @param callback - функция обратного вызова для обновления списка задач
+ * @param projectId - (опционально) ID проекта для фильтрации
  */
-export const getTasksStream = (userId: string, callback: (tasks: Task[]) => void) => {
+export const getTasksStream = (
+  userId: string,
+  callback: (tasks: Task[]) => void,
+  projectId?: string
+): Unsubscribe => {
   const tasksPath = `users/${userId}/tasks`;
-  const q = query(collection(db, tasksPath), orderBy('createdAt', 'desc'));
+  let q: Query<DocumentData>;
+
+  if (projectId) {
+    q = query(collection(db, tasksPath), where('projectId', '==', projectId));
+  } else {
+    q = query(collection(db, tasksPath));
+  }
+
   return onSnapshot(q, (snapshot) => {
+    console.log(`[taskApi] Snapshot received. Empty: ${snapshot.empty}. Size: ${snapshot.size}`);
+    snapshot.docs.forEach(doc => {
+      console.log(`[taskApi] Task data:`, doc.data());
+    });
     const tasks = snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() })) as Task[];
     callback(tasks);
+  }, (error) => {
+    console.error("[taskApi] Error fetching tasks:", error);
   });
 };
 
@@ -153,34 +169,25 @@ export const getHighPriorityTasksStream = (userId: string, limitCount: number = 
 };
 
 /**
- * Создание задачи с автоматическими временными метками и дефолтным статусом.
- * Возвращает идентификатор созданного документа.
+ * Создать новую задачу
+ * @param userId - ID пользователя
+ * @param taskData - Данные задачи (должны включать projectId)
  */
-export const addTask = async (userId: string, taskData: { 
-  task: string; 
-  description?: string; 
-  priority?: string; 
-  status?: string;
-  contractorId?: string;
-  contractorName?: string;
-  questions?: string;
-  whatToBuy?: string;
-}) => {
+export const addTask = async (
+  userId: string, 
+  taskData: Omit<Task, 'id'>
+): Promise<string> => {
+  if (!taskData.projectId) {
+    throw new Error('Task must have a projectId');
+  }
+
   const tasksPath = `users/${userId}/tasks`;
-  const taskWithTimestamp = {
+  const docRef = await addDoc(collection(db, tasksPath), {
     ...taskData,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-    status: taskData.status || 'pending'
-  };
-  
-  try {
-    const docRef = await addDoc(collection(db, tasksPath), taskWithTimestamp);
-    return docRef.id;
-  } catch (error) {
-    console.error('Ошибка при добавлении задачи:', error);
-    throw error;
-  }
+  });
+  return docRef.id;
 };
 
 /**

@@ -12,6 +12,8 @@ import LogoutIcon from '@mui/icons-material/Logout';
 import EstimateIcon from '@mui/icons-material/RequestQuote';
 import TimerIcon from '@mui/icons-material/Timer';
 import CriticalStockBell from '../dashboard/CriticalStockBell';
+import BugReportIcon from '@mui/icons-material/BugReport';
+import BuildIcon from '@mui/icons-material/Build';
 
 const navItems = [
   { path: '/', label: 'Главная', value: 'home', icon: <HomeIcon /> },

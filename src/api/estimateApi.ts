@@ -55,6 +55,9 @@ export interface EstimateItem {
   total: number;
   // Вложенные элементы
   children?: EstimateItem[];
+
+  // Новые поля для себестоимости
+  totalLaborCost?: number; // Фактическая себестоимость работ по учету времени
 }
 
 /**
@@ -63,6 +66,7 @@ export interface EstimateItem {
 export interface Estimate {
   id: string;
   projectId: string;
+  contractorId?: string; // Добавляем поле
   number?: string;
   name?: string;
   description?: string;
@@ -160,18 +164,23 @@ export const addEstimate = async (
 ) => {
   const batch = writeBatch(db);
 
-  // 1. Создаем ссылку на новую смету
   const estimatesPath = `users/${userId}/estimates`;
   const newEstimateRef = doc(collection(db, estimatesPath));
 
-  const data = {
-    ...estimateData,
+  // Глубокая очистка данных перед отправкой
+  const dataToSave = { ...estimateData };
+  if (dataToSave.items) {
+    dataToSave.items = dataToSave.items.map(item => cleanObject(item)) as EstimateItem[];
+  }
+
+  const cleanedData = cleanObject({
+    ...dataToSave,
     createdAt: serverTimestamp(),
     updatedAt: serverTimestamp(),
-  } as any;
-  batch.set(newEstimateRef, data);
+  });
 
-  // 2. Обновляем счетчик в проекте
+  batch.set(newEstimateRef, cleanedData);
+
   const projectRef = doc(db, `users/${userId}/projects`, estimateData.projectId);
   batch.update(projectRef, { estimatesCount: increment(1) });
 
@@ -179,20 +188,32 @@ export const addEstimate = async (
   return newEstimateRef.id;
 };
 
+// Утилита для очистки объекта от undefined полей
+const cleanObject = (obj: { [key: string]: any }): { [key: string]: any } => {
+  const cleaned: { [key: string]: any } = {};
+  for (const key in obj) {
+    if (obj[key] !== undefined) {
+      cleaned[key] = obj[key];
+    }
+  }
+  return cleaned;
+};
+
 /**
- * Обновить смету
+ * Обновление существующей сметы
  */
 export const updateEstimate = async (
   userId: string,
   estimateId: string,
   updates: Partial<Estimate>
-) => {
-  const estimatePath = `users/${userId}/estimates/${estimateId}`;
-  const data = {
-    ...updates,
-    updatedAt: serverTimestamp(),
-  } as any;
-  await updateDoc(doc(db, estimatePath), data);
+): Promise<void> => {
+  const estimateRef = doc(db, `users/${userId}/estimates`, estimateId);
+  const cleanedUpdates = cleanObject(updates); // Очищаем данные
+  
+  await updateDoc(estimateRef, {
+    ...cleanedUpdates,
+    updatedAt: serverTimestamp()
+  });
 };
 
 /**

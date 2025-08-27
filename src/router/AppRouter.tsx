@@ -3,7 +3,7 @@ import { BrowserRouter, Routes, Route, Navigate } from 'react-router-dom';
 import LoginPage from '../auth/LoginPage';
 import PrivateRoute from '../components/layouts/PrivateRoute';
 import MainLayout from '../components/layouts/MainLayout';
-import HomeDashboard from '../pages/HomePage';
+import HomePage from '../pages/HomePage';
 import TasksPage from '../pages/TasksPage';
 import ProductsPage from '../pages/ProductsPage';
 import InvoicesPage from '../pages/InvoicesPage';
@@ -25,6 +25,7 @@ import ShipmentDetailsPage from '../pages/ShipmentDetailsPage';
 import NotificationsPage from '../pages/NotificationsPage';
 import MobileEstimatePage from '../pages/MobileEstimatePage';
 import TimeControlPage from '../pages/TimeControlPage';
+import DevToolsPage from '../pages/DevToolsPage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -35,7 +36,8 @@ const AppRouter: React.FC = () => {
         <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage />} />
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
-            <Route path="/" element={<HomeDashboard />} />
+            <Route path="/" element={<HomePage />} />
+            <Route path="/dev-tools" element={<DevToolsPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/review" element={<TaskReviewPage />} />
             <Route path="/analytics" element={<AnalyticsDashboard />} />

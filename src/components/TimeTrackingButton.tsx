@@ -1,200 +1,127 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState } from 'react';
 import {
   Button,
-  Dialog,
-  DialogTitle,
-  DialogContent,
-  DialogActions,
-  List,
-  ListItemButton,
-  ListItemText,
-  Typography,
+  Stack,
   Alert,
-  Box,
-  CircularProgress,
-  Stepper,
-  Step,
-  StepLabel,
 } from '@mui/material';
-import type { ButtonProps as MUIButtonProps } from '@mui/material/Button';
-import { PlayArrow as StartIcon, PhotoCamera as CameraIcon } from '@mui/icons-material';
-import { useAuth } from '../auth/AuthContext';
-import { useTimeTracking } from '../contexts/TimeTrackingContext';
-import { getProjectsStream, Project } from '../api/projectApi';
-import { getTasksStream, Task } from '../api/taskApi';
+import { PlayArrow as PlayIcon, PhotoCamera as CameraIcon, Stop as StopIcon, Pause as PauseIcon } from '@mui/icons-material';
+import {
+  StartWorkPayload,
+  useTimeTracking
+} from '../contexts/TimeTrackingContext';
+import { Project } from '../api/projectApi';
+import { Task } from '../api/taskApi';
+import { Estimate, EstimateItem } from '../api/estimateApi';
 
-interface TimeTrackingButtonProps extends Omit<MUIButtonProps, 'children'> {
-  buttonText?: string;
+interface TimeTrackingButtonProps {
+  project: Project | null;
+  task: Task | null;
+  estimate: Estimate | null;
+  service: EstimateItem | null;
+  onStart?: () => void;
+  onStop?: () => void;
 }
 
-const TimeTrackingButton: React.FC<TimeTrackingButtonProps> = ({
-  buttonText = 'Начать учёт времени',
-  onClick,
-  disabled,
-  ...restProps
+export const TimeTrackingButton: React.FC<TimeTrackingButtonProps> = ({
+  project,
+  task,
+  estimate,
+  service,
+  onStart,
+  onStop,
 }) => {
-  const { currentUser } = useAuth();
-  const { isWorking, startWork } = useTimeTracking();
-  
-  const [open, setOpen] = useState(false);
-  const [loading, setLoading] = useState(false);
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [selectedProject, setSelectedProject] = useState<Project | null>(null);
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [activeStep, setActiveStep] = useState(0);
-  const [error, setError] = useState<string | null>(null);
+  const { startWork, stopWork, isWorking, isPaused, pauseWork, resumeWork } = useTimeTracking();
   const [startPhoto, setStartPhoto] = useState<File | null>(null);
-
-  useEffect(() => {
-    if (!currentUser || !open) return;
-
-    const unsubProjects = getProjectsStream(currentUser.uid, setProjects);
-    const unsubTasks = getTasksStream(currentUser.uid, setTasks);
-
-    return () => {
-      unsubProjects && unsubProjects();
-      unsubTasks && unsubTasks();
-    };
-  }, [currentUser, open]);
-
-  const handleOpen = (event: React.MouseEvent<HTMLButtonElement>) => {
-    if (isWorking) {
-      setError('Уже идет учет времени. Завершите текущую работу.');
-      return;
-    }
-    onClick?.(event); // Call external onClick if provided
-    setOpen(true);
-    setActiveStep(0);
-    setSelectedProject(null);
-    setSelectedTask(null);
-    setError(null);
-  };
-
-  const handleClose = () => {
-    if (loading) return;
-    setOpen(false);
-    setError(null);
-  };
-
-  const handleSelectProject = (project: Project) => {
-    setSelectedProject(project);
-    setActiveStep(1);
-    setError(null);
-  };
-
-  const handleSelectTask = (task: Task) => {
-    setSelectedTask(task);
-    setActiveStep(2);
-    setError(null);
-  };
+  const [location, setLocation] = useState<GeolocationPosition | null>(null);
+  const [error, setError] = useState<string | null>(null);
 
   const handleStart = async () => {
-    if (!selectedProject || !selectedTask) return;
-    if (!startPhoto) {
-      setError('Добавьте фото ДО начала работ');
+    setError(null);
+    if (!project) {
+      setError("Необходимо выбрать проект");
       return;
     }
 
-    setLoading(true);
-    setError(null);
+    if (!task && !estimate) {
+      setError("Необходимо выбрать задачу или смету");
+      return;
+    }
 
     try {
-      await startWork(
-        selectedTask.id,
-        startPhoto
-      );
-      setOpen(false);
+      const payload: StartWorkPayload = {
+        project,
+        task: task || undefined,
+        estimate: estimate || undefined,
+        service: service || undefined,
+        startPhoto: startPhoto || undefined,
+        location: location || undefined,
+      };
+
+      await startWork(payload);
+      
+      setStartPhoto(null);
+      setLocation(null);
+      if (onStart) onStart();
     } catch (err: any) {
-      setError(err.message || 'Ошибка при начале работы');
-    } finally {
-      setLoading(false);
+      console.error("Failed to start work:", err);
+      setError(err.message || 'Произошла ошибка');
     }
   };
 
-  const handleBack = () => {
-    if (activeStep > 0) {
-      setActiveStep(activeStep - 1);
+  const handleStop = async () => {
+    try {
+      await stopWork();
+      if (onStop) onStop();
+    } catch (err: any) {
+      console.error("Failed to stop work:", err);
+      setError(err.message || 'Произошла ошибка');
     }
   };
 
-  const activeProjects = projects.filter(p => p.status === 'active');
-  const projectTasks = selectedProject
-    ? tasks.filter(t => t.projectId === selectedProject.id && t.status !== 'completed' && t.status !== 'cancelled')
-    : [];
+  const handlePhotoChange = (event: React.ChangeEvent<HTMLInputElement>) => {
+    if (event.target.files && event.target.files[0]) {
+      setStartPhoto(event.target.files[0]);
+    }
+  };
+  
+  const handleLocation = () => {
+    navigator.geolocation.getCurrentPosition(
+      (position) => setLocation(position),
+      (err) => console.warn(`ERROR(${err.code}): ${err.message}`)
+    );
+  };
 
-  const steps = ['Выберите проект', 'Выберите задачу', 'Подтверждение'];
+  if (isWorking) {
+    return (
+      <Stack direction="row" spacing={2}>
+        {isPaused ? (
+          <Button variant="contained" onClick={resumeWork} startIcon={<PlayIcon />}>Продолжить</Button>
+        ) : (
+          <Button variant="contained" color="warning" onClick={() => pauseWork()} startIcon={<PauseIcon />}>Пауза</Button>
+        )}
+        <Button variant="contained" color="error" onClick={handleStop} startIcon={<StopIcon />}>
+          Стоп
+        </Button>
+      </Stack>
+    );
+  }
 
   return (
-    <>
-      <Button
-        onClick={handleOpen}
-        disabled={isWorking || disabled}
-        {...restProps}
-      >
-        {isWorking ? 'Идет учет времени' : buttonText}
+    <Stack spacing={2} direction="column" alignItems="center">
+      {error && <Alert severity="error">{error}</Alert>}
+      <Stack spacing={2} direction="row">
+        <Button component="label" variant="outlined" startIcon={<CameraIcon />}>
+          Фото
+          <input type="file" accept="image/*" hidden onChange={handlePhotoChange} />
+        </Button>
+        <Button variant="outlined" startIcon={<CameraIcon />} onClick={handleLocation}>
+          Локация
+        </Button>
+      </Stack>
+      <Button variant="contained" color="primary" onClick={handleStart} startIcon={<PlayIcon />}>
+        Начать работу
       </Button>
-
-      <Dialog open={open} onClose={handleClose} maxWidth="sm" fullWidth>
-        <DialogTitle>
-          Начать учет времени
-          <Stepper activeStep={activeStep} sx={{ mt: 2 }}>
-            {steps.map((label) => (
-              <Step key={label}><StepLabel>{label}</StepLabel></Step>
-            ))}
-          </Stepper>
-        </DialogTitle>
-        <DialogContent>
-          {error && <Alert severity="error" sx={{ mb: 2 }}>{error}</Alert>}
-
-          {activeStep === 0 && (
-            <List>
-              {activeProjects.map((project) => (
-                <ListItemButton key={project.id} onClick={() => handleSelectProject(project)}>
-                  <ListItemText primary={project.name} />
-                </ListItemButton>
-              ))}
-            </List>
-          )}
-
-          {activeStep === 1 && (
-            <List>
-              {projectTasks.map((task) => (
-                <ListItemButton key={task.id} onClick={() => handleSelectTask(task)}>
-                  <ListItemText primary={task.task} />
-                </ListItemButton>
-              ))}
-            </List>
-          )}
-
-          {activeStep === 2 && selectedProject && selectedTask && (
-            <Box sx={{ p: 2 }}>
-              <Typography>Проект: {selectedProject.name}</Typography>
-              <Typography>Задача: {selectedTask.task}</Typography>
-              <Button component="label" variant="outlined" startIcon={<CameraIcon />} sx={{ mt: 2 }}>
-                {startPhoto ? `Фото выбрано: ${startPhoto.name}` : 'Добавить фото ДО'}
-                <input type="file" accept="image/*" capture="environment" hidden onChange={(e) => setStartPhoto(e.target.files?.[0] || null)} />
-              </Button>
-            </Box>
-          )}
-        </DialogContent>
-        <DialogActions>
-          {activeStep > 0 && <Button onClick={handleBack} disabled={loading}>Назад</Button>}
-          <Button onClick={handleClose} disabled={loading}>Отмена</Button>
-          {activeStep === 2 && (
-            <Button
-              onClick={handleStart}
-              variant="contained"
-              color="success"
-              disabled={loading}
-              startIcon={loading ? <CircularProgress size={20} /> : <StartIcon />}
-            >
-              {loading ? 'Запуск...' : 'Начать работу'}
-            </Button>
-          )}
-        </DialogActions>
-      </Dialog>
-    </>
+    </Stack>
   );
 };
 

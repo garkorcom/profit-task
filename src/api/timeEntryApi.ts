@@ -99,6 +99,7 @@ export interface TimeEntry {
   // Статус и метаданные
   status: TimeEntryStatus;
   pauseReason?: string;  // Причина паузы (если применимо)
+  laborCost?: number; // Себестоимость трудозатрат (durationMinutes / 60 * user.hourlyRate)
   
   // Системные поля
   createdAt?: any;
@@ -114,15 +115,28 @@ export const uploadTimeEntryPhoto = async (
   photoFile: File,
   photoType: 'start' | 'end'
 ): Promise<string> => {
-  const timestamp = Date.now();
-  const fileName = `${photoType}_${timestamp}_${photoFile.name}`;
-  const storagePath = `timeTracking/${userId}/${entryId}/${fileName}`;
-  const storageRef = ref(storage, storagePath);
+  // На localhost сразу возвращаем заглушку, не пытаясь загрузить
+  if (window.location.hostname === 'localhost') {
+    console.warn('📸 Пропускаем загрузку фото на localhost из-за CORS');
+    return 'placeholder-photo-url';
+  }
   
-  const snapshot = await uploadBytes(storageRef, photoFile);
-  const downloadUrl = await getDownloadURL(snapshot.ref);
-  
-  return downloadUrl;
+  try {
+    const timestamp = Date.now();
+    const fileName = `${photoType}_${timestamp}_${photoFile.name}`;
+    const storagePath = `timeTracking/${userId}/${entryId}/${fileName}`;
+    const storageRef = ref(storage, storagePath);
+    
+    const snapshot = await uploadBytes(storageRef, photoFile);
+    const downloadUrl = await getDownloadURL(snapshot.ref);
+    
+    return downloadUrl;
+  } catch (error) {
+    console.error('Error uploading photo:', error);
+    // В случае ошибки возвращаем заглушку
+    console.warn('Photo upload failed - using placeholder');
+    return 'placeholder-photo-url';
+  }
 };
 
 /**

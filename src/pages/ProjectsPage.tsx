@@ -8,6 +8,8 @@ import { useAuth } from '../auth/AuthContext';
 import { Project, ProjectStatus, addProject, deleteProject, getProjectsStream, updateProject } from '../api/projectApi';
 import { Contractor, getContractorsStream } from '../api/contractorApi';
 import { useNavigate } from 'react-router-dom';
+import { Task, getTasksStream } from '../api/taskApi';
+import { Estimate, getEstimatesStream } from '../api/estimateApi';
 
 const statusOptions: { value: ProjectStatus; label: string; color: 'default' | 'info' | 'warning' | 'success'; }[] = [
   { value: 'planned', label: 'Запланирован', color: 'info' },
@@ -22,6 +24,8 @@ const ProjectsPage: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [projects, setProjects] = useState<Project[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
+  const [tasks, setTasks] = useState<Task[]>([]);
+  const [estimates, setEstimates] = useState<Estimate[]>([]);
   // REMOVE: const [estimatesCount, setEstimatesCount] = useState<Record<string, number>>({});
 
   const [dialogOpen, setDialogOpen] = useState(false);
@@ -37,7 +41,15 @@ const ProjectsPage: React.FC = () => {
       setProjects(items);
       setLoading(false);
     });
-    return () => { unsubProjects(); };
+    // Загружаем задачи и сметы для проверки связей
+    const unsubTasks = getTasksStream(currentUser.uid, setTasks);
+    const unsubEstimates = getEstimatesStream(currentUser.uid, '', setEstimates);
+
+    return () => { 
+      unsubProjects();
+      unsubTasks();
+      unsubEstimates();
+    };
   }, [currentUser]);
 
   // Ленивая загрузка контрагентов — только при открытом диалоге создания/редактирования
@@ -51,6 +63,12 @@ const ProjectsPage: React.FC = () => {
 
   const customerContractors = useMemo(() => contractors.filter(c => c.type === 'customer' || c.type === 'both'), [contractors]);
   const contractorMap = useMemo(() => Object.fromEntries(customerContractors.map(c => [c.id, c.name])), [customerContractors]);
+
+  const projectHasLinks = (projectId: string) => {
+    const hasTasks = tasks.some(t => t.projectId === projectId);
+    const hasEstimates = estimates.some(e => e.projectId === projectId);
+    return hasTasks || hasEstimates;
+  };
 
   const openNew = () => {
     setEditing(null);
@@ -144,7 +162,19 @@ const ProjectsPage: React.FC = () => {
                         </Badge>
                       </IconButton>
                       <IconButton size="small" onClick={() => openEdit(p)}><EditIcon fontSize="small" /></IconButton>
-                      <IconButton size="small" color="error" onClick={() => setConfirm(p)}><DeleteIcon fontSize="small" /></IconButton>
+                      <IconButton 
+                        size="small" 
+                        color="error" 
+                        onClick={() => setConfirm(p)}
+                        disabled={projectHasLinks(p.id)} // Блокируем кнопку
+                      >
+                        <DeleteIcon fontSize="small" />
+                      </IconButton>
+                      {projectHasLinks(p.id) && (
+                        <Typography variant="caption" color="error">
+                          Есть связанные задачи/сметы
+                        </Typography>
+                      )}
                     </Box>
                   </Box>
                   <Box mt={1} display="flex" gap={1} flexWrap="wrap">
