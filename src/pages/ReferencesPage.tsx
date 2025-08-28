@@ -15,6 +15,10 @@ import { getUserProfile, UserProfile } from '../api/userApi';
 import { addProject, Project, getProjectsStream } from '../api/projectApi';
 import { addTask, Task, getTasksStream } from '../api/taskApi';
 import { getEstimatesStream, Estimate } from '../api/estimateApi';
+import DataTestPage from './DataTestPage';
+import UserAccountTestPage from './UserAccountTestPage';
+import RBACTestPage from './RBACTestPage';
+import TestCPIntegration from '../tests/TestCPIntegration';
 
 interface ReferenceItem {
   title: string;
@@ -172,7 +176,11 @@ const ReferencesPage: React.FC = () => {
       <Typography variant="h4" gutterBottom>Справочники</Typography>
       <Tabs value={tabIndex} onChange={(e, index) => setTabIndex(index)}>
         <Tab label="Справочники" />
-        <Tab label="Тестирование" />
+        <Tab label="Разработка" />
+        <Tab label="Тесты данных" />
+        <Tab label="Тесты аккаунтов" />
+        <Tab label="RBAC (Права)" />
+        <Tab label="Тесты К&П" />
       </Tabs>
       <TabPanel value={tabIndex} index={0}>
         <Box display="flex" flexWrap="wrap" gap={3}>
@@ -218,6 +226,18 @@ const ReferencesPage: React.FC = () => {
       </TabPanel>
       <TabPanel value={tabIndex} index={1}>
         <TestStand />
+      </TabPanel>
+      <TabPanel value={tabIndex} index={2}>
+        <DataTestPage />
+      </TabPanel>
+      <TabPanel value={tabIndex} index={3}>
+        <UserAccountTestPage />
+      </TabPanel>
+      <TabPanel value={tabIndex} index={4}>
+        <RBACTestPage />
+      </TabPanel>
+      <TabPanel value={tabIndex} index={5}>
+        <TestCPIntegration />
       </TabPanel>
     </Box>
   );

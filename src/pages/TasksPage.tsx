@@ -4,7 +4,7 @@ import {
   Typography, 
   Card, 
   CardContent, 
-  CardActions,
+
   Button, 
   Dialog,
   DialogTitle,
@@ -18,27 +18,22 @@ import {
   IconButton,
   Chip,
   FormHelperText,
-  Grid,
-  FormControlLabel,
-  Switch
+
 } from '@mui/material';
 import { 
   Delete as DeleteIcon, 
   Edit as EditIcon, 
   Business as BusinessIcon, 
   Work as WorkIcon,
-  Visibility as ViewIcon,
-  PlayArrow as StartIcon,
-  Assignment as TaskIcon
+
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { getTasksStream, addTask, updateTask, deleteTask, Task, TaskStatus, TaskPriority } from '../api/taskApi';
-import TaskStatusChip from '../components/tasks/TaskStatusChip';
-import TaskPriorityChip from '../components/tasks/TaskPriorityChip';
-import TaskDetailsDialog from '../components/tasks/TaskDetailsDialog';
+
+
 import { getContractorsStream, Contractor } from '../api/contractorApi';
 import { getProjectsStream, Project } from '../api/projectApi';
 import { useLocation, useNavigate } from 'react-router-dom';
@@ -84,8 +79,7 @@ const TasksPage: React.FC = () => {
   const [submitting, setSubmitting] = useState(false);
   const [confirm, setConfirm] = useState<{ open: boolean; taskId?: string }>({ open: false });
   const [filterContractorId, setFilterContractorId] = useState<string>('');
-  const [selectedTask, setSelectedTask] = useState<Task | null>(null);
-  const [detailsOpen, setDetailsOpen] = useState(false);
+
 
   useEffect(() => {
     if (!currentUser) return;
@@ -214,10 +208,6 @@ const TasksPage: React.FC = () => {
     setOpenDialog(true);
   };
 
-  const handleViewDetails = (task: Task) => {
-    setSelectedTask(task);
-    setDetailsOpen(true);
-  };
 
   const handleCloseDialog = () => {
     setOpenDialog(false);
@@ -244,7 +234,7 @@ const TasksPage: React.FC = () => {
   };
 
   const handleSubmit = async () => {
-    if (!currentUser || !formData.task.trim() || !formData.contractorId) return;
+    if (!currentUser || !formData.task.trim() || !formData.contractorId || !formData.projectId) return;
 
     setSubmitting(true);
     try {
@@ -310,7 +300,7 @@ const TasksPage: React.FC = () => {
 
   const visibleTasks = tasks.filter(t => !filterContractorId || t.contractorId === filterContractorId);
 
-  const isSaveDisabled = !formData.task.trim() || !formData.contractorId || submitting || contractors.length === 0;
+  const isSaveDisabled = !formData.task.trim() || !formData.contractorId || !formData.projectId || submitting || contractors.length === 0 || projects.length === 0;
 
   if (loading) return <LoadingSpinner />;
   
@@ -340,26 +330,6 @@ const TasksPage: React.FC = () => {
             ))}
           </Select>
         </FormControl>
-          {/* Проект (опционально) */}
-          <FormControl fullWidth sx={{ mb: 2 }}>
-            <InputLabel>Проект</InputLabel>
-            <Select
-              value={formData.projectId}
-              label="Проект"
-              onChange={(e) => {
-                const pid = e.target.value as string;
-                const p = projects.find(pr => pr.id === pid);
-                setFormData({ ...formData, projectId: pid, projectName: p?.name || '' });
-              }}
-            >
-              <MenuItem value="">
-                <em>Не выбран</em>
-              </MenuItem>
-              {projects.map(p => (
-                <MenuItem key={p.id} value={p.id}>{p.name}</MenuItem>
-              ))}
-            </Select>
-          </FormControl>
       </Box>
       
       {visibleTasks.length > 0 ? visibleTasks.map(task => (
@@ -379,15 +349,15 @@ const TasksPage: React.FC = () => {
                     {task.contractorName}
                   </Typography>
                 )}
-                {(task as any).projectName && (
+                {task.projectName && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
                     <WorkIcon sx={{ mr: 0.5, fontSize: 'small', verticalAlign: 'middle' }} />
-                    {(task as any).projectName}
+                    Проект: {task.projectName}
                   </Typography>
                 )}
-                {(task as any).whatToBuy && (
+                {task.whatToBuy && (
                   <Typography variant="body2" color="text.secondary" sx={{ mb: 1 }}>
-                    Что купить: {(task as any).whatToBuy}
+                    Что купить: {task.whatToBuy}
                   </Typography>
                 )}
                 {task.questions && (
@@ -420,17 +390,7 @@ const TasksPage: React.FC = () => {
           </CardContent>
         </Card>
       )) : <Typography>Задач пока нет.</Typography>}
-      
-      {/* Диалог просмотра деталей задачи */}
-      <TaskDetailsDialog
-        open={detailsOpen}
-        onClose={() => setDetailsOpen(false)}
-        task={selectedTask}
-        onStatusChange={(taskId, newStatus) => {
-          // Обработка изменения статуса
-          console.log('Status change:', taskId, newStatus);
-        }}
-      />
+
 
       <Dialog open={openDialog} onClose={handleCloseDialog} maxWidth="sm" fullWidth>
         <DialogTitle>
@@ -509,7 +469,7 @@ const TasksPage: React.FC = () => {
               <MenuItem value="completed">Завершено</MenuItem>
             </Select>
           </FormControl>
-          <FormControl fullWidth required error={!formData.contractorId}>
+          <FormControl fullWidth required error={!formData.contractorId} sx={{ mb: 2 }}>
             <InputLabel>Контрагент</InputLabel>
             <Select
               value={formData.contractorId}
@@ -528,6 +488,34 @@ const TasksPage: React.FC = () => {
             </Select>
             {!formData.contractorId && (
               <FormHelperText>Выберите контрагента</FormHelperText>
+            )}
+          </FormControl>
+          <FormControl fullWidth required error={!formData.projectId}>
+            <InputLabel>Проект</InputLabel>
+            <Select
+              value={formData.projectId}
+              label="Проект"
+              onChange={(e) => {
+                const project = projects.find(p => p.id === e.target.value);
+                setFormData({
+                  ...formData, 
+                  projectId: e.target.value,
+                  projectName: project?.name || ''
+                });
+              }}
+              disabled={projects.length === 0}
+            >
+              <MenuItem value="">
+                <em>Не выбран</em>
+              </MenuItem>
+              {projects.map(project => (
+                <MenuItem key={project.id} value={project.id}>
+                  {project.name}
+                </MenuItem>
+              ))}
+            </Select>
+            {!formData.projectId && (
+              <FormHelperText>Выберите проект</FormHelperText>
             )}
           </FormControl>
         </DialogContent>

@@ -27,7 +27,7 @@ export interface Task {
   priority?: TaskPriority;
   
   // Привязки
-  projectId?: string;  // Привязка к проекту (обязательно)
+  projectId?: string;  // Привязка к проекту (обязательно для новых задач)
   projectName?: string;
   estimateItemId?: string;  // Привязка к позиции сметы (опционально)
   contractorId?: string;

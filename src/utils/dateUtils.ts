@@ -9,6 +9,9 @@ export const format = (date: Date, formatString: string): string => {
   if (formatString === 'dd.MM.yyyy HH:mm') {
     return `${day}.${month}.${year} ${hours}:${minutes}`;
   }
+  if (formatString === 'dd.MM.yyyy') {
+    return `${day}.${month}.${year}`;
+  }
   return `${year}-${month}-${day}`;
 };
 

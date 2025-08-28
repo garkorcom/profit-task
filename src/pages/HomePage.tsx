@@ -25,7 +25,6 @@ import StartWorkDialog from '../components/StartWorkDialog';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const HomePage: React.FC = () => {
-  const navigate = useNavigate();
   const theme = useTheme();
   const { currentUser } = useAuth();
   const { isWorking, currentEntry, elapsedSeconds, stopWork } = useTimeTracking();

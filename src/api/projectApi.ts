@@ -1,7 +1,7 @@
 // Модуль работы с проектами (CRUD и стриминг из Firestore)
 // Структура хранения: users/{userId}/projects/{projectId}
 import { db } from '../firebase/firebase';
-import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, limit } from 'firebase/firestore';
+import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, limit, getDocs } from 'firebase/firestore';
 
 export type ProjectStatus = 'planned' | 'active' | 'paused' | 'completed';
 
@@ -43,14 +43,72 @@ export const addProject = async (userId: string, projectData: Omit<Project, 'id'
   return ref.id;
 };
 
-// Обновление проекта
+// Обновление проекта с синхронизацией зависимых записей
 export const updateProject = async (userId: string, projectId: string, updates: Partial<Project>) => {
   const projectRef = doc(db, `users/${userId}/projects`, projectId);
-  await updateDoc(projectRef, { ...updates, updatedAt: serverTimestamp() });
+  
+  // Если обновляется контрагент, нужно обновить его и в задачах
+  if (updates.contractorId !== undefined || updates.contractorName !== undefined) {
+    // Получаем все задачи проекта
+    const tasksQuery = query(
+      collection(db, `users/${userId}/tasks`),
+      where('projectId', '==', projectId)
+    );
+    const taskSnapshot = await getDocs(tasksQuery);
+    
+    // Обновляем контрагента в каждой задаче
+    const updatePromises = taskSnapshot.docs.map(taskDoc => {
+      const taskRef = doc(db, `users/${userId}/tasks`, taskDoc.id);
+      const taskUpdates: any = { updatedAt: serverTimestamp() };
+      
+      if (updates.contractorId !== undefined) {
+        taskUpdates.contractorId = updates.contractorId;
+      }
+      if (updates.contractorName !== undefined) {
+        taskUpdates.contractorName = updates.contractorName;
+      }
+      
+      return updateDoc(taskRef, taskUpdates);
+    });
+    
+    // Выполняем все обновления параллельно
+    await Promise.all([
+      updateDoc(projectRef, { ...updates, updatedAt: serverTimestamp() }),
+      ...updatePromises
+    ]);
+  } else {
+    // Обычное обновление проекта
+    await updateDoc(projectRef, { ...updates, updatedAt: serverTimestamp() });
+  }
 };
 
-// Удаление проекта
+// Удаление проекта с проверкой зависимостей
 export const deleteProject = async (userId: string, projectId: string) => {
+  // Проверяем наличие связанных задач
+  const tasksQuery = query(
+    collection(db, `users/${userId}/tasks`),
+    where('projectId', '==', projectId),
+    limit(1)
+  );
+  const taskSnapshot = await getDocs(tasksQuery);
+  
+  if (!taskSnapshot.empty) {
+    throw new Error('Невозможно удалить проект: существуют связанные задачи');
+  }
+  
+  // Проверяем наличие связанных смет
+  const estimatesQuery = query(
+    collection(db, `users/${userId}/estimates`),
+    where('projectId', '==', projectId),
+    limit(1)
+  );
+  const estimateSnapshot = await getDocs(estimatesQuery);
+  
+  if (!estimateSnapshot.empty) {
+    throw new Error('Невозможно удалить проект: существуют связанные сметы');
+  }
+  
+  // Если зависимостей нет, удаляем проект
   const projectRef = doc(db, `users/${userId}/projects`, projectId);
   await deleteDoc(projectRef);
 };

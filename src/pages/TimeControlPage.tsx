@@ -1,21 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
   Container, Box, Typography, Card, CardContent, Button, Stack, Alert, Chip,
-  Table, TableBody, TableCell, TableContainer, TableHead, TableRow, Paper,
-  IconButton, TextField, MenuItem, Avatar, List, ListItemText, Divider,
+  IconButton, List, ListItemText, Divider,
   Tab, Tabs, Stepper, Step, StepLabel, StepContent, ListItemButton, Fab,
-  AlertTitle, Dialog, DialogTitle, DialogContent
+  Dialog, DialogTitle
 } from '@mui/material';
 import {
-  Timer as TimerIcon, PlayArrow as PlayIcon, Stop as StopIcon, Pause as PauseIcon,
-  Refresh as RefreshIcon, Work as WorkIcon, Assignment as TaskIcon, Description as EstimateIcon,
-  Build as ServiceIcon, Download as DownloadIcon, ArrowBack as BackIcon, ArrowForward as NextIcon,
+  PlayArrow as PlayIcon, Stop as StopIcon, Pause as PauseIcon,
+  Work as WorkIcon, Assignment as TaskIcon,
+  ArrowBack as BackIcon, ArrowForward as NextIcon,
   Check as CheckIcon, Close as CloseIcon
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
-import { getTimeEntriesStream, TimeEntry, deleteTimeEntry } from '../api/timeEntryApi';
-import { format, isToday, isThisWeek, isThisMonth } from '../utils/dateUtils';
+import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryApi';
 import { Project, getProjectsStream } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
 import { getEstimatesStream, Estimate, EstimateItem } from '../api/estimateApi';

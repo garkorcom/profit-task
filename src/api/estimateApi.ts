@@ -11,6 +11,7 @@ import {
   writeBatch,
   increment,
   setDoc,
+  runTransaction,
 } from 'firebase/firestore';
 import { reserveForEstimate, unreserveForEstimate } from './productApi';
 
@@ -65,7 +66,7 @@ export interface EstimateItem {
  */
 export interface Estimate {
   id: string;
-  projectId: string;
+  projectId?: string; // Делаем опциональным для новых смет
   contractorId?: string; // Добавляем поле
   number?: string;
   name?: string;
@@ -181,8 +182,11 @@ export const addEstimate = async (
 
   batch.set(newEstimateRef, cleanedData);
 
-  const projectRef = doc(db, `users/${userId}/projects`, estimateData.projectId);
-  batch.update(projectRef, { estimatesCount: increment(1) });
+  // Обновляем счетчик в проекте (только если проект указан)
+  if (estimateData.projectId) {
+    const projectRef = doc(db, `users/${userId}/projects`, estimateData.projectId);
+    batch.update(projectRef, { estimatesCount: increment(1) });
+  }
 
   await batch.commit();
   return newEstimateRef.id;
@@ -257,18 +261,33 @@ export const updateEstimateStatus = async (
 };
 
 /**
- * Удалить смету и атомарно обновить счетчик в проекте
+ * Удалить смету и атомарно обновить счетчик в проекте (если есть проект)
  */
-export const deleteEstimate = async (userId: string, estimateId: string, projectId: string) => {
+export const deleteEstimate = async (userId: string, estimateId: string, projectId?: string) => {
   const batch = writeBatch(db);
 
   // 1. Удаляем смету
   const estimatePath = `users/${userId}/estimates/${estimateId}`;
   batch.delete(doc(db, estimatePath));
 
-  // 2. Уменьшаем счетчик в проекте
-  const projectRef = doc(db, `users/${userId}/projects`, projectId);
-  batch.update(projectRef, { estimatesCount: increment(-1) });
+  // 2. Уменьшаем счетчик в проекте (только если проект указан и существует)
+  if (projectId) {
+    try {
+      const projectRef = doc(db, `users/${userId}/projects`, projectId);
+      // Проверяем существование проекта
+      const projectDoc = await getDoc(projectRef);
+      
+      if (projectDoc.exists()) {
+        // Проект существует, обновляем счетчик
+        batch.update(projectRef, { estimatesCount: increment(-1) });
+      } else {
+        console.warn(`Проект ${projectId} не найден, пропускаем обновление счетчика`);
+      }
+    } catch (error) {
+      console.warn(`Ошибка при обновлении проекта ${projectId}:`, error);
+      // Продолжаем удаление сметы, даже если проект недоступен
+    }
+  }
 
   await batch.commit();
 };
@@ -397,4 +416,90 @@ export const generateEstimatePDF = async (
   await new Promise(resolve => setTimeout(resolve, 1000));
   
   return pdfUrl;
+};
+
+/**
+ * Транзакционное создание сметы с резервированием товаров
+ */
+export const createEstimateWithReserves = async (
+  userId: string,
+  estimateData: Omit<Estimate, 'id'>
+): Promise<string> => {
+  return runTransaction(db, async (transaction) => {
+    const estimatesPath = `users/${userId}/estimates`;
+    const newEstimateRef = doc(collection(db, estimatesPath));
+    
+    // Глубокая очистка данных перед отправкой
+    const dataToSave = { ...estimateData };
+    if (dataToSave.items) {
+      dataToSave.items = dataToSave.items.map(item => cleanObject(item)) as EstimateItem[];
+    }
+    
+    const cleanedData = cleanObject({
+      ...dataToSave,
+      createdAt: serverTimestamp(),
+      updatedAt: serverTimestamp(),
+    });
+    
+    // Создаем смету в транзакции
+    transaction.set(newEstimateRef, cleanedData);
+    
+    // Обновляем счетчик в проекте (только если проект указан)
+    if (estimateData.projectId) {
+      const projectRef = doc(db, `users/${userId}/projects`, estimateData.projectId);
+      transaction.update(projectRef, { 
+        estimatesCount: increment(1),
+        updatedAt: serverTimestamp()
+      });
+    }
+    
+    // Если смета сразу утверждена, резервируем товары
+    if (estimateData.status === 'approved') {
+      const materialItems = (estimateData.items || []).filter(i => i.type === 'material');
+      const estimateLabel = estimateData.number || estimateData.name || newEstimateRef.id;
+      
+      for (const item of materialItems) {
+        if (item.productId && (item.materialQuantity || item.quantity)) {
+          const productRef = doc(db, `users/${userId}/products`, item.productId);
+          const productSnap = await transaction.get(productRef);
+          
+          if (!productSnap.exists()) {
+            throw new Error(`Товар ${item.productId} не найден`);
+          }
+          
+          const productData = productSnap.data();
+          const quantity = item.materialQuantity || item.quantity || 0;
+          const currentStock = productData.currentStock || 0;
+          const reservedStock = productData.reservedStock || 0;
+          const availableStock = currentStock - reservedStock;
+          
+          if (availableStock < quantity) {
+            throw new Error(`Недостаточно товара ${item.name}: доступно ${availableStock}, требуется ${quantity}`);
+          }
+          
+          // Резервируем товар
+          transaction.update(productRef, {
+            reservedStock: increment(quantity),
+            updatedAt: serverTimestamp()
+          });
+          
+          // Создаем запись о движении
+          const movementRef = doc(collection(db, `users/${userId}/stockMovements`));
+          transaction.set(movementRef, {
+            productId: item.productId,
+            productName: item.name,
+            type: 'reserve',
+            quantity,
+            previousStock: currentStock,
+            newStock: currentStock,
+            document: 'Estimate',
+            comment: `Резервирование по смете: ${estimateLabel}`,
+            createdAt: serverTimestamp()
+          });
+        }
+      }
+    }
+    
+    return newEstimateRef.id;
+  });
 };

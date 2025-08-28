@@ -26,6 +26,11 @@ import NotificationsPage from '../pages/NotificationsPage';
 import MobileEstimatePage from '../pages/MobileEstimatePage';
 import TimeControlPage from '../pages/TimeControlPage';
 import DevToolsPage from '../pages/DevToolsPage';
+import EstimatesHub from '../pages/estimates/EstimatesHub';
+import QuickEstimateCreate from '../pages/estimates/QuickEstimateCreate';
+import EstimateConstructor from '../pages/estimates/EstimateConstructor';
+import CounterpartiesPage from '../pages/counterparty/CounterpartiesPage';
+import ProjectsV2Page from '../pages/project/ProjectsV2Page';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -49,15 +54,22 @@ const AppRouter: React.FC = () => {
             <Route path="/projects" element={<ProjectsPage />} />
             <Route path="/projects/:projectId/estimates" element={<ProjectEstimatesPage />} />
             <Route path="/projects/:projectId/estimates/:estimateId" element={<EstimateEditorPage />} />
+            <Route path="/projects-v2" element={<ProjectsV2Page />} />
+            <Route path="/counterparties" element={<CounterpartiesPage />} />
             <Route path="/mobile/estimate/:estimateId?" element={<MobileEstimatePage />} />
             <Route path="/time-control" element={<TimeControlPage />} />
+            <Route path="/estimates" element={<EstimatesHub />} />
+            <Route path="/estimates/quick-create" element={<QuickEstimateCreate />} />
+            <Route path="/estimates/new" element={<EstimateConstructor />} />
+            <Route path="/estimates/:estimateId/constructor" element={<EstimateConstructor />} />
             <Route path="/references" element={<ReferencesPage />} />
             <Route path="/warehouses" element={<WarehousesPage />} />
             <Route path="/shipments" element={<ShipmentsPage />} />
             <Route path="/shipments/:shipmentId" element={<ShipmentDetailsPage />} />
             <Route path="/stock-docs" element={<StockDocumentsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
-            <Route path="/contractors" element={<ContractorsPage />} />
+            {/* Старая система contractors - перенаправляем на новую */}
+            <Route path="/contractors" element={<Navigate to="/counterparties" replace />} />
             <Route path="/contractors/:contractorId/tasks" element={<ContractorTasksPage />} />
           </Route>
         </Route>
