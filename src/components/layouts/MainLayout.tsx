@@ -81,6 +81,7 @@ const allNavItems = [
     permission: null,
     color: '#607d8b',
     subItems: [
+      { path: '/projects', label: 'Проекты', icon: <ArchitectureIcon /> },
       { path: '/counterparties', label: 'Контрагенты', icon: <ContactsIcon /> },
       { path: '/warehouses', label: 'Склады', icon: <WarehouseIcon /> },
       { path: '/units', label: 'Единицы измерения', icon: <FolderIcon /> },
@@ -96,14 +97,7 @@ const allNavItems = [
     permission: Permission.VIEW_ESTIMATES,
     color: '#00bcd4'
   },
-  { 
-    path: '/projects', 
-    label: 'Проекты', 
-    value: 'projects', 
-    icon: <ArchitectureIcon />,
-    permission: Permission.VIEW_ALL_PROJECTS,
-    color: '#3f51b5'
-  },
+  // Проекты теперь доступны в подменю Справочники
 ];
 
 const MainLayout: React.FC = () => {
@@ -165,6 +159,7 @@ const MainLayout: React.FC = () => {
     if (currentItem) return currentItem.label;
     
     const pathMap: Record<string, string> = {
+      '/projects': 'Проекты',
       '/contractors': 'Контрагенты',
       '/products': 'Товары и услуги',
       '/warehouses': 'Склады',

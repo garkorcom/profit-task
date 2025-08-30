@@ -245,8 +245,10 @@ const CounterpartyBlock: React.FC<CounterpartyBlockProps> = ({
               }}
             />
           )}
-          renderOption={(props, option) => (
-            <Box component="li" {...props}>
+          renderOption={(props, option) => {
+            const { key, ...optionProps } = props as any;
+            return (
+            <Box component="li" key={key} {...optionProps}>
               <Stack>
                 <Typography variant="body1">{option.displayName || option.legalName}</Typography>
                 {option.contacts?.[0]?.email && (
@@ -256,7 +258,8 @@ const CounterpartyBlock: React.FC<CounterpartyBlockProps> = ({
                 )}
               </Stack>
             </Box>
-          )}
+            );
+          }}
         />
         
         {/* Selected counterparty details */}

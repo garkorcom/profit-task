@@ -265,10 +265,10 @@ export const updateEstimateBlock = async <T>(
   const updatedBlocks = [...estimate.blocks];
   updatedBlocks[blockIndex] = updatedBlock;
   
-  await updateDoc(estimateRef, {
+  await updateDoc(estimateRef, cleanForFirestore({
     blocks: updatedBlocks,
     updatedAt: serverTimestamp(),
-  });
+  }));
   
   // Recalculate totals if needed
   if (['services', 'products', 'costing'].includes(blockKey)) {

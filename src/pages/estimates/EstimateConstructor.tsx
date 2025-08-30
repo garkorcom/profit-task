@@ -151,6 +151,7 @@ const EstimateConstructor: React.FC = () => {
   
   // Load or create estimate
   useEffect(() => {
+    let createdInThisMount = false;
     if (!currentUser) return;
     
     const loadOrCreateEstimate = async () => {
@@ -163,7 +164,7 @@ const EstimateConstructor: React.FC = () => {
           est = await getEstimate(currentUser.uid, estimateId);
         }
         
-        if (!est) {
+        if (!est && !createdInThisMount) {
           // Create new estimate
           const newId = await createEstimate(currentUser.uid);
           est = await getEstimate(currentUser.uid, newId);
@@ -172,6 +173,7 @@ const EstimateConstructor: React.FC = () => {
           if (!estimateId && est) {
             navigate(`/estimates/${newId}/constructor`, { replace: true });
           }
+          createdInThisMount = true;
         }
         
         setEstimate(est);

@@ -47,6 +47,7 @@ import {
   Fab,
   useTheme,
   useMediaQuery,
+  Autocomplete,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -74,6 +75,7 @@ import {
   Pause as PauseIcon,
   Stop as StopIcon,
   Done as DoneIcon,
+  Delete as DeleteIcon,
 } from '@mui/icons-material';
 
 import { useAuth } from '../../auth/AuthContext';
@@ -93,7 +95,10 @@ import {
   closeProject,
   subscribeToProjects,
   getProjectKPI,
+  deleteProject,
 } from '../../api/projectV2Api';
+import { Counterparty } from '../../types/counterparty.types';
+import { getCounterparties } from '../../api/counterpartyApi';
 
 // Конфигурация статусов (using ProjectStatus from projectApi.ts)
 const PROJECT_STATUSES = [
@@ -123,6 +128,8 @@ const ProjectsV2Page: React.FC = () => {
   const [createDialogOpen, setCreateDialogOpen] = useState(false);
   const [kpi, setKpi] = useState<any>(null);
   const [viewMode, setViewMode] = useState<'cards' | 'list' | 'kanban'>('cards');
+  const [counterparties, setCounterparties] = useState<Counterparty[]>([]);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
   
   // New project form
   const [newProject, setNewProject] = useState<CreateProjectDto>({
@@ -150,6 +157,10 @@ const ProjectsV2Page: React.FC = () => {
         // Load KPI
         const kpiData = await getProjectKPI(currentUser.uid);
         setKpi(kpiData);
+
+        // Load counterparties for the creation dialog
+        const counterpartiesData = await getCounterparties(currentUser.uid, { roles: ['customer'] });
+        setCounterparties(counterpartiesData);
       } catch (error) {
         console.error('Error loading projects:', error);
       } finally {
@@ -237,6 +248,17 @@ const ProjectsV2Page: React.FC = () => {
       await changeProjectStatus(currentUser.uid, project.id, newStatus);
     } catch (error: any) {
       alert(`Ошибка изменения статуса: ${error.message}`);
+    }
+  };
+
+  const handleDeleteProject = async (project: Project) => {
+    if (!currentUser) return;
+    if (window.confirm(`Вы уверены, что хотите удалить проект "${project.name}"? Это действие необратимо.`)) {
+      try {
+        await deleteProject(currentUser.uid, project.id);
+      } catch (error: any) {
+        alert(`Ошибка удаления проекта: ${error.message}`);
+      }
     }
   };
   
@@ -741,6 +763,17 @@ const ProjectsV2Page: React.FC = () => {
         
         <Divider />
         
+        <MenuItem
+          onClick={() => {
+            if (selectedProject) handleDeleteProject(selectedProject);
+            handleMenuClose();
+          }}
+          sx={{ color: 'error.main' }}
+        >
+          <DeleteIcon fontSize="small" sx={{ mr: 1 }} />
+          Удалить
+        </MenuItem>
+
         {selectedProject?.status === 'active' && (
           <MenuItem onClick={() => {
             if (selectedProject) {
@@ -798,6 +831,20 @@ const ProjectsV2Page: React.FC = () => {
         <DialogTitle>Создать проект</DialogTitle>
         <DialogContent>
           <Stack spacing={3} sx={{ mt: 1 }}>
+            <Autocomplete
+              options={counterparties}
+              getOptionLabel={(option) => option.displayName || option.legalName}
+              onChange={(e, value) => {
+                setNewProject({ ...newProject, clientId: value?.id });
+              }}
+              renderInput={(params) => (
+                <TextField
+                  {...params}
+                  label="Клиент (контрагент)"
+                  placeholder="Выберите клиента"
+                />
+              )}
+            />
             <TextField
               label="Название проекта"
               value={newProject.name}

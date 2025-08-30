@@ -31,6 +31,8 @@ import {
   StatusesBlockData,
   EstimateStatus,
 } from '../../../types/estimate.types';
+import { changeEstimateStatus } from '../../../api/estimateV2Api';
+import { useAuth } from '../../../auth/AuthContext';
 
 interface StatusesBlockProps {
   estimate: Estimate;
@@ -47,6 +49,8 @@ const StatusesBlock: React.FC<StatusesBlockProps> = ({
 }) => {
   // const blockData = (block.data || {}) as StatusesBlockData; // TODO: использовать для сохранения состояния чеклиста
   
+  const { currentUser } = useAuth();
+  const [isChanging, setIsChanging] = useState(false);
   const [checklist, setChecklist] = useState([
     { key: 'has_items', label: 'Есть хотя бы одна позиция', done: false, required: true },
     { key: 'has_counterparty', label: 'Указан контрагент', done: false, required: true },
@@ -69,6 +73,19 @@ const StatusesBlock: React.FC<StatusesBlockProps> = ({
     };
     
     onSave(data);
+  };
+
+  const handleChangeStatus = async (next: EstimateStatus) => {
+    if (!currentUser) return;
+    try {
+      setIsChanging(true);
+      await changeEstimateStatus(currentUser.uid, estimate.id, next);
+    } catch (e) {
+      console.error('Failed to change status', e);
+      alert('Не удалось изменить статус');
+    } finally {
+      setIsChanging(false);
+    }
   };
 
   const getDefaultTransitions = () => [
@@ -178,7 +195,8 @@ const StatusesBlock: React.FC<StatusesBlockProps> = ({
               <Button 
                 variant="outlined" 
                 startIcon={<ArrowIcon />}
-                disabled={checklist.filter(i => i.required && !i.done).length > 0}
+                disabled={checklist.filter(i => i.required && !i.done).length > 0 || isChanging}
+                onClick={() => handleChangeStatus('internal_review')}
               >
                 На проверку
               </Button>
@@ -188,16 +206,18 @@ const StatusesBlock: React.FC<StatusesBlockProps> = ({
                 variant="outlined" 
                 startIcon={<ArrowIcon />}
                 color="success"
+                disabled={isChanging}
+                onClick={() => handleChangeStatus('sent')}
               >
                 Отправить клиенту
               </Button>
             )}
             {estimate.status === 'viewed' && (
               <>
-                <Button variant="outlined" color="success">
+                <Button variant="outlined" color="success" disabled={isChanging} onClick={() => handleChangeStatus('accepted')}>
                   Принять
                 </Button>
-                <Button variant="outlined" color="error">
+                <Button variant="outlined" color="error" disabled={isChanging} onClick={() => handleChangeStatus('rejected')}>
                   Отклонить
                 </Button>
               </>

@@ -121,6 +121,17 @@ export const createProject = async (
 };
 
 /**
+ * Удаление проекта
+ */
+export const deleteProject = async (
+  _userId: string,
+  projectId: string
+): Promise<void> => {
+  // Коллекция проектов хранится на корневом уровне: 'projects/{id}'
+  await deleteDoc(doc(db, 'projects', projectId));
+};
+
+/**
  * Получение проекта по ID
  */
 export const getProject = async (
@@ -491,6 +502,10 @@ export const getProjects = async (
   userId: string,
   filters?: ProjectFilters
 ): Promise<Project[]> => {
+  if (!userId) {
+    console.warn('getProjects called without userId. Returning empty array.');
+    return [];
+  }
   let projectsQuery = collection(db, `users/${userId}/projects`);
   const constraints: any[] = [];
   
@@ -534,7 +549,7 @@ export const getProjects = async (
   
   if (filters?.city && filters.city.length > 0) {
     projects = projects.filter(p => 
-      filters.city!.includes(p.location.city)
+      p.location?.city && filters.city!.includes(p.location.city)
     );
   }
   
@@ -715,8 +730,8 @@ export const getProjectKPI = async (userId: string): Promise<ProjectKPI> => {
       }
     }
     
-    // Проверка бюджета
-    if (p.financials.budgetTotal && p.financials.actualCost) {
+    // Проверка бюджета (учитываем, что в старых записях financials может отсутствовать)
+    if (p.financials?.budgetTotal != null && p.financials?.actualCost != null) {
       if (p.financials.actualCost > p.financials.budgetTotal) {
         kpi.overBudget++;
       }
@@ -732,8 +747,8 @@ export const getProjectKPI = async (userId: string): Promise<ProjectKPI> => {
     }
     
     // Средняя маржа
-    if (p.financials.profitMargin) {
-      totalMargin += p.financials.profitMargin;
+    if (typeof p.financials?.profitMargin === 'number') {
+      totalMargin += p.financials!.profitMargin as number;
       projectsWithMargin++;
     }
     

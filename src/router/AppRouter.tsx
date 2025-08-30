@@ -30,7 +30,10 @@ import EstimatesHub from '../pages/estimates/EstimatesHub';
 import QuickEstimateCreate from '../pages/estimates/QuickEstimateCreate';
 import EstimateConstructor from '../pages/estimates/EstimateConstructor';
 import CounterpartiesPage from '../pages/counterparty/CounterpartiesPage';
+import CounterpartyDetailsPage from '../pages/counterparty/CounterpartyDetailsPage';
+import CounterpartyEditPage from '../pages/counterparty/CounterpartyEditPage';
 import ProjectsV2Page from '../pages/project/ProjectsV2Page';
+import ProjectDetailsPage from '../pages/project/ProjectDetailsPage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -52,10 +55,13 @@ const AppRouter: React.FC = () => {
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/shopping" element={<ShoppingListPage />} />
             <Route path="/projects" element={<ProjectsV2Page />} />
+            <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
             <Route path="/projects/:projectId/estimates" element={<ProjectEstimatesPage />} />
             <Route path="/projects/:projectId/estimates/:estimateId" element={<EstimateEditorPage />} />
             <Route path="/projects-legacy" element={<ProjectsPage />} />
             <Route path="/counterparties" element={<CounterpartiesPage />} />
+            <Route path="/counterparties/:counterpartyId" element={<CounterpartyDetailsPage />} />
+            <Route path="/counterparties/:counterpartyId/edit" element={<CounterpartyEditPage />} />
             <Route path="/mobile/estimate/:estimateId?" element={<MobileEstimatePage />} />
             <Route path="/time-control" element={<TimeControlPage />} />
             <Route path="/estimates" element={<EstimatesHub />} />

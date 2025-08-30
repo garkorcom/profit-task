@@ -613,73 +613,76 @@ const CounterpartiesPage: React.FC = () => {
           </Button>
         </Paper>
       ) : (
-        <List>
-          {filteredCounterparties.map((counterparty, index) => (
-            <React.Fragment key={counterparty.id}>
-              <ListItem
-                secondaryAction={
-                  <IconButton
-                    onClick={(e) => {
-                      e.stopPropagation();
-                      handleMenuOpen(e, counterparty);
-                    }}
-                  >
-                    <MoreIcon />
-                  </IconButton>
-                }
-                disablePadding
-              >
-                <ListItemButton onClick={() => navigate(`/counterparties/${counterparty.id}`)}>
-                  <ListItemAvatar>
-                    <Avatar sx={{ bgcolor: 'primary.light' }}>
-                      {getRoleIcon(counterparty.roles[0])}
-                    </Avatar>
-                  </ListItemAvatar>
-                  
-                  <ListItemText
-                    primary={
-                      <Stack direction="row" alignItems="center" spacing={1}>
-                        <Typography variant="subtitle1">
-                          {counterparty.displayName}
-                        </Typography>
-                        {getPriorityIcon(counterparty.priority)}
-                        {hasDocumentIssues(counterparty) && (
-                          <Tooltip title="Есть проблемы с документами">
-                            <WarningIcon color="warning" fontSize="small" />
-                          </Tooltip>
-                        )}
-                      </Stack>
-                    }
-                    secondary={
-                      <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
-                        <Chip
-                          label={getStatusLabel(counterparty.status)}
-                          color={getStatusColor(counterparty.status) as any}
-                          size="small"
-                        />
-                        {counterparty.roles.map((role) => (
-                          <Chip
-                            key={role}
-                            label={role}
-                            size="small"
-                            variant="outlined"
-                          />
-                        ))}
-                        {counterparty.taxId && (
-                          <Typography variant="caption" color="text.secondary">
-                            ИНН: {counterparty.taxId}
+        <Box sx={{ pb: isMobile ? '80px' : 0 }}> {/* Добавляем отступ снизу на мобильных */}
+          <List>
+            {filteredCounterparties.map((counterparty, index) => (
+              <React.Fragment key={counterparty.id}>
+                <ListItem
+                  secondaryAction={
+                    <IconButton
+                      onClick={(e) => {
+                        e.stopPropagation();
+                        handleMenuOpen(e, counterparty);
+                      }}
+                    >
+                      <MoreIcon />
+                    </IconButton>
+                  }
+                  disablePadding
+                >
+                  <ListItemButton onClick={() => navigate(`/counterparties/${counterparty.id}`)}>
+                    <ListItemAvatar>
+                      <Avatar sx={{ bgcolor: 'primary.light' }}>
+                        {getRoleIcon(counterparty.roles[0])}
+                      </Avatar>
+                    </ListItemAvatar>
+                    
+                    <ListItemText
+                      primary={
+                        <Stack direction="row" alignItems="center" spacing={1}>
+                          <Typography variant="subtitle1">
+                            {counterparty.displayName}
                           </Typography>
-                        )}
-                      </Stack>
-                    }
-                  />
-                </ListItemButton>
-              </ListItem>
-              
-              {index < filteredCounterparties.length - 1 && <Divider />}
-            </React.Fragment>
-          ))}
-        </List>
+                          {getPriorityIcon(counterparty.priority)}
+                          {hasDocumentIssues(counterparty) && (
+                            <Tooltip title="Есть проблемы с документами">
+                              <WarningIcon color="warning" fontSize="small" />
+                            </Tooltip>
+                          )}
+                        </Stack>
+                      }
+                      secondaryTypographyProps={{ component: 'div' }}
+                      secondary={
+                        <Stack direction="row" spacing={1} alignItems="center" flexWrap="wrap">
+                          <Chip
+                            label={getStatusLabel(counterparty.status)}
+                            color={getStatusColor(counterparty.status) as any}
+                            size="small"
+                          />
+                          {counterparty.roles.map((role) => (
+                            <Chip
+                              key={role}
+                              label={role}
+                              size="small"
+                              variant="outlined"
+                            />
+                          ))}
+                          {counterparty.taxId && (
+                            <Typography variant="caption" color="text.secondary">
+                              ИНН: {counterparty.taxId}
+                            </Typography>
+                          )}
+                        </Stack>
+                      }
+                    />
+                  </ListItemButton>
+                </ListItem>
+                
+                {index < filteredCounterparties.length - 1 && <Divider />}
+              </React.Fragment>
+            ))}
+          </List>
+        </Box>
       )}
       
       {/* Context menu */}

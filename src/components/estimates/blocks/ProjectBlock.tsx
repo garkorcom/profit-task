@@ -188,8 +188,10 @@ const ProjectBlock: React.FC<ProjectBlockProps> = ({
               }}
             />
           )}
-          renderOption={(props, option) => (
-            <Box component="li" {...props}>
+          renderOption={(props, option) => {
+            const { key, ...optionProps } = props as any;
+            return (
+            <Box component="li" key={key} {...optionProps}>
               <Stack>
                 <Typography variant="body1">{option.name}</Typography>
                 {option.description && (
@@ -199,7 +201,8 @@ const ProjectBlock: React.FC<ProjectBlockProps> = ({
                 )}
               </Stack>
             </Box>
-          )}
+            );
+          }}
         />
         
         {/* Selected project details */}

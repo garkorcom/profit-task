@@ -341,37 +341,28 @@ const EstimatesHub: React.FC = () => {
                 </Stack>
               </Box>
               
-              {!isMobile && (
-                <Stack direction="row" spacing={1}>
-                  <IconButton size="small" onClick={(e) => {
-                    e.stopPropagation();
-                    handleEdit(estimate.id);
-                  }}>
-                    <EditIcon />
-                  </IconButton>
-                  <IconButton size="small" onClick={(e) => {
-                    e.stopPropagation();
-                    handleShare(estimate);
-                  }}>
-                    <ShareIcon />
-                  </IconButton>
-                  <IconButton size="small" onClick={(e) => {
-                    e.stopPropagation();
-                    handleExportPDF(estimate);
-                  }}>
-                    <PdfIcon />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={(e) => {
-                    e.stopPropagation();
-                    handleDelete(estimate);
-                  }}>
-                    <DeleteIcon />
-                  </IconButton>
-                </Stack>
-              )}
+              {/* Desktop actions moved outside CardActionArea to avoid nested buttons */}
             </Box>
           </CardContent>
         </CardActionArea>
+        {!isMobile && (
+          <Box sx={{ px: 2, pb: 1 }}>
+            <Stack direction="row" spacing={1} justifyContent="flex-end">
+              <IconButton size="small" onClick={() => handleEdit(estimate.id)}>
+                <EditIcon />
+              </IconButton>
+              <IconButton size="small" onClick={() => handleShare(estimate)}>
+                <ShareIcon />
+              </IconButton>
+              <IconButton size="small" onClick={() => handleExportPDF(estimate)}>
+                <PdfIcon />
+              </IconButton>
+              <IconButton size="small" color="error" onClick={() => handleDelete(estimate)}>
+                <DeleteIcon />
+              </IconButton>
+            </Stack>
+          </Box>
+        )}
         
         {isMobile && (
           <Box sx={{ px: 2, pb: 1 }}>
