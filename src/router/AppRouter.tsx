@@ -51,10 +51,10 @@ const AppRouter: React.FC = () => {
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/shopping" element={<ShoppingListPage />} />
-            <Route path="/projects" element={<ProjectsPage />} />
+            <Route path="/projects" element={<ProjectsV2Page />} />
             <Route path="/projects/:projectId/estimates" element={<ProjectEstimatesPage />} />
             <Route path="/projects/:projectId/estimates/:estimateId" element={<EstimateEditorPage />} />
-            <Route path="/projects-v2" element={<ProjectsV2Page />} />
+            <Route path="/projects-legacy" element={<ProjectsPage />} />
             <Route path="/counterparties" element={<CounterpartiesPage />} />
             <Route path="/mobile/estimate/:estimateId?" element={<MobileEstimatePage />} />
             <Route path="/time-control" element={<TimeControlPage />} />

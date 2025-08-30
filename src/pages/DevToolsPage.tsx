@@ -7,8 +7,11 @@ import { addTask, Task } from '../api/taskApi';
 import { getTasksStream } from '../api/taskApi';
 import { getEstimatesStream, Estimate } from '../api/estimateApi';
 import { getProjectsStream } from '../api/projectApi';
-import { db } from '../firebase/firebase';
-import { writeBatch, doc } from 'firebase/firestore';
+import { cleanOldContractors, previewOldContractors } from '../utils/cleanOldContractors';
+import DeleteIcon from '@mui/icons-material/Delete';
+import VisibilityIcon from '@mui/icons-material/Visibility';
+import WarningIcon from '@mui/icons-material/Warning';
+import { Card, CardContent, CardActions, Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText } from '@mui/material';
 
 const DevToolsPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -19,6 +22,12 @@ const DevToolsPage: React.FC = () => {
   const [message, setMessage] = useState<string | null>(null);
   const [projects, setProjects] = useState<Project[]>([]);
   const [selectedProjectId, setSelectedProjectId] = useState<string>('');
+  
+  // Состояния для управления старыми контрагентами
+  const [oldContractorsPreview, setOldContractorsPreview] = useState<any>(null);
+  const [previewDialogOpen, setPreviewDialogOpen] = useState(false);
+  const [confirmDeleteOpen, setConfirmDeleteOpen] = useState(false);
+  const [deletingContractors, setDeletingContractors] = useState(false);
 
   useEffect(() => {
     if (currentUser) {
@@ -82,6 +91,40 @@ const DevToolsPage: React.FC = () => {
     }
   };
 
+  // Функции для работы со старыми контрагентами
+  const handlePreviewOldContractors = async () => {
+    if (!currentUser) return;
+    
+    setMessage('Загрузка старых контрагентов...');
+    try {
+      const result = await previewOldContractors(currentUser.uid);
+      setOldContractorsPreview(result);
+      setPreviewDialogOpen(true);
+      setMessage(result.message);
+    } catch (error: any) {
+      setMessage(`Ошибка при загрузке контрагентов: ${error.message}`);
+    }
+  };
+
+  const handleDeleteOldContractors = async () => {
+    if (!currentUser) return;
+    
+    setDeletingContractors(true);
+    setMessage('Удаление старых контрагентов...');
+    
+    try {
+      const result = await cleanOldContractors(currentUser.uid);
+      setMessage(`✅ ${result.message}`);
+      setConfirmDeleteOpen(false);
+      setPreviewDialogOpen(false);
+      setOldContractorsPreview(null);
+    } catch (error: any) {
+      setMessage(`❌ Ошибка при удалении: ${error.message}`);
+    } finally {
+      setDeletingContractors(false);
+    }
+  };
+
   return (
     <Box sx={{ p: 3 }}>
       <Typography variant="h4" gutterBottom>Инструменты разработчика</Typography>
@@ -124,7 +167,7 @@ const DevToolsPage: React.FC = () => {
         )}
       </Paper>
       
-      <Paper sx={{ p: 2 }}>
+      <Paper sx={{ p: 2, mb: 3 }}>
         <Typography variant="h6">Список смет ({estimates.length})</Typography>
         {estimates.length > 0 ? (
           <pre>{JSON.stringify(estimates, null, 2)}</pre>
@@ -132,6 +175,147 @@ const DevToolsPage: React.FC = () => {
           <Typography>Сметы не найдены.</Typography>
         )}
       </Paper>
+      
+      {/* Секция управления старыми контрагентами */}
+      <Card sx={{ mt: 3, border: '2px solid', borderColor: 'warning.main' }}>
+        <CardContent>
+          <Stack direction="row" alignItems="center" spacing={1} mb={2}>
+            <WarningIcon color="warning" />
+            <Typography variant="h6" color="warning.main">
+              Управление старыми контрагентами
+            </Typography>
+          </Stack>
+          
+          <Alert severity="warning" sx={{ mb: 2 }}>
+            <AlertTitle>Внимание!</AlertTitle>
+            Эти действия помогут очистить старые записи контрагентов (contractors) из базы данных.
+            Убедитесь, что у вас есть резервная копия перед удалением.
+          </Alert>
+          
+          <Typography variant="body2" color="text.secondary" mb={2}>
+            Старые контрагенты могут появляться при создании проектов. 
+            Используйте эти инструменты для их просмотра и удаления.
+          </Typography>
+        </CardContent>
+        
+        <CardActions>
+          <Button
+            variant="outlined"
+            color="info"
+            startIcon={<VisibilityIcon />}
+            onClick={handlePreviewOldContractors}
+          >
+            Просмотреть старые контрагенты
+          </Button>
+        </CardActions>
+      </Card>
+      
+      {/* Диалог предварительного просмотра */}
+      <Dialog
+        open={previewDialogOpen}
+        onClose={() => setPreviewDialogOpen(false)}
+        maxWidth="sm"
+        fullWidth
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <WarningIcon color="warning" />
+            <Typography>Старые контрагенты</Typography>
+          </Stack>
+        </DialogTitle>
+        
+        <DialogContent>
+          {oldContractorsPreview && (
+            <>
+              <Alert severity="info" sx={{ mb: 2 }}>
+                Найдено контрагентов: {oldContractorsPreview.count}
+              </Alert>
+              
+              {oldContractorsPreview.contractors.length > 0 ? (
+                <List>
+                  {oldContractorsPreview.contractors.map((contractor: any) => (
+                    <ListItem key={contractor.id}>
+                      <ListItemText
+                        primary={contractor.name || 'Без имени'}
+                        secondary={
+                          <>
+                            ID: {contractor.id}
+                            {contractor.email && ` | Email: ${contractor.email}`}
+                            {contractor.phone && ` | Телефон: ${contractor.phone}`}
+                            {contractor.type && ` | Тип: ${contractor.type}`}
+                          </>
+                        }
+                      />
+                    </ListItem>
+                  ))}
+                </List>
+              ) : (
+                <Typography color="text.secondary">
+                  Старые контрагенты не найдены
+                </Typography>
+              )}
+            </>
+          )}
+        </DialogContent>
+        
+        <DialogActions>
+          <Button onClick={() => setPreviewDialogOpen(false)}>
+            Закрыть
+          </Button>
+          {oldContractorsPreview?.count > 0 && (
+            <Button
+              variant="contained"
+              color="error"
+              startIcon={<DeleteIcon />}
+              onClick={() => setConfirmDeleteOpen(true)}
+            >
+              Удалить все ({oldContractorsPreview.count})
+            </Button>
+          )}
+        </DialogActions>
+      </Dialog>
+      
+      {/* Диалог подтверждения удаления */}
+      <Dialog
+        open={confirmDeleteOpen}
+        onClose={() => setConfirmDeleteOpen(false)}
+      >
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <DeleteIcon color="error" />
+            <Typography>Подтверждение удаления</Typography>
+          </Stack>
+        </DialogTitle>
+        
+        <DialogContent>
+          <Alert severity="error" sx={{ mb: 2 }}>
+            <AlertTitle>Это действие необратимо!</AlertTitle>
+            Вы уверены, что хотите удалить {oldContractorsPreview?.count} старых контрагентов?
+          </Alert>
+          
+          <Typography variant="body2">
+            После удаления эти контрагенты больше не будут появляться при создании проектов.
+          </Typography>
+        </DialogContent>
+        
+        <DialogActions>
+          <Button 
+            onClick={() => setConfirmDeleteOpen(false)}
+            disabled={deletingContractors}
+          >
+            Отмена
+          </Button>
+          <Button
+            variant="contained"
+            color="error"
+            startIcon={deletingContractors ? <CircularProgress size={20} /> : <DeleteIcon />}
+            onClick={handleDeleteOldContractors}
+            disabled={deletingContractors}
+          >
+            {deletingContractors ? 'Удаление...' : 'Удалить безвозвратно'}
+          </Button>
+        </DialogActions>
+      </Dialog>
     </Box>
   );
 };

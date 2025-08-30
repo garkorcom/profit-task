@@ -189,7 +189,7 @@ const ProjectsV2Page: React.FC = () => {
         project.name.toLowerCase().includes(query) ||
         project.description?.toLowerCase().includes(query) ||
         project.number?.toLowerCase().includes(query) ||
-        project.location.address.toLowerCase().includes(query)
+        project.location?.address?.toLowerCase().includes(query)
       );
     }
     
@@ -513,7 +513,7 @@ const ProjectsV2Page: React.FC = () => {
                           <Stack direction="row" spacing={1} alignItems="center">
                             <LocationIcon fontSize="small" color="action" />
                             <Typography variant="body2" noWrap>
-                              {project.location.city}, {project.location.address}
+                              {project.location?.city || 'Не указан'}, {project.location?.address || 'Не указан'}
                             </Typography>
                           </Stack>
                           
@@ -625,7 +625,7 @@ const ProjectsV2Page: React.FC = () => {
                           secondary={
                             <Stack direction="row" spacing={2} alignItems="center">
                               <Typography variant="caption">
-                                {project.location.city}
+                                {project.location?.city || 'Не указан'}
                               </Typography>
                               <Typography variant="caption">
                                 {getProjectTypeLabel(project.type)}
@@ -688,7 +688,7 @@ const ProjectsV2Page: React.FC = () => {
                               {project.name}
                             </Typography>
                             <Typography variant="caption" color="text.secondary">
-                              {project.location.city}
+                              {project.location?.city || 'Не указан'}
                             </Typography>
                             <Stack direction="row" spacing={1} mt={1}>
                               <Chip
