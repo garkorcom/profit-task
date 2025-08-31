@@ -121,14 +121,49 @@ export const createProject = async (
 };
 
 /**
- * Удаление проекта
+ * Удаление проекта с проверкой зависимостей
  */
 export const deleteProject = async (
-  _userId: string,
+  userId: string,
   projectId: string
 ): Promise<void> => {
-  // Коллекция проектов хранится на корневом уровне: 'projects/{id}'
-  await deleteDoc(doc(db, 'projects', projectId));
+  // Проверяем существование проекта
+  const projectRef = doc(db, `users/${userId}/projects`, projectId);
+  const projectDoc = await getDoc(projectRef);
+  
+  if (!projectDoc.exists()) {
+    throw new Error('Проект не найден');
+  }
+
+  // Проверяем наличие связанных смет
+  const estimatesQuery = query(
+    collection(db, `users/${userId}/estimates`),
+    where('projectId', '==', projectId)
+  );
+  const estimatesSnapshot = await getDocs(estimatesQuery);
+
+  if (!estimatesSnapshot.empty) {
+    throw new Error(`Невозможно удалить проект. С ним связано ${estimatesSnapshot.size} смет(ы). Удалите сначала все связанные сметы.`);
+  }
+
+  // Проверяем наличие связанных задач (если коллекция tasks существует)
+  try {
+    const tasksQuery = query(
+      collection(db, `users/${userId}/tasks`),
+      where('projectId', '==', projectId)
+    );
+    const tasksSnapshot = await getDocs(tasksQuery);
+
+    if (!tasksSnapshot.empty) {
+      throw new Error(`Невозможно удалить проект. С ним связано ${tasksSnapshot.size} задач(и). Удалите сначала все связанные задачи.`);
+    }
+  } catch (error) {
+    // Игнорируем ошибку если коллекция tasks не существует
+    console.log('Tasks collection check skipped:', error);
+  }
+
+  // Удаляем проект
+  await deleteDoc(projectRef);
 };
 
 /**

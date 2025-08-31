@@ -253,11 +253,21 @@ const ProjectsV2Page: React.FC = () => {
 
   const handleDeleteProject = async (project: Project) => {
     if (!currentUser) return;
-    if (window.confirm(`Вы уверены, что хотите удалить проект "${project.name}"? Это действие необратимо.`)) {
+    
+    const confirmMessage = `Вы уверены, что хотите удалить проект "${project.name}"?\n\nЭто действие необратимо. Проект будет удален вместе со всеми связанными данными.`;
+    
+    if (window.confirm(confirmMessage)) {
       try {
         await deleteProject(currentUser.uid, project.id);
+        
+        // Показываем успешное сообщение
+        alert(`Проект "${project.name}" успешно удален.`);
       } catch (error: any) {
-        alert(`Ошибка удаления проекта: ${error.message}`);
+        console.error('Ошибка удаления проекта:', error);
+        
+        // Показываем детализированную ошибку
+        const errorMessage = error.message || 'Неизвестная ошибка при удалении проекта';
+        alert(`Не удалось удалить проект:\n\n${errorMessage}`);
       }
     }
   };
