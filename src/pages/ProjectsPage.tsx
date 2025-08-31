@@ -9,7 +9,7 @@ import { Project, ProjectStatus, addProject, deleteProject, getProjectsStream, u
 import { Contractor, getContractorsStream } from '../api/contractorApi';
 import { useNavigate } from 'react-router-dom';
 import { Task, getTasksStream } from '../api/taskApi';
-import { Estimate, getEstimatesStream } from '../api/estimateApi';
+import { Estimate, getEstimatesStream } from '../legacy/api/estimateApi';
 
 const statusOptions: { value: ProjectStatus; label: string; color: 'default' | 'info' | 'warning' | 'success'; }[] = [
   { value: 'planned', label: 'Запланирован', color: 'info' },

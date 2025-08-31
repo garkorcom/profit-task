@@ -3,7 +3,7 @@
  */
 
 import React, { useState, useEffect } from 'react';
-import { useParams, useNavigate } from 'react-router-dom';
+import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
 import {
   Box,
   Stepper,
@@ -137,10 +137,13 @@ const BLOCK_CONFIG = [
 
 const EstimateConstructor: React.FC = () => {
   const { estimateId } = useParams<{ estimateId?: string }>();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  
+  const projectId = searchParams.get('projectId');
   
   // State
   const [estimate, setEstimate] = useState<Estimate | null>(null);
@@ -170,9 +173,31 @@ const EstimateConstructor: React.FC = () => {
           if (newId) {
             est = await getEstimate(currentUser.uid, newId);
             
+            // Pre-populate project block if projectId is provided
+            if (projectId && est) {
+              try {
+                await updateEstimateBlock(
+                  currentUser.uid,
+                  est.id,
+                  'project',
+                  {
+                    status: 'complete',
+                    data: { projectId },
+                  }
+                );
+                // Reload estimate to get updated data
+                est = await getEstimate(currentUser.uid, est.id);
+              } catch (error) {
+                console.error('Error pre-populating project:', error);
+              }
+            }
+            
             // Navigate to the new estimate URL only if we don't have an estimateId
             if (!estimateId) {
-              navigate(`/estimates/${newId}/constructor`, { replace: true });
+              const newUrl = projectId 
+                ? `/estimates/${newId}/constructor?projectId=${projectId}`
+                : `/estimates/${newId}/constructor`;
+              navigate(newUrl, { replace: true });
               return; // Exit early to prevent further execution
             }
           }
@@ -188,7 +213,7 @@ const EstimateConstructor: React.FC = () => {
     };
     
     loadOrCreateEstimate();
-  }, [currentUser, estimateId, navigate]);
+  }, [currentUser, estimateId, navigate, projectId]);
   
   // Subscribe to estimate changes
   useEffect(() => {

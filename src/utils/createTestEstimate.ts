@@ -1,4 +1,4 @@
-import { addEstimate } from '../api/estimateApi';
+import { addEstimate } from '../legacy/api/estimateApi';
 
 // Функция для быстрого создания тестовой сметы
 export const createTestEstimate = async (userId: string, projectId: string) => {

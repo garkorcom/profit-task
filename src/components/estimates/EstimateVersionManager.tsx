@@ -35,7 +35,7 @@ import {
   Schedule as DraftIcon,
   Send as SentIcon
 } from '@mui/icons-material';
-import { EstimateItem } from '../../api/estimateApi';
+import { EstimateItem } from '../../legacy/api/estimateApi';
 
 export interface EstimateVersion {
   id: string;

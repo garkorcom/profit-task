@@ -24,7 +24,7 @@ import {
   Save as SaveIcon,
   Category as CategoryIcon
 } from '@mui/icons-material';
-import { EstimateItem } from '../../api/estimateApi';
+import { EstimateItem } from '../../legacy/api/estimateApi';
 
 interface EstimateTemplate {
   id: string;

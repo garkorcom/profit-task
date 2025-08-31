@@ -10,7 +10,7 @@ import {
   serverTimestamp,
   updateDoc
 } from 'firebase/firestore';
-import { Estimate, EstimateItem } from './estimateApi';
+import { Estimate } from '../legacy/api/estimateApi';
 import { writeOff, WriteOffLine } from './inventoryApi';
 import { unreserveForEstimate } from './productApi';
 
@@ -52,8 +52,8 @@ export const createShipmentFromEstimate = async (
   warehouseId: string
 ) => {
   const lines: ShipmentLine[] = (estimate.items || [])
-    .filter((i: EstimateItem) => i.type === 'material' && i.productId)
-    .map((i: EstimateItem) => ({
+    .filter((i: any) => i.type === 'material' && i.productId)
+    .map((i: any) => ({
       productId: i.productId!,
       productName: i.name,
       unit: i.materialUnit || i.unit,

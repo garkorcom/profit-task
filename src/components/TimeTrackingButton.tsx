@@ -11,7 +11,7 @@ import {
 } from '../contexts/TimeTrackingContext';
 import { Project } from '../api/projectApi';
 import { Task } from '../api/taskApi';
-import { Estimate, EstimateItem } from '../api/estimateApi';
+import { Estimate, EstimateItem } from '../legacy/api/estimateApi';
 
 interface TimeTrackingButtonProps {
   project: Project | null;

@@ -20,7 +20,7 @@ import {
   completeTimeEntryEnhanced,
 } from '../api/timeEntryEnhanced';
 import { deleteField, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
-import { Estimate, EstimateItem } from '../api/estimateApi';
+import { Estimate, EstimateItem } from '../legacy/api/estimateApi';
 import { Project } from '../api/projectApi';
 import { db } from '../firebase/firebase';
 

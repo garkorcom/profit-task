@@ -53,6 +53,10 @@ const ProjectDetailsPage: React.FC = () => {
   const handleTabChange = (event: React.SyntheticEvent, newValue: number) => {
     setCurrentTab(newValue);
   };
+
+  const handleCreateEstimate = () => {
+    navigate(`/estimates/new?projectId=${projectId}`);
+  };
   
   const budgetUtilization = project.financials?.budgetTotal && project.financials?.actualCost
     ? (project.financials.actualCost / project.financials.budgetTotal) * 100
@@ -70,7 +74,7 @@ const ProjectDetailsPage: React.FC = () => {
       <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
         <Typography variant="h4">{project.name}</Typography>
         <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<AssessmentIcon />}>Создать смету</Button>
+          <Button variant="outlined" startIcon={<AssessmentIcon />} onClick={handleCreateEstimate}>Создать смету</Button>
           <Button variant="contained" startIcon={<EditIcon />}>Редактировать</Button>
         </Stack>
       </Stack>

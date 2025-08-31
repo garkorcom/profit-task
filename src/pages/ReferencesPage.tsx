@@ -14,7 +14,7 @@ import { useAuth } from '../auth/AuthContext';
 import { getUserProfile, UserProfile } from '../api/userApi';
 import { addProject, Project, getProjectsStream } from '../api/projectApi';
 import { addTask, Task, getTasksStream } from '../api/taskApi';
-import { getEstimatesStream, Estimate } from '../api/estimateApi';
+import { getEstimatesStream, Estimate } from '../legacy/api/estimateApi';
 import DataTestPage from './DataTestPage';
 import UserAccountTestPage from './UserAccountTestPage';
 import RBACTestPage from './RBACTestPage';

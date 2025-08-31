@@ -5,7 +5,7 @@ import { getUserProfile, UserProfile } from '../api/userApi';
 import { addProject, Project } from '../api/projectApi';
 import { addTask, Task } from '../api/taskApi';
 import { getTasksStream } from '../api/taskApi';
-import { getEstimatesStream, Estimate } from '../api/estimateApi';
+import { getEstimatesStream, Estimate } from '../legacy/api/estimateApi';
 import { getProjectsStream } from '../api/projectApi';
 import { cleanOldContractors, previewOldContractors } from '../utils/cleanOldContractors';
 import DeleteIcon from '@mui/icons-material/Delete';

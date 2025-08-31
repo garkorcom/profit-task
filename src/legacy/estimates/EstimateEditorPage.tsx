@@ -16,11 +16,11 @@ import {
 } from '@mui/material';
 import { Delete as DeleteIcon, Save as SaveIcon, Warning as WarningIcon } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../../auth/AuthContext';
 import { Estimate, EstimateItem as CoreEstimateItem, getEstimateStream, addEstimate, updateEstimate, updateEstimateStatus } from '../api/estimateApi';
-import { Product, getProductsStream } from '../api/productApi';
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import Notification from '../components/common/Notification';
+import { Product, getProductsStream } from '../../api/productApi';
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Notification from '../../components/common/Notification';
 
 // Extend local item type to temporarily carry price for simple calc
 type EstimateItem = CoreEstimateItem & { price?: number };

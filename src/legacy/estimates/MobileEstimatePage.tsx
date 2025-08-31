@@ -14,7 +14,7 @@ import {
   ArrowBack as BackIcon,
   Share as ShareIcon,
 } from '@mui/icons-material';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../../auth/AuthContext';
 import { useNavigate, useParams } from 'react-router-dom';
 import {
   Estimate, EstimateItem, getEstimatesStream,
@@ -23,9 +23,9 @@ import {
 import {
   Product, getProductsStream,
   createProduct
-} from '../api/productApi';
-import { Project, getProjectsStream } from '../api/projectApi';
-import { Contractor, getContractorsStream } from '../api/contractorApi';
+} from '../../api/productApi';
+import { Project, getProjectsStream } from '../../api/projectApi';
+import { Contractor, getContractorsStream } from '../../api/contractorApi';
 import debounce from 'lodash-es/debounce';
 
 interface MobileEstimateItem extends Omit<EstimateItem, 'type' | 'level' | 'order'> {

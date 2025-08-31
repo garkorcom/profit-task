@@ -6,7 +6,7 @@
 import { serverTimestamp, FieldValue } from 'firebase/firestore';
 import { TimeEntry } from '../api/timeEntryApi';
 import { Task } from '../api/taskApi';
-import { Estimate } from '../api/estimateApi';
+import { Estimate } from '../legacy/api/estimateApi';
 import {
   FirebaseTimeEntryBase,
   FirebaseTimeEntryWithEstimate,

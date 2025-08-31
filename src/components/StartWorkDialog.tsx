@@ -8,7 +8,7 @@ import { Close as CloseIcon } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { Project, getProjectsStream } from '../api/projectApi';
 import { Task, getTasksStream } from '../api/taskApi';
-import { Estimate, EstimateItem, getEstimatesStream } from '../api/estimateApi';
+import { Estimate, EstimateItem, getEstimatesStream } from '../legacy/api/estimateApi';
 import { TimeTrackingButton } from './TimeTrackingButton';
 
 interface StartWorkDialogProps {

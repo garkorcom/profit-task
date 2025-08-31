@@ -2,7 +2,7 @@ import React from 'react';
 import { render, screen, fireEvent, waitFor } from '@testing-library/react';
 import { BrowserRouter } from 'react-router-dom';
 import { AuthContext } from '../auth/AuthContext';
-import MobileEstimatePage from '../pages/MobileEstimatePage';
+import MobileEstimatePage from '../legacy/estimates/MobileEstimatePage';
 
 // Mock Firebase
 jest.mock('../firebase/firebase', () => ({

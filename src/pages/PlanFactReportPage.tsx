@@ -42,7 +42,7 @@ import { useAuth } from '../auth/AuthContext';
 import { getProjectsStream, Project } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
 import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryApi';
-import { getEstimatesStream, Estimate } from '../api/estimateApi';
+import { getEstimatesStream, Estimate } from '../legacy/api/estimateApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 interface PlanFactData {

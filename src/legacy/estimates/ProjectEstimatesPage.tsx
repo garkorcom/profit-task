@@ -2,14 +2,14 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Card, CardContent, Button, IconButton, Chip, Alert, Dialog, DialogTitle, DialogContent, DialogActions, FormControl, InputLabel, Select, MenuItem } from '@mui/material';
 import { Add as AddIcon, Edit as EditIcon, Delete as DeleteIcon, PhoneAndroid as MobileIcon } from '@mui/icons-material';
 import { useParams, useNavigate } from 'react-router-dom';
-import { useAuth } from '../auth/AuthContext';
+import { useAuth } from '../../auth/AuthContext';
 import { Estimate, getEstimatesStream, deleteEstimate } from '../api/estimateApi';
-import { createShipmentFromEstimate } from '../api/shipmentApi';
-import { getWarehousesStream, Warehouse } from '../api/inventoryApi';
-import { getProjectStream, Project } from '../api/projectApi'; // Assuming you have this
-import LoadingSpinner from '../components/common/LoadingSpinner';
-import Notification from '../components/common/Notification';
-import ConfirmDialog from '../components/common/ConfirmDialog';
+import { createShipmentFromEstimate } from '../../api/shipmentApi';
+import { getWarehousesStream, Warehouse } from '../../api/inventoryApi';
+import { getProjectStream, Project } from '../../api/projectApi'; // Assuming you have this
+import LoadingSpinner from '../../components/common/LoadingSpinner';
+import Notification from '../../components/common/Notification';
+import ConfirmDialog from '../../components/common/ConfirmDialog';
 
 const ProjectEstimatesPage: React.FC = () => {
   const { projectId } = useParams<{ projectId: string }>();

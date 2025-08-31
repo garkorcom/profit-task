@@ -1,4 +1,4 @@
-import { db } from '../firebase/firebase';
+import { db } from '../../firebase/firebase';
 import {
   collection,
   doc,
@@ -13,7 +13,14 @@ import {
   setDoc,
   runTransaction,
 } from 'firebase/firestore';
-import { reserveForEstimate, unreserveForEstimate } from './productApi';
+// Legacy code archived - product API integration disabled
+// Stub functions for removed product API imports
+const reserveForEstimate = async (...args: any[]) => {
+  console.warn('Legacy reserveForEstimate called - functionality disabled');
+};
+const unreserveForEstimate = async (...args: any[]) => {
+  console.warn('Legacy unreserveForEstimate called - functionality disabled');
+};
 
 // Типы, согласованные с UI-конструктором смет
 export type EstimateItemType = 'section' | 'work' | 'material' | 'expense' | 'service';

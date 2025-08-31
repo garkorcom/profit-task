@@ -48,7 +48,7 @@ import {
 } from '../api/contractorApi';
 import { getTasksStream, Task } from '../api/taskApi';
 import StartWorkFromContractorDialog from '../components/StartWorkFromContractorDialog'; // Импортируем новый компонент
-import { Estimate, getEstimatesStream } from '../api/estimateApi';
+import { Estimate, getEstimatesStream } from '../legacy/api/estimateApi';
 
 const ContractorsPage: React.FC = () => {
   const { currentUser } = useAuth();

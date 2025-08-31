@@ -38,7 +38,7 @@ import {
   TrendingDown as DecreaseIcon,
   CompareArrows as CompareIcon
 } from '@mui/icons-material';
-import { EstimateItem } from '../../api/estimateApi';
+import { EstimateItem } from '../../legacy/api/estimateApi';
 import { EstimateVersion } from './EstimateVersionManager';
 
 interface EstimateVersionComparisonProps {

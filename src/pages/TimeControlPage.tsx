@@ -16,7 +16,7 @@ import { useTimeTracking } from '../contexts/TimeTrackingContext';
 import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryApi';
 import { Project, getProjectsStream } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
-import { getEstimatesStream, Estimate, EstimateItem } from '../api/estimateApi';
+import { getEstimatesStream, Estimate, EstimateItem } from '../legacy/api/estimateApi';
 import { TimeTrackingButton } from '../components/TimeTrackingButton';
 import TimeStatistics from '../components/TimeStatistics';
 
