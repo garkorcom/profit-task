@@ -267,6 +267,11 @@ const EstimateConstructor: React.FC = () => {
         }
       );
       
+      // Recalculate totals if block affects costs
+      if (['services', 'products', 'costing'].includes(blockKey)) {
+        await recalculateEstimateTotals(currentUser.uid, estimate.id);
+      }
+      
       // Move to next incomplete block
       const nextIncomplete = estimate.blocks.findIndex(
         (b, i) => i > activeBlock && b.status !== 'complete'
