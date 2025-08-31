@@ -525,8 +525,13 @@ export const changeEstimateStatus = async (
   
   // Special handling for 'sent' status
   if (newStatus === 'sent') {
-    await generatePdfSnapshot(userId, estimateId);
-    await generatePublicShareLink(userId, estimateId);
+    try {
+      await generatePdfSnapshot(userId, estimateId);
+      await generatePublicShareLink(userId, estimateId);
+    } catch (error) {
+      console.error('Error generating PDF or share link:', error);
+      // Не блокируем смену статуса из-за проблем с PDF
+    }
   }
   
   await updateEstimate(userId, estimateId, { status: newStatus });
@@ -548,38 +553,40 @@ const validateStatusTransition = async (
   from: EstimateStatus,
   to: EstimateStatus
 ): Promise<boolean> => {
-  // Define valid transitions
+  // Define valid transitions - более гибкие правила
   const validTransitions: Record<EstimateStatus, EstimateStatus[]> = {
-    'draft': ['internal_review', 'canceled'],
+    'draft': ['internal_review', 'sent', 'canceled'],
     'internal_review': ['draft', 'sent', 'canceled'],
-    'sent': ['viewed', 'canceled'],
+    'sent': ['viewed', 'accepted', 'rejected', 'canceled'],
     'viewed': ['negotiation', 'accepted', 'rejected', 'expired'],
     'negotiation': ['accepted', 'rejected', 'canceled'],
     'accepted': ['converted'],
-    'rejected': [],
-    'expired': [],
+    'rejected': ['draft', 'canceled'], // Возможность повторной работы
+    'expired': ['draft', 'canceled'],   // Возможность повторной работы
     'converted': [],
-    'canceled': [],
+    'canceled': ['draft'], // Возможность восстановления
   };
   
   if (!validTransitions[from].includes(to)) {
     return false;
   }
   
-  // Additional validation based on data
+  // Additional validation based on data - упрощенная версия
   if (to === 'sent') {
-    // Check required fields
-    if (!estimate.counterpartyId) {
-      throw new Error('Контрагент должен быть указан перед отправкой');
+    // Базовые проверки - можно расширить позже
+    console.log('Validating estimate for sending:', estimate.id);
+    
+    // Проверяем блоки на завершенность
+    const counterpartyBlock = estimate.blocks.find(b => b.key === 'counterparty');
+    if (counterpartyBlock?.status !== 'complete') {
+      throw new Error('Для отправки необходимо заполнить блок "Контрагент"');
     }
     
-    const items = await getEstimateItems(
-      estimate.createdBy,
-      estimate.id
-    );
+    const servicesBlock = estimate.blocks.find(b => b.key === 'services');
+    const productsBlock = estimate.blocks.find(b => b.key === 'products');
     
-    if (items.length === 0) {
-      throw new Error('Смета должна содержать хотя бы одну позицию');
+    if (servicesBlock?.status !== 'complete' && productsBlock?.status !== 'complete') {
+      throw new Error('Для отправки необходимо заполнить блок "Услуги" или "Товары"');
     }
   }
   

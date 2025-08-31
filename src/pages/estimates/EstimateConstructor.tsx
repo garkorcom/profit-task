@@ -167,11 +167,14 @@ const EstimateConstructor: React.FC = () => {
         if (!est && !createdInThisMount) {
           // Create new estimate
           const newId = await createEstimate(currentUser.uid);
-          est = await getEstimate(currentUser.uid, newId);
-          
-          // Navigate to the new estimate URL
-          if (!estimateId && est) {
-            navigate(`/estimates/${newId}/constructor`, { replace: true });
+          if (newId) {
+            est = await getEstimate(currentUser.uid, newId);
+            
+            // Navigate to the new estimate URL only if we don't have an estimateId
+            if (!estimateId) {
+              navigate(`/estimates/${newId}/constructor`, { replace: true });
+              return; // Exit early to prevent further execution
+            }
           }
           createdInThisMount = true;
         }
@@ -257,16 +260,38 @@ const EstimateConstructor: React.FC = () => {
   const handleStatusChange = async (newStatus: EstimateStatus) => {
     if (!currentUser || !estimate) return;
     
+    // Показываем индикатор загрузки
+    setSaving(true);
+    
     try {
+      console.log(`Changing status from ${estimate.status} to ${newStatus}`);
       await changeEstimateStatus(currentUser.uid, estimate.id, newStatus);
+      console.log('Status changed successfully');
     } catch (error: any) {
-      alert(error.message);
+      console.error('Status change failed:', error);
+      
+      // Более детальные сообщения об ошибках
+      let errorMessage = error.message || 'Неизвестная ошибка при смене статуса';
+      
+      // Специальные сообщения для частых ошибок
+      if (errorMessage.includes('counterparty')) {
+        errorMessage = `❌ ${errorMessage}\n\n💡 Перейдите к блоку "Контрагент" и выберите клиента.`;
+      } else if (errorMessage.includes('services') || errorMessage.includes('товары')) {
+        errorMessage = `❌ ${errorMessage}\n\n💡 Добавьте услуги в блок "Услуги" или товары в блок "Товары".`;
+      } else if (errorMessage.includes('Invalid status transition')) {
+        errorMessage = `❌ Невозможно изменить статус с "${estimate.status}" на "${newStatus}"\n\n💡 Проверьте последовательность статусов.`;
+      }
+      
+      alert(errorMessage);
+    } finally {
+      setSaving(false);
     }
   };
   
   const handlePreview = () => {
     if (!estimate) return;
-    window.open(`/estimates/${estimate.id}/preview`, '_blank');
+    // TODO: Implement preview functionality
+    alert(`Предпросмотр сметы ${estimate.number} - функция в разработке`);
   };
   
   const handleShare = () => {
@@ -310,6 +335,28 @@ const EstimateConstructor: React.FC = () => {
         return null;
     }
   };
+
+  // Get available status transitions
+  const getAvailableStatusTransitions = (): EstimateStatus[] => {
+    if (!estimate) return [];
+    
+    const validTransitions: Record<EstimateStatus, EstimateStatus[]> = {
+      'draft': ['internal_review', 'sent', 'canceled'],
+      'internal_review': ['draft', 'sent', 'canceled'],
+      'sent': ['viewed', 'accepted', 'rejected', 'canceled'],
+      'viewed': ['negotiation', 'accepted', 'rejected', 'expired'],
+      'negotiation': ['accepted', 'rejected', 'canceled'],
+      'accepted': ['converted'],
+      'rejected': ['draft', 'canceled'],
+      'expired': ['draft', 'canceled'],
+      'converted': [],
+      'canceled': ['draft'],
+    };
+    
+    return validTransitions[estimate.status] || [];
+  };
+
+  const availableTransitions = getAvailableStatusTransitions();
   
   if (loading) {
     return (
@@ -557,16 +604,39 @@ const EstimateConstructor: React.FC = () => {
                   </Button>
                 )}
                 
-                {estimate.status === 'draft' && completion === 100 && (
-                  <Button
-                    fullWidth
-                    variant="contained"
-                    color="success"
-                    startIcon={<SendIcon />}
-                    onClick={() => handleStatusChange('sent')}
-                  >
-                    Отправить клиенту
-                  </Button>
+                {/* Доступные переходы статусов */}
+                {availableTransitions.length > 0 && (
+                  <>
+                    <Divider sx={{ my: 1 }}>Изменить статус</Divider>
+                    {availableTransitions.map((status) => {
+                      const statusConfig = {
+                        'sent': { label: 'Отправить клиенту', color: 'success' as const, icon: <SendIcon /> },
+                        'accepted': { label: 'Принять', color: 'success' as const, icon: <CheckIcon /> },
+                        'rejected': { label: 'Отклонить', color: 'error' as const, icon: <ErrorIcon /> },
+                        'canceled': { label: 'Отменить', color: 'warning' as const, icon: <ErrorIcon /> },
+                        'draft': { label: 'В работу', color: 'primary' as const, icon: <EditIcon /> },
+                        'internal_review': { label: 'На проверку', color: 'info' as const, icon: <CheckIcon /> },
+                        'viewed': { label: 'Просмотрено', color: 'info' as const, icon: <CheckIcon /> },
+                        'negotiation': { label: 'Переговоры', color: 'warning' as const, icon: <EditIcon /> },
+                        'expired': { label: 'Истекло', color: 'error' as const, icon: <ErrorIcon /> },
+                        'converted': { label: 'В проект', color: 'success' as const, icon: <CheckIcon /> },
+                      }[status] || { label: status, color: 'primary' as const, icon: <CheckIcon /> };
+                      
+                      return (
+                        <Button
+                          key={status}
+                          fullWidth
+                          variant="outlined"
+                          color={statusConfig.color}
+                          startIcon={statusConfig.icon}
+                          onClick={() => handleStatusChange(status)}
+                          disabled={saving}
+                        >
+                          {statusConfig.label}
+                        </Button>
+                      );
+                    })}
+                  </>
                 )}
               </Stack>
             </Box>

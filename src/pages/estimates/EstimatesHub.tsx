@@ -53,10 +53,9 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { 
   getEstimatesStream, 
-  Estimate,
-  deleteEstimate,
   generateEstimatePDF 
-} from '../../api/estimateApi';
+} from '../../api/estimateV2StreamApi';
+import { Estimate } from '../../types/estimate.types';
 import { deleteEstimate as deleteEstimateV2 } from '../../api/estimateV2Api';
 import { format } from '../../utils/dateUtils';
 import { deleteAllEstimates, deleteOldDraftEstimates, deleteEstimatesWithoutProject } from '../../utils/cleanOldEstimates';
@@ -118,16 +117,15 @@ const EstimatesHub: React.FC = () => {
     if (searchQuery) {
       const query = searchQuery.toLowerCase();
       filtered = filtered.filter(e => 
-        e.name?.toLowerCase().includes(query) ||
-        e.description?.toLowerCase().includes(query) ||
-        e.number?.toLowerCase().includes(query)
+        e.number?.toLowerCase().includes(query) ||
+        e.terms?.toLowerCase().includes(query)
       );
     }
     
     // Sort by date (newest first)
     return filtered.sort((a, b) => {
-      const dateA = a.createdAt?.toMillis ? a.createdAt.toMillis() : 0;
-      const dateB = b.createdAt?.toMillis ? b.createdAt.toMillis() : 0;
+      const dateA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0;
+      const dateB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0;
       return dateB - dateA;
     });
   };
@@ -147,23 +145,25 @@ const EstimatesHub: React.FC = () => {
   };
   
   const handleCreateFromTemplate = () => {
-    navigate('/estimates/templates');
+    // TODO: Implement templates functionality
+    alert('Функция в разработке - создание из шаблонов');
   };
   
   const handleImport = () => {
-    navigate('/estimates/import');
+    // TODO: Implement import functionality
+    alert('Функция в разработке - импорт смет');
   };
   
   const handleOpenEstimate = (id: string) => {
     if (isMobile) {
       navigate(`/mobile/estimate/${id}`);
     } else {
-      navigate(`/estimates/${id}`);
+      navigate(`/estimates/${id}/constructor`);
     }
   };
   
   const handleEdit = (id: string) => {
-    navigate(`/estimates/${id}/edit`);
+    navigate(`/estimates/${id}/constructor`);
   };
   
   const handleDelete = async (estimate: Estimate) => {
@@ -172,16 +172,9 @@ const EstimatesHub: React.FC = () => {
     console.log('Удаляем смету:', estimate.id, 'projectId:', estimate.projectId);
     
     try {
-      // Используем новый API для смет без проекта или новых смет
-      // и старый API для смет с проектом
-      if (estimate.projectId && estimate.projectId !== '') {
-        console.log('Используем старый API с projectId:', estimate.projectId);
-        await deleteEstimate(currentUser.uid, estimate.id, estimate.projectId);
-      } else {
-        // Для новых смет или смет без проекта используем новый API
-        console.log('Используем новый API V2');
-        await deleteEstimateV2(currentUser.uid, estimate.id);
-      }
+      // Используем только новый V2 API для всех смет
+      console.log('Удаляем смету через V2 API:', estimate.id);
+      await deleteEstimateV2(currentUser.uid, estimate.id);
       console.log('Смета удалена успешно');
       
       // Обновляем список смет после удаления
@@ -199,7 +192,7 @@ const EstimatesHub: React.FC = () => {
     if (navigator.share) {
       navigator.share({
         title: `Смета ${estimate.number}`,
-        text: estimate.description,
+        text: estimate.terms || `Смета ${estimate.number}`,
         url: shareUrl,
       });
     } else {
@@ -287,12 +280,12 @@ const EstimatesHub: React.FC = () => {
   const EstimateCard = ({ estimate }: { estimate: Estimate }) => {
     const getStatusIcon = () => {
       switch (estimate.status) {
-        case 'approved':
+        case 'accepted':
           return <ApprovedIcon color="success" />;
         case 'sent':
           return <PendingIcon color="info" />;
         case 'rejected':
-        case 'cancelled':
+        case 'canceled':
           return <DraftIcon color="error" />;
         default:
           return <DraftIcon color="warning" />;
@@ -315,28 +308,17 @@ const EstimatesHub: React.FC = () => {
                 </Stack>
                 
                 <Typography color="text.secondary" sx={{ mb: 1 }}>
-                  {estimate.description || 'Без описания'}
+                  {estimate.terms || 'Без описания'}
                 </Typography>
                 
                 <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
                   <Typography variant="body2" color="text.secondary">
-                    {estimate.createdAt && (() => {
-                      // Обрабатываем разные типы createdAt
-                      if (typeof estimate.createdAt === 'string') {
-                        // ISO string
-                        return format(new Date(estimate.createdAt), 'dd.MM.yyyy');
-                      } else if (typeof estimate.createdAt.toDate === 'function') {
-                        // Firestore Timestamp
-                        return format(estimate.createdAt.toDate(), 'dd.MM.yyyy');
-                      } else if (estimate.createdAt instanceof Date) {
-                        // JavaScript Date
-                        return format(estimate.createdAt, 'dd.MM.yyyy');
-                      }
-                      return '';
-                    })()}
+                    {estimate.createdAt && typeof estimate.createdAt === 'string' && 
+                      format(new Date(estimate.createdAt), 'dd.MM.yyyy')
+                    }
                   </Typography>
                   <Typography variant="body2" fontWeight="bold">
-                    {(estimate.total || 0).toLocaleString('ru-RU')} ₽
+                    {(estimate.totals?.grandTotal || 0).toLocaleString('ru-RU')} ₽
                   </Typography>
                 </Stack>
               </Box>
@@ -436,7 +418,7 @@ const EstimatesHub: React.FC = () => {
             color="primary"
           />
           <Chip 
-            label={`На сумму: ${allEstimates.reduce((sum, e) => sum + (e.total || 0), 0).toLocaleString('ru-RU')} ₽`}
+            label={`На сумму: ${allEstimates.reduce((sum, e) => sum + (e.totals?.grandTotal || 0), 0).toLocaleString('ru-RU')} ₽`}
             color="success"
           />
         </Stack>
