@@ -99,13 +99,20 @@ const EstimatesHub: React.FC = () => {
   useEffect(() => {
     if (!currentUser) return;
     
+    console.log('🔄 Loading estimates for user:', currentUser.uid);
     setLoading(true);
+    
     const unsubscribe = getEstimatesStream(currentUser.uid, '', (data) => {
+      console.log('📊 Received estimates data:', data.length, 'estimates');
+      console.log('📊 Estimates:', data);
       setEstimates(data);
       setLoading(false);
     });
     
-    return () => unsubscribe();
+    return () => {
+      console.log('🔌 Unsubscribing from estimates stream');
+      unsubscribe();
+    };
   }, [currentUser]);
   
   // Filter estimates by status and search
@@ -303,10 +310,27 @@ const EstimatesHub: React.FC = () => {
     { icon: <DeleteIcon />, name: 'Удалить сметы без проекта', action: handleDeleteEstimatesWithoutProject },
   ];
   
-  if (loading) {
+  if (loading && estimates.length === 0) {
     return (
-      <Box display="flex" justifyContent="center" alignItems="center" minHeight="400px">
-        <CircularProgress />
+      <Box sx={{ pb: 8 }}>
+        {/* Header skeleton */}
+        <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2 }}>
+          <Typography variant={isMobile ? "h6" : "h5"} gutterBottom>
+            <EstimateIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
+            Сметы
+          </Typography>
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="300px">
+            <Box textAlign="center">
+              <CircularProgress size={60} />
+              <Typography variant="h6" sx={{ mt: 2, color: 'text.secondary' }}>
+                Загрузка смет...
+              </Typography>
+              <Typography variant="body2" sx={{ mt: 1, color: 'text.disabled' }}>
+                Подключение к базе данных
+              </Typography>
+            </Box>
+          </Box>
+        </Paper>
       </Box>
     );
   }
@@ -398,10 +422,56 @@ const EstimatesHub: React.FC = () => {
       
       {/* Content */}
       <TabPanel value={tabValue} index={0}>
-        {allEstimates.length === 0 ? (
-          <Alert severity="info">
-            Сметы не найдены. Создайте первую смету!
-          </Alert>
+        {loading ? (
+          <Box display="flex" justifyContent="center" alignItems="center" minHeight="200px">
+            <CircularProgress />
+            <Typography variant="body2" sx={{ ml: 2 }}>
+              Загрузка смет...
+            </Typography>
+          </Box>
+        ) : allEstimates.length === 0 ? (
+          <Paper sx={{ p: 3, textAlign: 'center' }}>
+            <EstimateIcon sx={{ fontSize: 60, color: 'text.disabled', mb: 2 }} />
+            <Typography variant="h6" color="text.secondary" gutterBottom>
+              Сметы не найдены
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+              Создайте первую смету для начала работы
+            </Typography>
+            <Stack 
+              direction={isMobile ? "column" : "row"} 
+              spacing={2} 
+              justifyContent="center"
+              alignItems="center"
+            >
+              <Fab
+                variant="extended"
+                color="primary"
+                onClick={handleCreateNew}
+                sx={{ 
+                  minWidth: isMobile ? 200 : 150,
+                  minHeight: 48,
+                  fontSize: isMobile ? '0.9rem' : '0.875rem'
+                }}
+              >
+                <AddIcon sx={{ mr: 1 }} />
+                Новая смета
+              </Fab>
+              <Fab
+                variant="extended"
+                color="secondary"
+                onClick={handleQuickCreate}
+                sx={{ 
+                  minWidth: isMobile ? 200 : 150,
+                  minHeight: 48,
+                  fontSize: isMobile ? '0.9rem' : '0.875rem'
+                }}
+              >
+                <QuickAddIcon sx={{ mr: 1 }} />
+                Быстрое создание
+              </Fab>
+            </Stack>
+          </Paper>
         ) : (
           allEstimates.map(estimate => (
             <EstimateCard key={estimate.id} estimate={estimate} />
