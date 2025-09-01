@@ -35,6 +35,8 @@ import {
   Select,
   MenuItem,
   Divider,
+  useTheme,
+  useMediaQuery,
 } from '@mui/material';
 import {
   Add as AddIcon,
@@ -85,6 +87,9 @@ interface QuickEstimateItem {
 const QuickEstimateCreate: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   
   // Master data
   const [products, setProducts] = useState<Product[]>([]);
@@ -267,9 +272,9 @@ const QuickEstimateCreate: React.FC = () => {
   ];
   
   return (
-    <Box sx={{ p: 2 }}>
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h5" gutterBottom>
+    <Box sx={{ p: isMobile ? 1.5 : 2, pb: isMobile ? 10 : 2 }}>
+      <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2 }}>
+        <Typography variant={isMobile ? "h6" : "h5"} gutterBottom>
           Быстрое создание сметы
         </Typography>
         

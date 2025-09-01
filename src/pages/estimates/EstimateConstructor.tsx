@@ -142,6 +142,8 @@ const EstimateConstructor: React.FC = () => {
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
+  const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   
   const projectId = searchParams.get('projectId');
   
@@ -410,11 +412,16 @@ const EstimateConstructor: React.FC = () => {
   const activeBlockData = estimate.blocks.find(b => b.key === activeBlockConfig?.key);
   
   return (
-    <Box sx={{ display: 'flex', flexDirection: 'column', height: '100vh' }}>
+    <Box sx={{ 
+      display: 'flex', 
+      flexDirection: 'column', 
+      height: '100vh',
+      pb: (isMobile || isTablet) ? 8 : 0 
+    }}>
       {/* Header */}
-      <Paper elevation={0} sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+      <Paper elevation={0} sx={{ p: isMobile ? 1.5 : 2, borderBottom: 1, borderColor: 'divider' }}>
         <Stack direction="row" alignItems="center" spacing={2}>
-          <Typography variant="h5">
+          <Typography variant={isMobile ? "h6" : "h5"} noWrap>
             {estimate.number}
           </Typography>
           
@@ -433,17 +440,31 @@ const EstimateConstructor: React.FC = () => {
           <LinearProgress
             variant="determinate"
             value={completion}
-            sx={{ width: 100 }}
+            sx={{ width: isVerySmall ? 80 : 100 }}
           />
         </Stack>
       </Paper>
       
       {/* Stepper */}
-      <Paper elevation={0} sx={{ p: 2, borderBottom: 1, borderColor: 'divider' }}>
+      <Paper elevation={0} sx={{ p: isMobile ? 1 : 2, borderBottom: 1, borderColor: 'divider' }}>
         <Stepper
           nonLinear
           activeStep={activeBlock}
           orientation={isMobile ? 'vertical' : 'horizontal'}
+          sx={{
+            ...(isMobile && {
+              '& .MuiStepLabel-root': {
+                py: isVerySmall ? 1 : 1.5,
+              },
+              '& .MuiStepButton-root': {
+                px: isVerySmall ? 1 : 2,
+                py: isVerySmall ? 1 : 1.5,
+              },
+              '& .MuiStepLabel-label': {
+                fontSize: isVerySmall ? '0.75rem' : '0.875rem',
+              },
+            }),
+          }}
         >
           {BLOCK_CONFIG.map((config, index) => {
             const block = estimate.blocks.find(b => b.key === config.key);
@@ -473,16 +494,25 @@ const EstimateConstructor: React.FC = () => {
       {/* Main content area */}
       <Box sx={{ flex: 1, display: 'flex', overflow: 'hidden' }}>
         {/* Block content */}
-        <Box sx={{ flex: 1, overflow: 'auto', p: 3 }}>
+        <Box sx={{ flex: 1, overflow: 'auto', p: isMobile ? 2 : 3 }}>
           <Card>
             <CardContent>
-              <Stack direction="row" alignItems="center" spacing={2} mb={2}>
+              <Stack 
+                direction={isVerySmall ? "column" : "row"} 
+                alignItems={isVerySmall ? "flex-start" : "center"} 
+                spacing={isVerySmall ? 1 : 2} 
+                mb={2}
+                sx={{ textAlign: isVerySmall ? 'left' : 'initial' }}
+              >
                 {activeBlockConfig.icon}
                 <Box>
-                  <Typography variant="h6">
+                  <Typography variant={isMobile ? "subtitle1" : "h6"}>
                     {activeBlockConfig.label}
                   </Typography>
-                  <Typography variant="body2" color="text.secondary">
+                  <Typography 
+                    variant={isVerySmall ? "caption" : "body2"} 
+                    color="text.secondary"
+                  >
                     {activeBlockConfig.description}
                   </Typography>
                 </Box>
@@ -512,11 +542,20 @@ const EstimateConstructor: React.FC = () => {
               )}
             </CardContent>
             
-            <CardActions sx={{ justifyContent: 'space-between', px: 3, pb: 2 }}>
+            <CardActions sx={{ 
+              justifyContent: 'space-between', 
+              px: isMobile ? 2 : 3, 
+              pb: 2,
+              flexDirection: isVerySmall ? 'column' : 'row',
+              gap: isVerySmall ? 1 : 0
+            }}>
               <Button
                 startIcon={<BackIcon />}
                 onClick={() => setActiveBlock(Math.max(0, activeBlock - 1))}
                 disabled={activeBlock === 0}
+                size={isMobile ? "medium" : "large"}
+                fullWidth={isVerySmall}
+                sx={{ minHeight: 44 }}
               >
                 Назад
               </Button>
@@ -525,6 +564,9 @@ const EstimateConstructor: React.FC = () => {
                 endIcon={<NextIcon />}
                 onClick={() => setActiveBlock(Math.min(BLOCK_CONFIG.length - 1, activeBlock + 1))}
                 disabled={activeBlock === BLOCK_CONFIG.length - 1}
+                size={isMobile ? "medium" : "large"}
+                fullWidth={isVerySmall}
+                sx={{ minHeight: 44 }}
               >
                 Далее
               </Button>
@@ -533,7 +575,7 @@ const EstimateConstructor: React.FC = () => {
         </Box>
         
         {/* Sidebar with totals */}
-        {!isMobile && (
+        {!isMobile && !isTablet && (
           <Paper sx={{ width: 350, p: 3, borderLeft: 1, borderColor: 'divider' }}>
             <Typography variant="h6" gutterBottom>
               Итоги
@@ -678,13 +720,28 @@ const EstimateConstructor: React.FC = () => {
       {isMobile && (
         <SpeedDial
           ariaLabel="Действия"
-          sx={{ position: 'fixed', bottom: 16, right: 16 }}
+          sx={{ 
+            position: 'fixed', 
+            bottom: isVerySmall ? 12 : 16, 
+            right: isVerySmall ? 12 : 16,
+            '& .MuiSpeedDial-fab': {
+              width: isVerySmall ? 48 : 56,
+              height: isVerySmall ? 48 : 56
+            }
+          }}
           icon={<SpeedDialIcon />}
         >
           <SpeedDialAction
             icon={<PreviewIcon />}
             tooltipTitle="Предпросмотр"
             onClick={handlePreview}
+            sx={{
+              '& .MuiSpeedDialAction-fab': {
+                width: isVerySmall ? 40 : 48,
+                height: isVerySmall ? 40 : 48,
+                minHeight: isVerySmall ? 40 : 48
+              }
+            }}
           />
           
           {estimate.publicShareId && (
@@ -692,6 +749,13 @@ const EstimateConstructor: React.FC = () => {
               icon={<ShareIcon />}
               tooltipTitle="Поделиться"
               onClick={handleShare}
+              sx={{
+                '& .MuiSpeedDialAction-fab': {
+                  width: isVerySmall ? 40 : 48,
+                  height: isVerySmall ? 40 : 48,
+                  minHeight: isVerySmall ? 40 : 48
+                }
+              }}
             />
           )}
           
@@ -700,9 +764,50 @@ const EstimateConstructor: React.FC = () => {
               icon={<SendIcon />}
               tooltipTitle="Отправить"
               onClick={() => handleStatusChange('sent')}
+              sx={{
+                '& .MuiSpeedDialAction-fab': {
+                  width: isVerySmall ? 40 : 48,
+                  height: isVerySmall ? 40 : 48,
+                  minHeight: isVerySmall ? 40 : 48
+                }
+              }}
             />
           )}
         </SpeedDial>
+      )}
+      
+      {/* Mobile bottom totals */}
+      {(isMobile || isTablet) && (
+        <Paper 
+          sx={{ 
+            position: 'fixed', 
+            bottom: 0, 
+            left: 0, 
+            right: 0, 
+            p: isVerySmall ? 1 : 2, 
+            zIndex: 1200,
+            borderTop: 1,
+            borderColor: 'divider',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center'
+          }}
+        >
+          <Typography variant={isVerySmall ? "body2" : "subtitle1"} color="text.secondary">
+            Итого:
+          </Typography>
+          <Typography 
+            variant={isVerySmall ? "subtitle1" : "h6"} 
+            fontWeight="bold"
+            color="primary"
+          >
+            {estimate.totals.grandTotal.toLocaleString('ru-RU', { 
+              style: 'currency', 
+              currency: 'RUB',
+              maximumFractionDigits: 0,
+            })}
+          </Typography>
+        </Paper>
       )}
     </Box>
   );

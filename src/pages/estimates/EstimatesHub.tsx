@@ -59,6 +59,7 @@ import { Estimate } from '../../types/estimate.types';
 import { deleteEstimate as deleteEstimateV2 } from '../../api/estimateV2Api';
 import { format } from '../../utils/dateUtils';
 import { deleteAllEstimates, deleteOldDraftEstimates, deleteEstimatesWithoutProject } from '../../utils/cleanOldEstimates';
+import SwipeableEstimateCard from '../../components/estimates/SwipeableEstimateCard';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -85,6 +86,7 @@ const EstimatesHub: React.FC = () => {
   const navigate = useNavigate();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   
   // States
   const [estimates, setEstimates] = useState<Estimate[]>([]);
@@ -276,95 +278,17 @@ const EstimatesHub: React.FC = () => {
     }
   };
   
-  // Render estimate card
+  // Render estimate card using SwipeableEstimateCard
   const EstimateCard = ({ estimate }: { estimate: Estimate }) => {
-    const getStatusIcon = () => {
-      switch (estimate.status) {
-        case 'accepted':
-          return <ApprovedIcon color="success" />;
-        case 'sent':
-          return <PendingIcon color="info" />;
-        case 'rejected':
-        case 'canceled':
-          return <DraftIcon color="error" />;
-        default:
-          return <DraftIcon color="warning" />;
-      }
-    };
-    
-    const statusIcon = getStatusIcon();
-    
     return (
-      <Card sx={{ mb: 2 }}>
-        <CardActionArea onClick={() => handleOpenEstimate(estimate.id)}>
-          <CardContent>
-            <Box display="flex" justifyContent="space-between" alignItems="flex-start">
-              <Box flex={1}>
-                <Stack direction="row" spacing={1} alignItems="center" sx={{ mb: 1 }}>
-                  {statusIcon}
-                  <Typography variant="h6" component="div">
-                    Смета №{estimate.number || estimate.id.slice(-6)}
-                  </Typography>
-                </Stack>
-                
-                <Typography color="text.secondary" sx={{ mb: 1 }}>
-                  {estimate.terms || 'Без описания'}
-                </Typography>
-                
-                <Stack direction="row" spacing={2} sx={{ mt: 1 }}>
-                  <Typography variant="body2" color="text.secondary">
-                    {estimate.createdAt && typeof estimate.createdAt === 'string' && 
-                      format(new Date(estimate.createdAt), 'dd.MM.yyyy')
-                    }
-                  </Typography>
-                  <Typography variant="body2" fontWeight="bold">
-                    {(estimate.totals?.grandTotal || 0).toLocaleString('ru-RU')} ₽
-                  </Typography>
-                </Stack>
-              </Box>
-              
-              {/* Desktop actions moved outside CardActionArea to avoid nested buttons */}
-            </Box>
-          </CardContent>
-        </CardActionArea>
-        {!isMobile && (
-          <Box sx={{ px: 2, pb: 1 }}>
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <IconButton size="small" onClick={() => handleEdit(estimate.id)}>
-                <EditIcon />
-              </IconButton>
-              <IconButton size="small" onClick={() => handleShare(estimate)}>
-                <ShareIcon />
-              </IconButton>
-              <IconButton size="small" onClick={() => handleExportPDF(estimate)}>
-                <PdfIcon />
-              </IconButton>
-              <IconButton size="small" color="error" onClick={() => handleDelete(estimate)}>
-                <DeleteIcon />
-              </IconButton>
-            </Stack>
-          </Box>
-        )}
-        
-        {isMobile && (
-          <Box sx={{ px: 2, pb: 1 }}>
-            <Stack direction="row" spacing={1} justifyContent="flex-end">
-              <IconButton size="small" onClick={() => handleEdit(estimate.id)}>
-                <EditIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={() => handleShare(estimate)}>
-                <ShareIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" onClick={() => handleExportPDF(estimate)}>
-                <PdfIcon fontSize="small" />
-              </IconButton>
-              <IconButton size="small" color="error" onClick={() => handleDelete(estimate)}>
-                <DeleteIcon fontSize="small" />
-              </IconButton>
-            </Stack>
-          </Box>
-        )}
-      </Card>
+      <SwipeableEstimateCard
+        estimate={estimate}
+        onEdit={handleEdit}
+        onDelete={handleDelete}
+        onShare={handleShare}
+        onExportPDF={handleExportPDF}
+        onClick={handleOpenEstimate}
+      />
     );
   };
   
@@ -390,8 +314,8 @@ const EstimatesHub: React.FC = () => {
   return (
     <Box sx={{ pb: 8 }}>
       {/* Header */}
-      <Paper sx={{ p: 2, mb: 2 }}>
-        <Typography variant="h5" gutterBottom>
+      <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2 }}>
+        <Typography variant={isMobile ? "h6" : "h5"} gutterBottom>
           <EstimateIcon sx={{ verticalAlign: 'middle', mr: 1 }} />
           Сметы
         </Typography>
@@ -411,7 +335,7 @@ const EstimatesHub: React.FC = () => {
           sx={{ mb: 2 }}
         />
         
-        <Stack direction="row" spacing={2}>
+        <Stack direction={isVerySmall ? "column" : "row"} spacing={1} sx={{ gap: 1 }}>
           <Chip 
             icon={<MoneyIcon />}
             label={`Всего: ${allEstimates.length}`}
@@ -429,8 +353,17 @@ const EstimatesHub: React.FC = () => {
         <Tabs 
           value={tabValue} 
           onChange={(e, newValue) => setTabValue(newValue)}
-          variant="scrollable"
-          scrollButtons="auto"
+          variant={isMobile ? "scrollable" : "standard"}
+          scrollButtons={isMobile ? "auto" : false}
+          allowScrollButtonsMobile
+          sx={{
+            '& .MuiTab-root': {
+              minHeight: isMobile ? 48 : 64,
+              fontSize: isMobile ? '0.8rem' : '0.875rem',
+              minWidth: isMobile ? 80 : 160,
+              px: isVerySmall ? 1 : 2
+            }
+          }}
         >
           <Tab 
             label={
@@ -516,7 +449,15 @@ const EstimatesHub: React.FC = () => {
       {isMobile ? (
         <SpeedDial
           ariaLabel="Создать смету"
-          sx={{ position: 'fixed', bottom: 70, right: 16 }}
+          sx={{ 
+            position: 'fixed', 
+            bottom: isVerySmall ? 60 : 70, 
+            right: isVerySmall ? 12 : 16,
+            '& .MuiSpeedDial-fab': {
+              width: isVerySmall ? 48 : 56,
+              height: isVerySmall ? 48 : 56
+            }
+          }}
           icon={<SpeedDialIcon />}
           open={speedDialOpen}
           onOpen={() => setSpeedDialOpen(true)}
@@ -530,6 +471,13 @@ const EstimatesHub: React.FC = () => {
               onClick={() => {
                 setSpeedDialOpen(false);
                 action.action();
+              }}
+              sx={{
+                '& .MuiSpeedDialAction-fab': {
+                  width: isVerySmall ? 40 : 48,
+                  height: isVerySmall ? 40 : 48,
+                  minHeight: isVerySmall ? 40 : 48
+                }
               }}
             />
           ))}
