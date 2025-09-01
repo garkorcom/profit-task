@@ -135,14 +135,28 @@ const HomePage: React.FC = () => {
                   </Box>
                   <Stack direction="row" spacing={1}>
                     <Tooltip title="Уведомления">
-                      <IconButton sx={{ color: 'white' }}>
+                      <IconButton 
+                        sx={{ 
+                          color: 'white',
+                          minWidth: 44,
+                          minHeight: 44
+                        }}
+                        onClick={() => navigate('/notifications')}
+                      >
                         <Badge badgeContent={3} color="error">
                           <NotificationsIcon />
                         </Badge>
                       </IconButton>
                     </Tooltip>
                     <Tooltip title="Профиль">
-                      <IconButton sx={{ color: 'white' }} onClick={() => navigate('/profile')}>
+                      <IconButton 
+                        sx={{ 
+                          color: 'white',
+                          minWidth: 44,
+                          minHeight: 44
+                        }} 
+                        onClick={() => navigate('/profile')}
+                      >
                         <PersonIcon />
                       </IconButton>
                     </Tooltip>
@@ -153,19 +167,35 @@ const HomePage: React.FC = () => {
                 {isWorking ? (
                   <Zoom in>
                     <Paper sx={{ 
-                      p: 3, 
+                      p: isMobile ? 2 : 3, 
                       background: 'rgba(255, 255, 255, 0.95)',
                       backdropFilter: 'blur(10px)',
                       borderRadius: 3,
                       boxShadow: '0 8px 32px rgba(0,0,0,0.1)'
                     }}>
-                      <Stack direction="row" justifyContent="space-between" alignItems="center">
-                        <Box>
+                      <Stack 
+                        direction={isMobile ? "column" : "row"} 
+                        justifyContent="space-between" 
+                        alignItems={isMobile ? "stretch" : "center"}
+                        spacing={isMobile ? 2 : 0}
+                      >
+                        <Box sx={{ textAlign: isMobile ? 'center' : 'left' }}>
                           <Typography variant="h6" color="success.main" fontWeight="bold">
                             <WorkIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
                             В работе
                           </Typography>
-                          <Typography variant="h5" color="text.primary" fontWeight="bold" mt={1}>
+                          <Typography 
+                            variant={isMobile ? "h6" : "h5"} 
+                            color="text.primary" 
+                            fontWeight="bold" 
+                            mt={1}
+                            sx={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden'
+                            }}
+                          >
                             {currentEntry?.taskName}
                           </Typography>
                           <Chip 
@@ -175,7 +205,11 @@ const HomePage: React.FC = () => {
                           />
                         </Box>
                         <Box textAlign="center">
-                          <Typography variant="h2" color="success.main" fontWeight="bold">
+                          <Typography 
+                            variant={isMobile ? "h3" : "h2"} 
+                            color="success.main" 
+                            fontWeight="bold"
+                          >
                             {formatTime(elapsedSeconds)}
                           </Typography>
                           <Button 
@@ -183,8 +217,14 @@ const HomePage: React.FC = () => {
                             color="error" 
                             startIcon={<StopIcon />} 
                             onClick={() => stopWork()}
-                            size="large"
-                            sx={{ mt: 2, borderRadius: 3 }}
+                            size={isMobile ? "medium" : "large"}
+                            sx={{ 
+                              mt: 2, 
+                              borderRadius: 3,
+                              minHeight: 48,
+                              px: isMobile ? 3 : 4
+                            }}
+                            fullWidth={isMobile}
                           >
                             Завершить
                           </Button>
@@ -192,7 +232,7 @@ const HomePage: React.FC = () => {
                       </Stack>
                       <LinearProgress 
                         variant="indeterminate" 
-                        sx={{ mt: 2, borderRadius: 2, height: 6 }}
+                        sx={{ mt: 2, borderRadius: 2, height: isMobile ? 4 : 6 }}
                         color="success"
                       />
                     </Paper>
@@ -201,22 +241,26 @@ const HomePage: React.FC = () => {
                   <Grow in>
                     <Button
                       variant="contained"
-                      size="large"
+                      size={isMobile ? "medium" : "large"}
                       startIcon={<StartWorkIcon />}
                       onClick={() => setStartWorkOpen(true)}
                       sx={{
                         background: 'white',
                         color: 'success.main',
-                        py: 2,
-                        px: 4,
+                        py: isMobile ? 1.5 : 2,
+                        px: isMobile ? 3 : 4,
                         borderRadius: 3,
-                        fontSize: '1.1rem',
+                        fontSize: isMobile ? '1rem' : '1.1rem',
                         fontWeight: 'bold',
+                        minHeight: 48,
                         boxShadow: '0 8px 32px rgba(0,0,0,0.1)',
                         '&:hover': {
-                          transform: 'translateY(-2px)',
+                          transform: isMobile ? 'none' : 'translateY(-2px)',
                           boxShadow: '0 12px 40px rgba(0,0,0,0.15)',
                           background: 'white'
+                        },
+                        '&:active': {
+                          transform: isMobile ? 'scale(0.98)' : 'translateY(-2px)'
                         },
                         transition: 'all 0.3s ease'
                       }}
@@ -351,8 +395,8 @@ const HomePage: React.FC = () => {
                       {[
                         { icon: <NewTaskIcon />, text: 'Создать задачу', path: '/tasks', color: 'primary' },
                         { icon: <NewProjectIcon />, text: 'Новый проект', path: '/projects', color: 'success' },
-                        { icon: <NewEstimateIcon />, text: 'Создать смету', path: '/mobile/estimate', color: 'warning' },
-                        { icon: <BusinessIcon />, text: 'Контрагенты', path: '/contractors', color: 'info' },
+                        { icon: <NewEstimateIcon />, text: 'Создать смету', path: '/estimates/quick-create', color: 'warning' },
+                        { icon: <BusinessIcon />, text: 'Контрагенты', path: '/counterparties', color: 'info' },
                         { icon: <ChartIcon />, text: 'Аналитика', path: '/analytics', color: 'secondary' },
                         { icon: <CalendarIcon />, text: 'Календарь', path: '/calendar', color: 'error' }
                       ].map((action, index) => (
@@ -365,13 +409,18 @@ const HomePage: React.FC = () => {
                           sx={{
                             justifyContent: 'flex-start',
                             borderRadius: 2,
-                            py: 1.5,
+                            py: isMobile ? 2 : 1.5,
+                            minHeight: 48,
                             borderColor: `${action.color}.main`,
                             color: `${action.color}.main`,
+                            fontSize: isMobile ? '0.9rem' : '0.875rem',
                             '&:hover': {
                               background: `${action.color}.light`,
                               borderColor: `${action.color}.dark`,
-                              transform: 'translateX(4px)'
+                              transform: isMobile ? 'none' : 'translateX(4px)'
+                            },
+                            '&:active': {
+                              transform: isMobile ? 'scale(0.98)' : 'translateX(4px)'
                             },
                             transition: 'all 0.3s ease'
                           }}
@@ -413,9 +462,14 @@ const HomePage: React.FC = () => {
                                 mb: 1,
                                 background: 'grey.50',
                                 cursor: 'pointer',
+                                minHeight: isMobile ? 64 : 56,
+                                py: isMobile ? 1 : 0.5,
                                 '&:hover': {
                                   background: 'grey.100',
-                                  transform: 'translateX(4px)'
+                                  transform: isMobile ? 'none' : 'translateX(4px)'
+                                },
+                                '&:active': {
+                                  transform: isMobile ? 'scale(0.98)' : 'translateX(4px)'
                                 },
                                 transition: 'all 0.3s ease'
                               }}
@@ -495,7 +549,11 @@ const HomePage: React.FC = () => {
                         fullWidth 
                         variant="outlined" 
                         onClick={() => navigate('/time-control')}
-                        sx={{ mt: 2 }}
+                        sx={{ 
+                          mt: 2,
+                          minHeight: 48,
+                          fontSize: isMobile ? '0.9rem' : '0.875rem'
+                        }}
                       >
                         Посмотреть детальный отчет
                       </Button>
@@ -512,16 +570,18 @@ const HomePage: React.FC = () => {
           <Zoom in>
             <Fab
               color="success"
-              size="large"
+              size={isMobile ? "medium" : "large"}
               sx={{
                 position: 'fixed',
-                bottom: 24,
-                right: 24,
+                bottom: isMobile ? 80 : 24,
+                right: isMobile ? 16 : 24,
+                width: isMobile ? 56 : 64,
+                height: isMobile ? 56 : 64,
                 boxShadow: '0 8px 32px rgba(76, 175, 80, 0.3)'
               }}
               onClick={() => setStartWorkOpen(true)}
             >
-              <StartWorkIcon sx={{ fontSize: 32 }} />
+              <StartWorkIcon sx={{ fontSize: isMobile ? 24 : 32 }} />
             </Fab>
           </Zoom>
         )}

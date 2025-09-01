@@ -192,7 +192,12 @@ const MainLayout: React.FC = () => {
             aria-label="open drawer"
             edge="start"
             onClick={() => setDrawerOpen(!drawerOpen)}
-            sx={{ mr: 2, ...(drawerOpen && !isMobile && { display: 'none' }) }}
+            sx={{ 
+              mr: 2, 
+              minWidth: 44, 
+              minHeight: 44,
+              ...(drawerOpen && !isMobile && { display: 'none' }) 
+            }}
           >
             <MenuIcon />
           </IconButton>
@@ -217,17 +222,29 @@ const MainLayout: React.FC = () => {
             
             <CriticalStockBell />
             
-            <IconButton color="inherit" onClick={() => navigate('/notifications')}>
+            <IconButton 
+              color="inherit" 
+              onClick={() => navigate('/notifications')}
+              sx={{ minWidth: 44, minHeight: 44 }}
+            >
               <Badge badgeContent={3} color="error">
                 <NotificationsIcon />
               </Badge>
             </IconButton>
             
-            <IconButton color="inherit" onClick={() => navigate('/profile')}>
+            <IconButton 
+              color="inherit" 
+              onClick={() => navigate('/profile')}
+              sx={{ minWidth: 44, minHeight: 44 }}
+            >
               <PersonIcon />
             </IconButton>
             
-            <IconButton color="inherit" onClick={logout}>
+            <IconButton 
+              color="inherit" 
+              onClick={logout}
+              sx={{ minWidth: 44, minHeight: 44 }}
+            >
               <LogoutIcon />
             </IconButton>
           </Stack>
@@ -307,6 +324,8 @@ const MainLayout: React.FC = () => {
                   sx={{
                     borderRadius: 2,
                     mx: 0.5,
+                    minHeight: isMobile ? 48 : 44,
+                    py: isMobile ? 1.5 : 1,
                     transition: 'all 0.3s ease',
                     '&.Mui-selected': {
                       background: `linear-gradient(135deg, ${alpha(item.color || '#2196f3', 0.1)}, ${alpha(item.color || '#2196f3', 0.05)})`,
@@ -317,7 +336,10 @@ const MainLayout: React.FC = () => {
                     },
                     '&:hover': {
                       background: alpha(item.color || '#2196f3', 0.05),
-                      transform: 'translateX(4px)'
+                      transform: isMobile ? 'none' : 'translateX(4px)'
+                    },
+                    '&:active': {
+                      transform: isMobile ? 'scale(0.98)' : 'none'
                     }
                   }}
                 >
@@ -347,8 +369,13 @@ const MainLayout: React.FC = () => {
                           sx={{
                             borderRadius: 2,
                             mx: 0.5,
+                            minHeight: isMobile ? 44 : 40,
+                            py: isMobile ? 1 : 0.5,
                             '&.Mui-selected': {
                               background: alpha(item.color || '#2196f3', 0.1)
+                            },
+                            '&:active': {
+                              transform: isMobile ? 'scale(0.98)' : 'none'
                             }
                           }}
                         >
@@ -375,7 +402,12 @@ const MainLayout: React.FC = () => {
             variant="outlined"
             startIcon={<SettingsIcon />}
             onClick={() => navigate('/settings')}
-            sx={{ borderRadius: 2, mb: 1 }}
+            sx={{ 
+              borderRadius: 2, 
+              mb: 1,
+              minHeight: isMobile ? 48 : 44,
+              fontSize: isMobile ? '0.9rem' : '0.875rem'
+            }}
           >
             Настройки
           </Button>
@@ -438,6 +470,15 @@ const MainLayout: React.FC = () => {
                 label={item.label} 
                 icon={item.icon}
                 sx={{
+                  minHeight: 64,
+                  fontSize: '0.75rem',
+                  '& .MuiBottomNavigationAction-label': {
+                    fontSize: '0.75rem',
+                    lineHeight: 1.2,
+                    '&.Mui-selected': {
+                      fontSize: '0.75rem'
+                    }
+                  },
                   '&.Mui-selected': {
                     color: item.color
                   }
