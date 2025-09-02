@@ -35,7 +35,7 @@ import {
   Preview as PreviewIcon,
   Share as ShareIcon,
   SmartToy as AIIcon,
-  Template as TemplateIcon,
+  Dashboard as TemplateIcon,
   Calculate as CalcIcon,
   Summarize as SummaryIcon,
 } from '@mui/icons-material';
