@@ -91,7 +91,7 @@ const QuickEstimateCreate: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // Правильный breakpoint для мобильных устройств
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   
   // Master data

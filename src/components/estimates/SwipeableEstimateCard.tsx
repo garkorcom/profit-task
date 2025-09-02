@@ -47,7 +47,7 @@ const SwipeableEstimateCard: React.FC<SwipeableEstimateCardProps> = ({
   onClick,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
 
   // Swipe state

@@ -103,7 +103,7 @@ const MainLayoutMobileOptimized: React.FC = () => {
   const location = useLocation();
   const theme = useTheme();
   // Используем более высокий breakpoint для современных телефонов
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1024px
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // 1024px
   const { currentUser } = useAuth();
   const { role, hasPermission, hasAnyPermission, loading } = usePermissions();
   

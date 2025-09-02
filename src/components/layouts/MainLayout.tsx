@@ -103,8 +103,9 @@ const MainLayout: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
-  // Используем более высокий breakpoint для современных телефонов
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1024px
+  // Правильные breakpoints для мобильных устройств
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // 768px - для телефонов
+  const isTablet = useMediaQuery(theme.breakpoints.between('md', 'lg')); // 768-1024px - для планшетов
   const { currentUser } = useAuth();
   const { role, hasPermission, hasAnyPermission, loading } = usePermissions();
   
@@ -438,7 +439,8 @@ const MainLayout: React.FC = () => {
         component="main"
         sx={{
           flexGrow: 1,
-          p: 3,
+          p: isMobile ? 2 : 3, // Меньше отступы на мобильных
+          pb: isMobile ? 10 : 3, // Больше нижний отступ для bottom navigation
           transition: theme.transitions.create(['margin', 'width'], {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,

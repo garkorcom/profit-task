@@ -85,7 +85,7 @@ const EstimatesHub: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1024px для мобильной версии
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // 1024px для мобильной версии
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   
   // States

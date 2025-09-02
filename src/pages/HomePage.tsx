@@ -39,7 +39,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { isWorking, currentEntry, elapsedSeconds, stopWork } = useTimeTracking();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1024px для мобильной версии
+  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // 1024px для мобильной версии
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);

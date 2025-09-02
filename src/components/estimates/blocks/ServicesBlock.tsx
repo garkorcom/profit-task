@@ -68,7 +68,7 @@ const defaultState: ServicesState = {
 const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, saving }) => {
   const { currentUser } = useAuth();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const initialData = (block?.data as any) || {};
   const [state, setState] = useState<ServicesState>({
     sections: initialData.sections || defaultState.sections,

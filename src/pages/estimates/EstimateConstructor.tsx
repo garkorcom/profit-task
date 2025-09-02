@@ -142,7 +142,7 @@ const EstimateConstructor: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   
