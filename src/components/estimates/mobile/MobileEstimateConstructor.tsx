@@ -94,8 +94,11 @@ const MobileEstimateConstructor: React.FC<MobileEstimateConstructorProps> = ({
   useEffect(() => {
     if (estimate?.blocks) {
       const servicesBlock = estimate.blocks.find(b => b.key === 'services');
-      if (servicesBlock?.data?.rows) {
-        setServices(servicesBlock.data.rows);
+      if (servicesBlock?.data && typeof servicesBlock.data === 'object' && servicesBlock.data !== null) {
+        const data = servicesBlock.data as any;
+        if (Array.isArray(data.rows)) {
+          setServices(data.rows as ServiceRow[]);
+        }
       }
     }
   }, [estimate]);
@@ -182,18 +185,26 @@ const MobileEstimateConstructor: React.FC<MobileEstimateConstructorProps> = ({
       const aiResponse = await generateEstimateWithClaude(description, 'claude-3-haiku-20240307');
       
       // Transform AI response to our service format
-      return aiResponse.services.map((service: any, index: number) => ({
-        name: service.name,
-        description: service.description,
-        unit: service.unit,
-        rate: service.rate,
-        estimatedHours: service.estimatedHours,
-        pert: {
-          optimistic: Math.max(1, service.estimatedHours * 0.7),
-          mostLikely: service.estimatedHours,
-          pessimistic: service.estimatedHours * 1.5
-        }
-      }));
+      const services: any[] = [];
+      
+      aiResponse.sections.forEach(section => {
+        section.items.forEach(item => {
+          services.push({
+            name: item.name,
+            description: item.description,
+            unit: item.unit,
+            rate: item.rate,
+            estimatedHours: item.quantity,
+            pert: {
+              optimistic: Math.max(1, item.quantity * 0.7),
+              mostLikely: item.quantity,
+              pessimistic: item.quantity * 1.5
+            }
+          });
+        });
+      });
+      
+      return services;
     } catch (error) {
       console.error('AI generation failed:', error);
       throw error;
