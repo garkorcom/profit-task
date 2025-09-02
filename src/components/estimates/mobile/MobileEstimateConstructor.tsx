@@ -34,7 +34,7 @@ import {
   Save as SaveIcon,
   Preview as PreviewIcon,
   Share as ShareIcon,
-  SmartToy as AIIcon,
+  Psychology as AIIcon,
   Dashboard as TemplateIcon,
   Calculate as CalcIcon,
   Summarize as SummaryIcon,

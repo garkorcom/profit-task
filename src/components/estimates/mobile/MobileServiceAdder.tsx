@@ -13,7 +13,6 @@ import {
   Chip,
   Card,
   CardContent,
-  Grid,
   Dialog,
   DialogTitle,
   DialogContent,
@@ -27,7 +26,7 @@ import {
 import {
   Add as AddIcon,
   Mic as MicIcon,
-  Smart as AIIcon,
+  Psychology as AIIcon,
   Dashboard as TemplateIcon,
   Construction as ConstructionIcon,
   Build as PlumbingIcon,
@@ -158,7 +157,7 @@ const MobileServiceAdder: React.FC<MobileServiceAdderProps> = ({
     }
   ];
 
-  const categories = [...new Set(serviceTemplates.map(t => t.category))];
+  const categories = Array.from(new Set(serviceTemplates.map(t => t.category)));
 
   const handleVoiceInput = async () => {
     if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)) {
@@ -367,12 +366,10 @@ const MobileServiceAdder: React.FC<MobileServiceAdderProps> = ({
                       <Chip
                         key={template.id}
                         label={template.name}
-                        icon={template.icon}
                         onClick={() => handleTemplateSelect(template)}
                         variant="outlined"
                         sx={{ 
-                          minHeight: 40,
-                          '& .MuiChip-icon': { color: template.color }
+                          minHeight: 40
                         }}
                       />
                     ))}
@@ -390,7 +387,7 @@ const MobileServiceAdder: React.FC<MobileServiceAdderProps> = ({
                   <Typography variant="h6" gutterBottom sx={{ color: 'primary.main', fontWeight: 'bold' }}>
                     {category}
                   </Typography>
-                  <Grid container spacing={1}>
+                  <Box display="flex" flexDirection="column" gap={1}>
                     {serviceTemplates
                       .filter(t => t.category === category)
                       .filter(t => !searchQuery || 
@@ -398,7 +395,7 @@ const MobileServiceAdder: React.FC<MobileServiceAdderProps> = ({
                         t.description.toLowerCase().includes(searchQuery.toLowerCase())
                       )
                       .map((template) => (
-                        <Grid item xs={12} sm={6} key={template.id}>
+                        <Box key={template.id}>
                           <Card
                             variant="outlined"
                             sx={{
@@ -431,9 +428,9 @@ const MobileServiceAdder: React.FC<MobileServiceAdderProps> = ({
                               </Typography>
                             </CardContent>
                           </Card>
-                        </Grid>
+                        </Box>
                       ))}
-                  </Grid>
+                  </Box>
                 </Box>
               ))}
             </Stack>

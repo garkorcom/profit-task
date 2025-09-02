@@ -33,7 +33,7 @@ import {
   ExpandMore as ExpandIcon,
   ExpandLess as CollapseIcon,
   Mic as MicIcon,
-  Smart as AIIcon,
+  Psychology as AIIcon,
   ContentCopy as CopyIcon,
   DragIndicator as DragIcon,
   Calculate as CalcIcon,
