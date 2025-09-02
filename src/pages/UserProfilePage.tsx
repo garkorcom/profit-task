@@ -296,12 +296,12 @@ const UserProfilePage: React.FC = () => {
               <Grid item xs={12} sm={6}>
                 <TextField
                   fullWidth
-                  label="Часовая ставка (себестоимость), ₽"
+                  label="Часовая ставка (себестоимость), $"
                   type="number"
                   value={formData.hourlyRate || ''}
                   onChange={handleRateChange}
                   InputProps={{
-                    startAdornment: <InputAdornment position="start">₽</InputAdornment>,
+                    startAdornment: <InputAdornment position="start">$</InputAdornment>,
                   }}
                   disabled={!editing}
                   error={!!formErrors.hourlyRate}

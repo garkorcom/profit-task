@@ -48,11 +48,14 @@ import {
   Calculate as CalcIcon,
   ArrowBack as BackIcon,
   ArrowForward as NextIcon,
+  Psychology as AIIcon,
+  AutoAwesome as MagicIcon,
   CheckCircle as DoneIcon,
   AddShoppingCart as AddToCartIcon,
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
+import { generateEstimateWithClaude, CLAUDE_MODELS } from '../../api/anthropicApi';
 import {
   Estimate,
   EstimateItem,
@@ -88,7 +91,7 @@ const QuickEstimateCreate: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   
   // Master data
@@ -111,6 +114,11 @@ const QuickEstimateCreate: React.FC = () => {
   const [loading, setLoading] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [quickAddDialog, setQuickAddDialog] = useState(false);
+  
+  // AI Integration
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiDescription, setAiDescription] = useState('');
   const [quickAddForm, setQuickAddForm] = useState({
     name: '',
     type: 'service' as 'service' | 'material',
@@ -177,6 +185,51 @@ const QuickEstimateCreate: React.FC = () => {
       price: 0,
       quantity: 1,
     });
+  };
+
+  // AI функция для автоматического создания сметы
+  const generateEstimateWithAI = async () => {
+    if (!aiDescription.trim()) return;
+    
+    setAiLoading(true);
+    try {
+      const aiEstimate = await generateEstimateWithClaude(aiDescription, CLAUDE_MODELS.HAIKU);
+      
+      // Конвертируем AI смету в QuickEstimateItem
+      const aiItems: QuickEstimateItem[] = [];
+      
+      aiEstimate.sections.forEach((section) => {
+        section.items.forEach((item) => {
+          aiItems.push({
+            id: `ai-item-${Date.now()}-${Math.random()}`,
+            name: item.name,
+            type: item.unit === 'ч' ? 'service' : 'material',
+            quantity: item.quantity,
+            unit: item.unit,
+            unitPrice: item.rate,
+            total: item.total,
+          });
+        });
+      });
+      
+      // Заполняем название сметы из описания если еще не заполнено
+      if (!estimateForm.name.trim()) {
+        const shortName = aiDescription.length > 50 
+          ? `${aiDescription.substring(0, 50)}...` 
+          : aiDescription;
+        setEstimateForm(prev => ({ ...prev, name: shortName }));
+      }
+      
+      // Добавляем AI позиции к существующим
+      setItems(prevItems => [...prevItems, ...aiItems]);
+      setAiDialogOpen(false);
+      setAiDescription('');
+      
+    } catch (error) {
+      console.error('AI генерация не удалась:', error);
+      alert('Ошибка при генерации сметы с помощью AI. Попробуйте еще раз.');
+    }
+    setAiLoading(false);
   };
   
   const handleUpdateQuantity = (id: string, quantity: number) => {
@@ -374,16 +427,33 @@ const QuickEstimateCreate: React.FC = () => {
                   sx={{ mb: 2 }}
                 />
                 
-                {/* Quick add button */}
-                <Button
-                  fullWidth
-                  variant="outlined"
-                  startIcon={<AddIcon />}
-                  onClick={() => setQuickAddDialog(true)}
-                  sx={{ mb: 2 }}
-                >
-                  Быстрое добавление позиции
-                </Button>
+                {/* Quick add and AI buttons */}
+                <Stack direction={isMobile ? "column" : "row"} spacing={1} sx={{ mb: 2 }}>
+                  <Button
+                    variant="outlined"
+                    startIcon={<AIIcon />}
+                    onClick={() => setAiDialogOpen(true)}
+                    fullWidth={isMobile}
+                    sx={{ 
+                      color: '#9c27b0',
+                      borderColor: '#9c27b0',
+                      '&:hover': {
+                        borderColor: '#7b1fa2',
+                        backgroundColor: 'rgba(156, 39, 176, 0.04)'
+                      }
+                    }}
+                  >
+                    🤖 AI Смета
+                  </Button>
+                  <Button
+                    fullWidth
+                    variant="outlined"
+                    startIcon={<AddIcon />}
+                    onClick={() => setQuickAddDialog(true)}
+                  >
+                    Быстрое добавление
+                  </Button>
+                </Stack>
                 
                 {/* Product list */}
                 {searchQuery && (
@@ -393,7 +463,7 @@ const QuickEstimateCreate: React.FC = () => {
                         <ListItem key={product.id}>
                           <ListItemText
                             primary={product.name}
-                            secondary={`${product.salePrice?.toLocaleString('ru-RU')} ₽/${product.unit}`}
+                            secondary={`$${product.salePrice?.toLocaleString('en-US')}/${product.unit}`}
                           />
                           <ListItemSecondaryAction>
                             <IconButton 
@@ -425,63 +495,131 @@ const QuickEstimateCreate: React.FC = () => {
                                 {item.name}
                               </Typography>
                               
-                              <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
-                                  disabled={item.quantity <= 1}
-                                >
-                                  <RemoveIcon fontSize="small" />
-                                </IconButton>
-                                
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  value={item.quantity}
-                                  onChange={(e) => handleUpdateQuantity(item.id, Number(e.target.value))}
-                                  sx={{ width: 70 }}
-                                />
-                                
-                                <IconButton
-                                  size="small"
-                                  onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
-                                >
-                                  <AddIcon fontSize="small" />
-                                </IconButton>
-                                
-                                <Typography variant="body2">
-                                  {item.unit}
-                                </Typography>
-                                
-                                <Typography variant="body2">
-                                  ×
-                                </Typography>
-                                
-                                <TextField
-                                  size="small"
-                                  type="number"
-                                  value={item.unitPrice}
-                                  onChange={(e) => handleUpdatePrice(item.id, Number(e.target.value))}
-                                  sx={{ width: 100 }}
-                                  InputProps={{
-                                    endAdornment: <InputAdornment position="end">₽</InputAdornment>,
-                                  }}
-                                />
-                                
-                                <Typography variant="body2" fontWeight="bold">
-                                  = {item.total.toLocaleString('ru-RU')} ₽
-                                </Typography>
-                                
-                                <Box flex={1} />
-                                
-                                <IconButton
-                                  size="small"
-                                  color="error"
-                                  onClick={() => handleRemoveItem(item.id)}
-                                >
-                                  <DeleteIcon fontSize="small" />
-                                </IconButton>
-                              </Stack>
+                              {/* Мобильная оптимизация: вертикальная раскладка */}
+                              {isMobile ? (
+                                <Stack spacing={2} sx={{ mt: 1 }}>
+                                  {/* Количество */}
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="body2" sx={{ minWidth: 80 }}>
+                                      Количество:
+                                    </Typography>
+                                    <IconButton
+                                      size="medium"
+                                      onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                                      disabled={item.quantity <= 1}
+                                      sx={{ minHeight: 40, minWidth: 40 }}
+                                    >
+                                      <RemoveIcon />
+                                    </IconButton>
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      value={item.quantity}
+                                      onChange={(e) => handleUpdateQuantity(item.id, Number(e.target.value))}
+                                      sx={{ width: 80 }}
+                                    />
+                                    <Typography variant="body2" sx={{ minWidth: 30 }}>
+                                      {item.unit}
+                                    </Typography>
+                                    <IconButton
+                                      size="medium"
+                                      onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                                      sx={{ minHeight: 40, minWidth: 40 }}
+                                    >
+                                      <AddIcon />
+                                    </IconButton>
+                                  </Stack>
+                                  
+                                  {/* Цена */}
+                                  <Stack direction="row" spacing={1} alignItems="center">
+                                    <Typography variant="body2" sx={{ minWidth: 80 }}>
+                                      Цена:
+                                    </Typography>
+                                    <TextField
+                                      size="small"
+                                      type="number"
+                                      value={item.unitPrice}
+                                      onChange={(e) => handleUpdatePrice(item.id, Number(e.target.value))}
+                                      sx={{ flex: 1 }}
+                                      InputProps={{
+                                        endAdornment: <InputAdornment position="end">$</InputAdornment>,
+                                      }}
+                                    />
+                                  </Stack>
+                                  
+                                  {/* Итого и удаление */}
+                                  <Stack direction="row" justifyContent="space-between" alignItems="center">
+                                    <Typography variant="h6" color="primary">
+                                      = ${item.total.toLocaleString('en-US')}
+                                    </Typography>
+                                    <IconButton
+                                      color="error"
+                                      onClick={() => handleRemoveItem(item.id)}
+                                      sx={{ minHeight: 44, minWidth: 44 }}
+                                    >
+                                      <DeleteIcon />
+                                    </IconButton>
+                                  </Stack>
+                                </Stack>
+                              ) : (
+                                <Stack direction="row" spacing={1} alignItems="center" sx={{ mt: 1 }}>
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleUpdateQuantity(item.id, item.quantity - 1)}
+                                    disabled={item.quantity <= 1}
+                                  >
+                                    <RemoveIcon fontSize="small" />
+                                  </IconButton>
+                                  
+                                  <TextField
+                                    size="small"
+                                    type="number"
+                                    value={item.quantity}
+                                    onChange={(e) => handleUpdateQuantity(item.id, Number(e.target.value))}
+                                    sx={{ width: 70 }}
+                                  />
+                                  
+                                  <IconButton
+                                    size="small"
+                                    onClick={() => handleUpdateQuantity(item.id, item.quantity + 1)}
+                                  >
+                                    <AddIcon fontSize="small" />
+                                  </IconButton>
+                                  
+                                  <Typography variant="body2">
+                                    {item.unit}
+                                  </Typography>
+                                  
+                                  <Typography variant="body2">
+                                    ×
+                                  </Typography>
+                                  
+                                  <TextField
+                                    size="small"
+                                    type="number"
+                                    value={item.unitPrice}
+                                    onChange={(e) => handleUpdatePrice(item.id, Number(e.target.value))}
+                                    sx={{ width: 100 }}
+                                    InputProps={{
+                                      endAdornment: <InputAdornment position="end">$</InputAdornment>,
+                                    }}
+                                  />
+                                  
+                                  <Typography variant="body2" fontWeight="bold">
+                                    = ${item.total.toLocaleString('en-US')}
+                                  </Typography>
+                                  
+                                  <Box flex={1} />
+                                  
+                                  <IconButton
+                                    size="small"
+                                    color="error"
+                                    onClick={() => handleRemoveItem(item.id)}
+                                  >
+                                    <DeleteIcon fontSize="small" />
+                                  </IconButton>
+                                </Stack>
+                              )}
                             </Box>
                           </ListItem>
                         </Paper>
@@ -491,7 +629,7 @@ const QuickEstimateCreate: React.FC = () => {
                     <Divider sx={{ my: 2 }} />
                     
                     <Typography variant="h6" align="right">
-                      Итого: {total.toLocaleString('ru-RU')} ₽
+                      Итого: ${total.toLocaleString('en-US')}
                     </Typography>
                   </Box>
                 )}
@@ -560,7 +698,7 @@ const QuickEstimateCreate: React.FC = () => {
                       <ListItem key={item.id}>
                         <ListItemText
                           primary={item.name}
-                          secondary={`${item.quantity} ${item.unit} × ${item.unitPrice} ₽ = ${item.total.toLocaleString('ru-RU')} ₽`}
+                          secondary={`${item.quantity} ${item.unit} × $${item.unitPrice} = $${item.total.toLocaleString('en-US')}`}
                         />
                       </ListItem>
                     ))}
@@ -569,7 +707,7 @@ const QuickEstimateCreate: React.FC = () => {
                   <Divider sx={{ my: 2 }} />
                   
                   <Typography variant="h6" align="right" color="primary">
-                    Итого: {total.toLocaleString('ru-RU')} ₽
+                    Итого: ${total.toLocaleString('en-US')}
                   </Typography>
                 </Paper>
               </Box>
@@ -649,13 +787,13 @@ const QuickEstimateCreate: React.FC = () => {
               value={quickAddForm.price}
               onChange={(e) => setQuickAddForm({ ...quickAddForm, price: Number(e.target.value) })}
               InputProps={{
-                endAdornment: <InputAdornment position="end">₽</InputAdornment>,
+                endAdornment: <InputAdornment position="end">$</InputAdornment>,
               }}
             />
           </Box>
           
           <Typography variant="body2" sx={{ mt: 2 }}>
-            Сумма: {(quickAddForm.quantity * quickAddForm.price).toLocaleString('ru-RU')} ₽
+            Сумма: ${(quickAddForm.quantity * quickAddForm.price).toLocaleString('en-US')}
           </Typography>
         </DialogContent>
         <DialogActions>
@@ -664,6 +802,87 @@ const QuickEstimateCreate: React.FC = () => {
           </Button>
           <Button onClick={handleQuickAdd} variant="contained" disabled={!quickAddForm.name}>
             Добавить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* AI Generate Dialog */}
+      <Dialog open={aiDialogOpen} onClose={() => setAiDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <AIIcon sx={{ color: '#9c27b0' }} />
+            <Typography variant="h6">🤖 AI Автосмета</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Alert severity="info" sx={{ mb: 3 }}>
+            <Typography variant="body2">
+              <strong>🎯 Опишите проект</strong>, и AI создаст детальную смету автоматически!
+            </Typography>
+          </Alert>
+          
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Описание проекта"
+            value={aiDescription}
+            onChange={(e) => setAiDescription(e.target.value)}
+            placeholder="Например: Создание корпоративного сайта с 5 страницами, контактной формой, адаптивной версткой и CMS системой"
+            sx={{ mb: 2 }}
+          />
+          
+          <Stack spacing={1} sx={{ mb: 2 }}>
+            <Typography variant="caption" color="text.secondary" fontWeight="bold">
+              💡 Примеры описаний:
+            </Typography>
+            {[
+              "Дизайн логотипа и фирменного стиля для IT-компании",
+              "Разработка мобильного приложения с авторизацией и чатом", 
+              "SEO продвижение интернет-магазина на 6 месяцев",
+              "Ремонт квартиры 60м2: покраска стен, укладка ламината"
+            ].map((example, index) => (
+              <Chip
+                key={index}
+                label={example}
+                variant="outlined"
+                size="small"
+                onClick={() => setAiDescription(example)}
+                sx={{ 
+                  cursor: 'pointer',
+                  alignSelf: 'flex-start',
+                  '&:hover': { backgroundColor: 'action.hover' }
+                }}
+              />
+            ))}
+          </Stack>
+
+          {aiLoading && (
+            <Alert severity="info">
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <CircularProgress size={20} />
+                <Typography>AI анализирует проект и создает смету...</Typography>
+              </Stack>
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>
+            Отмена
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={generateEstimateWithAI}
+            disabled={!aiDescription.trim() || aiLoading}
+            startIcon={<MagicIcon />}
+            sx={{ 
+              background: 'linear-gradient(45deg, #9c27b0 30%, #e91e63 90%)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #7b1fa2 30%, #c2185b 90%)'
+              }
+            }}
+          >
+            {aiLoading ? 'Генерирую смету...' : 'Создать смету с AI'}
           </Button>
         </DialogActions>
       </Dialog>

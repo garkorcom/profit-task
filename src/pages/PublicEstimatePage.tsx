@@ -184,8 +184,8 @@ const PublicEstimatePage: React.FC = () => {
   };
 
   const formatCurrency = (amount: number, currency: string = 'RUB') => {
-    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '₽';
-    return `${amount.toLocaleString('ru-RU')} ${symbol}`;
+    const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '$';
+    return `${amount.toLocaleString('en-US')} ${symbol}`;
   };
 
   if (loading) {
@@ -248,7 +248,7 @@ const PublicEstimatePage: React.FC = () => {
                 />
                 {estimate.validUntil && (
                   <Typography variant="body2" color="text.secondary">
-                    Действительна до: {new Date(estimate.validUntil).toLocaleDateString('ru-RU')}
+                    Действительна до: {new Date(estimate.validUntil).toLocaleDateString('en-US')}
                   </Typography>
                 )}
               </Stack>
@@ -364,7 +364,7 @@ const PublicEstimatePage: React.FC = () => {
                         Дата создания
                       </Typography>
                       <Typography variant="body1">
-                        {new Date(estimate.createdAt).toLocaleDateString('ru-RU', {
+                        {new Date(estimate.createdAt).toLocaleDateString('en-US', {
                           year: 'numeric',
                           month: 'long',
                           day: 'numeric'
@@ -547,7 +547,7 @@ const PublicEstimatePage: React.FC = () => {
           {/* Футер */}
           <Box mt={4} pt={3} borderTop={1} borderColor="divider">
             <Typography variant="body2" color="text.secondary" align="center">
-              Смета сгенерирована автоматически. Актуальность данных на {new Date().toLocaleDateString('ru-RU')}
+              Смета сгенерирована автоматически. Актуальность данных на {new Date().toLocaleDateString('en-US')}
             </Typography>
           </Box>
         </Paper>

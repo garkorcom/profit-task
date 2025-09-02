@@ -186,7 +186,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
 
   const formatValue = (value: any, field: string): string => {
     if (value === undefined || value === null) return '-';
-    if (field === 'rate') return `${value} ₽`;
+    if (field === 'rate') return `${value} $`;
     if (field.includes('estimate')) return `${value} ч`;
     return String(value);
   };
@@ -215,14 +215,14 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
                   <Chip label="Старая" size="small" sx={{ ml: 1 }} />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {new Date(olderVersion.createdAt).toLocaleString('ru-RU')}
+                  {new Date(olderVersion.createdAt).toLocaleString('en-US')}
                 </Typography>
                 <Typography variant="body2">
                   Автор: {olderVersion.createdBy}
                 </Typography>
                 <Divider sx={{ my: 1 }} />
                 <Typography variant="h6" color="primary">
-                  {olderVersion.total.toFixed(2)} ₽
+                  {olderVersion.total.toFixed(2)} $
                 </Typography>
               </CardContent>
             </Card>
@@ -242,14 +242,14 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
                   <Chip label="Новая" size="small" color="primary" sx={{ ml: 1 }} />
                 </Typography>
                 <Typography variant="body2" color="text.secondary">
-                  {new Date(newerVersion.createdAt).toLocaleString('ru-RU')}
+                  {new Date(newerVersion.createdAt).toLocaleString('en-US')}
                 </Typography>
                 <Typography variant="body2">
                   Автор: {newerVersion.createdBy}
                 </Typography>
                 <Divider sx={{ my: 1 }} />
                 <Typography variant="h6" color="primary">
-                  {newerVersion.total.toFixed(2)} ₽
+                  {newerVersion.total.toFixed(2)} $
                 </Typography>
               </CardContent>
             </Card>
@@ -301,7 +301,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
                     <DecreaseIcon color="error" />
                   )}
                   <Typography variant="h6">
-                    {Math.abs(newerVersion.total - olderVersion.total).toFixed(2)} ₽
+                    {Math.abs(newerVersion.total - olderVersion.total).toFixed(2)} $
                   </Typography>
                 </Box>
                 <Typography variant="body2">
@@ -361,26 +361,26 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
                         <TableCell>
                           {comparison.oldValue && (
                             <Typography variant="body2">
-                              {comparison.oldValue.quantity || 0} {comparison.oldValue.unit || ''} × {comparison.oldValue.rate || 0} ₽
+                              {comparison.oldValue.quantity || 0} {comparison.oldValue.unit || ''} × {comparison.oldValue.rate || 0} $
                             </Typography>
                           )}
                         </TableCell>
                         <TableCell>
                           {comparison.newValue && (
                             <Typography variant="body2">
-                              {comparison.newValue.quantity || 0} {comparison.newValue.unit || ''} × {comparison.newValue.rate || 0} ₽
+                              {comparison.newValue.quantity || 0} {comparison.newValue.unit || ''} × {comparison.newValue.rate || 0} $
                             </Typography>
                           )}
                         </TableCell>
                         <TableCell align="right">
                           {comparison.status === 'added' && comparison.newValue && (
                             <Typography color="success.main">
-                              +{((comparison.newValue.quantity || 0) * (comparison.newValue.rate || 0)).toFixed(2)} ₽
+                              +{((comparison.newValue.quantity || 0) * (comparison.newValue.rate || 0)).toFixed(2)} $
                             </Typography>
                           )}
                           {comparison.status === 'removed' && comparison.oldValue && (
                             <Typography color="error.main">
-                              -{((comparison.oldValue.quantity || 0) * (comparison.oldValue.rate || 0)).toFixed(2)} ₽
+                              -{((comparison.oldValue.quantity || 0) * (comparison.oldValue.rate || 0)).toFixed(2)} $
                             </Typography>
                           )}
                           {comparison.status === 'modified' && comparison.oldValue && comparison.newValue && (
@@ -392,7 +392,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
                               {(((comparison.newValue.quantity || 0) * (comparison.newValue.rate || 0)) - 
                                 ((comparison.oldValue.quantity || 0) * (comparison.oldValue.rate || 0)) > 0 ? '+' : '')}
                               {(((comparison.newValue.quantity || 0) * (comparison.newValue.rate || 0)) - 
-                                ((comparison.oldValue.quantity || 0) * (comparison.oldValue.rate || 0))).toFixed(2)} ₽
+                                ((comparison.oldValue.quantity || 0) * (comparison.oldValue.rate || 0))).toFixed(2)} $
                             </Typography>
                           )}
                         </TableCell>
@@ -412,7 +412,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
                   </ListItemIcon>
                   <ListItemText
                     primary={item.name}
-                    secondary={item.newValue && `${item.newValue.quantity || 0} ${item.newValue.unit || ''} × ${item.newValue.rate || 0} ₽`}
+                    secondary={item.newValue && `${item.newValue.quantity || 0} ${item.newValue.unit || ''} × ${item.newValue.rate || 0} $`}
                   />
                 </ListItem>
               ))}
@@ -461,7 +461,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
                   </ListItemIcon>
                   <ListItemText
                     primary={item.name}
-                    secondary={item.oldValue && `${item.oldValue.quantity || 0} ${item.oldValue.unit || ''} × ${item.oldValue.rate || 0} ₽`}
+                    secondary={item.oldValue && `${item.oldValue.quantity || 0} ${item.oldValue.unit || ''} × ${item.oldValue.rate || 0} $`}
                   />
                 </ListItem>
               ))}

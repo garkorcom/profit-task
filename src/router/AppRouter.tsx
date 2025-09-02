@@ -31,6 +31,7 @@ import CounterpartyEditPage from '../pages/counterparty/CounterpartyEditPage';
 import ProjectsV2Page from '../pages/project/ProjectsV2Page';
 import ProjectDetailsPage from '../pages/project/ProjectDetailsPage';
 import PublicEstimatePage from '../pages/PublicEstimatePage';
+import ClaudeTest from '../components/ClaudeTest';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -72,6 +73,7 @@ const AppRouter: React.FC = () => {
             <Route path="/shipments/:shipmentId" element={<ShipmentDetailsPage />} />
             <Route path="/stock-docs" element={<StockDocumentsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
+            <Route path="/claude-test" element={<ClaudeTest />} />
             {/* Старая система contractors - перенаправляем на новую */}
             <Route path="/contractors" element={<Navigate to="/counterparties" replace />} />
             <Route path="/contractors/:contractorId/tasks" element={<ContractorTasksPage />} />

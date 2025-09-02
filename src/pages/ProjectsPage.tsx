@@ -184,7 +184,7 @@ const ProjectsPage: React.FC = () => {
                     {p.contractorName && (<Chip size="small" label={`Контрагент: ${p.contractorName}`} variant="outlined" />)}
                     {p.startDate && (<Chip size="small" label={`Старт: ${p.startDate}`} variant="outlined" />)}
                     {p.endDate && (<Chip size="small" label={`Финиш: ${p.endDate}`} variant="outlined" />)}
-                    {typeof p.budget === 'number' && (<Chip size="small" label={`Бюджет: ${p.budget} ₽`} variant="outlined" />)}
+                    {typeof p.budget === 'number' && (<Chip size="small" label={`Бюджет: ${p.budget} $`} variant="outlined" />)}
                   </Box>
                   {p.description && <Typography variant="body2" color="text.secondary" mt={1}>{p.description}</Typography>}
                   <Box mt={2} display="flex" gap={1} flexWrap="wrap">

@@ -1,10 +1,10 @@
-import React, { useMemo, useState, useEffect } from 'react';
+import React, { useMemo, useState, useEffect, useCallback } from 'react';
 import { 
   Box, AppBar, Toolbar, Typography, Button, BottomNavigation, 
   BottomNavigationAction, Paper, Chip, Avatar, Drawer, List,
   ListItem, ListItemIcon, ListItemText, IconButton, Divider,
   useMediaQuery, useTheme, Badge, Collapse, ListItemButton,
-  Stack, Fade, alpha
+  Stack, Fade, alpha, SwipeableDrawer
 } from '@mui/material';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { logout } from '../../auth/AuthContext';
@@ -96,10 +96,9 @@ const allNavItems = [
     permission: Permission.VIEW_ESTIMATES,
     color: '#00bcd4'
   },
-  // Проекты теперь доступны в подменю Справочники
 ];
 
-const MainLayout: React.FC = () => {
+const MainLayoutMobileOptimized: React.FC = () => {
   const navigate = useNavigate();
   const location = useLocation();
   const theme = useTheme();
@@ -110,12 +109,23 @@ const MainLayout: React.FC = () => {
   
   const [drawerOpen, setDrawerOpen] = useState(!isMobile);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  const [lastNavigationAction, setLastNavigationAction] = useState<string>('');
+  
   // Close drawer on mobile when route changes
   useEffect(() => {
     if (isMobile) {
       setDrawerOpen(false);
     }
   }, [location.pathname, isMobile]);
+  
+  // Optimized drawer toggle with haptic feedback
+  const toggleDrawer = useCallback((open: boolean) => {
+    setDrawerOpen(open);
+    // Add haptic feedback for better mobile UX
+    if (isMobile && 'vibrate' in navigator) {
+      navigator.vibrate(50);
+    }
+  }, [isMobile]);
   
   // Фильтруем пункты меню на основе разрешений
   const navItems = useMemo(() => {
@@ -181,6 +191,182 @@ const MainLayout: React.FC = () => {
 
   const drawerWidth = 280;
 
+  // Enhanced drawer content component
+  const renderDrawerContent = () => (
+    <>
+      <Toolbar sx={{ minHeight: { xs: 56, sm: 64 } }} />
+      
+      {/* User Profile Section */}
+      <Box sx={{ p: 2, mb: 1 }}>
+        <Paper 
+          sx={{ 
+            p: 2, 
+            background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
+            borderRadius: 2
+          }}
+        >
+          <Stack direction="row" spacing={2} alignItems="center">
+            <Avatar 
+              sx={{ 
+                width: 50, 
+                height: 50,
+                background: 'linear-gradient(135deg, #2e7d32 0%, #43a047 100%)'
+              }}
+            >
+              {currentUser?.displayName?.[0] || 'U'}
+            </Avatar>
+            <Box>
+              <Typography variant="body1" fontWeight="bold">
+                {currentUser?.displayName || 'Пользователь'}
+              </Typography>
+              <Typography variant="caption" color="text.secondary">
+                {currentUser?.email}
+              </Typography>
+            </Box>
+          </Stack>
+        </Paper>
+      </Box>
+      
+      <Divider />
+      
+      {/* Navigation Items */}
+      <List sx={{ px: 1 }}>
+        {navItems.map((item) => (
+          <React.Fragment key={item.value}>
+            <ListItem 
+              disablePadding 
+              sx={{ mb: 0.5 }}
+            >
+              <ListItemButton
+                onClick={() => {
+                  if (item.subItems) {
+                    handleExpandClick(item.value);
+                  } else {
+                    navigate(item.path);
+                    if (isMobile) toggleDrawer(false);
+                  }
+                }}
+                selected={isActive(item.path)}
+                sx={{
+                  borderRadius: 2,
+                  mx: 0.5,
+                  minHeight: isMobile ? 52 : 44,
+                  py: isMobile ? 1.5 : 1,
+                  px: isMobile ? 2 : 1,
+                  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                  '&.Mui-selected': {
+                    background: `linear-gradient(135deg, ${alpha(item.color || '#2196f3', 0.15)}, ${alpha(item.color || '#2196f3', 0.08)})`,
+                    borderLeft: `4px solid ${item.color}`,
+                    transform: 'translateX(4px)',
+                    '& .MuiListItemIcon-root': {
+                      color: item.color,
+                      transform: 'scale(1.1)'
+                    },
+                    '& .MuiListItemText-primary': {
+                      fontWeight: 'bold'
+                    }
+                  },
+                  '&:hover': {
+                    background: alpha(item.color || '#2196f3', 0.08),
+                    transform: 'translateX(2px)'
+                  },
+                  '&:active': {
+                    transform: isMobile ? 'scale(0.96)' : 'translateX(2px)',
+                    transition: 'transform 0.1s ease'
+                  },
+                  ...(isMobile && {
+                    WebkitTapHighlightColor: 'transparent',
+                    touchAction: 'manipulation'
+                  })
+                }}
+              >
+                <ListItemIcon sx={{ color: isActive(item.path) ? item.color : 'inherit' }}>
+                  {item.icon}
+                </ListItemIcon>
+                <ListItemText 
+                  primary={item.label}
+                  primaryTypographyProps={{ fontWeight: isActive(item.path) ? 'bold' : 'normal' }}
+                />
+                {item.subItems && (expandedItems.includes(item.value) ? <ExpandLess /> : <ExpandMore />)}
+              </ListItemButton>
+            </ListItem>
+            
+            {/* Sub Items */}
+            {item.subItems && (
+              <Collapse in={expandedItems.includes(item.value)} timeout="auto" unmountOnExit>
+                <List component="div" disablePadding>
+                  {item.subItems.map((subItem) => (
+                    <ListItem key={subItem.path} disablePadding sx={{ pl: 2 }}>
+                      <ListItemButton
+                        onClick={() => {
+                          navigate(subItem.path);
+                          if (isMobile) toggleDrawer(false);
+                        }}
+                        selected={isActive(subItem.path)}
+                        sx={{
+                          borderRadius: 2,
+                          mx: 0.5,
+                          minHeight: isMobile ? 48 : 40,
+                          py: isMobile ? 1.2 : 0.5,
+                          pl: isMobile ? 4 : 3,
+                          transition: 'all 0.2s ease',
+                          '&.Mui-selected': {
+                            background: alpha(item.color || '#2196f3', 0.1),
+                            borderLeft: `3px solid ${alpha(item.color || '#2196f3', 0.5)}`
+                          },
+                          '&:hover': {
+                            background: alpha(item.color || '#2196f3', 0.05)
+                          },
+                          '&:active': {
+                            transform: isMobile ? 'scale(0.96)' : 'none',
+                            transition: 'transform 0.1s ease'
+                          },
+                          ...(isMobile && {
+                            WebkitTapHighlightColor: 'transparent',
+                            touchAction: 'manipulation'
+                          })
+                        }}
+                      >
+                        <ListItemIcon sx={{ minWidth: 40 }}>
+                          {subItem.icon}
+                        </ListItemIcon>
+                        <ListItemText primary={subItem.label} />
+                      </ListItemButton>
+                    </ListItem>
+                  ))}
+                </List>
+              </Collapse>
+            )}
+          </React.Fragment>
+        ))}
+      </List>
+      
+      {/* Bottom Actions */}
+      <Box sx={{ flexGrow: 1 }} />
+      <Divider />
+      <Box sx={{ p: 2 }}>
+        <Button
+          fullWidth
+          variant="outlined"
+          startIcon={<SettingsIcon />}
+          onClick={() => navigate('/settings')}
+          sx={{ 
+            borderRadius: 2, 
+            mb: 1,
+            minHeight: isMobile ? 52 : 44,
+            fontSize: isMobile ? '0.9rem' : '0.875rem',
+            ...(isMobile && {
+              WebkitTapHighlightColor: 'transparent',
+              touchAction: 'manipulation'
+            })
+          }}
+        >
+          Настройки
+        </Button>
+      </Box>
+    </>
+  );
+
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
       {/* AppBar */}
@@ -197,7 +383,7 @@ const MainLayout: React.FC = () => {
             color="inherit"
             aria-label="open drawer"
             edge="start"
-            onClick={() => setDrawerOpen(!drawerOpen)}
+            onClick={() => toggleDrawer(!drawerOpen)}
             sx={{ 
               mr: 2, 
               minWidth: 44, 
@@ -257,181 +443,69 @@ const MainLayout: React.FC = () => {
         </Toolbar>
       </AppBar>
 
-      {/* Side Drawer */}
-      <Drawer
-        variant={isMobile ? "temporary" : "persistent"}
-        open={drawerOpen}
-        onClose={() => setDrawerOpen(false)}
-        ModalProps={{
-          // Improve performance on mobile
-          keepMounted: isMobile,
-        }}
-        sx={{
-          width: drawerOpen ? drawerWidth : 0,
-          flexShrink: 0,
-          '& .MuiDrawer-paper': {
+      {/* Enhanced Side Drawer */}
+      {isMobile ? (
+        <SwipeableDrawer
+          variant="temporary"
+          open={drawerOpen}
+          onClose={() => toggleDrawer(false)}
+          onOpen={() => toggleDrawer(true)}
+          disableBackdropTransition={false}
+          disableDiscovery={false}
+          ModalProps={{
+            keepMounted: true,
+          }}
+          SwipeAreaProps={{
+            style: {
+              width: 20,
+              position: 'fixed',
+              top: 64,
+              left: 0,
+              bottom: 64,
+              zIndex: 1199
+            }
+          }}
+          sx={{
             width: drawerWidth,
-            boxSizing: 'border-box',
-            borderRight: 'none',
-            boxShadow: isMobile 
-              ? '0 8px 30px rgba(0,0,0,0.12)' 
-              : '2px 0 20px rgba(0,0,0,0.08)',
-            background: 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%)'
-          },
-          // Speed up animations on mobile
-          '& .MuiDrawer-paperAnchorLeft': {
-            transition: theme.transitions.create(['transform'], {
-              easing: theme.transitions.easing.sharp,
-              duration: isMobile ? 200 : theme.transitions.duration.enteringScreen,
-            }),
-          }
-        }}
-      >
-        <Toolbar />
-        
-        {/* User Profile Section */}
-        <Box sx={{ p: 2, mb: 1 }}>
-          <Paper 
-            sx={{ 
-              p: 2, 
-              background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)',
-              borderRadius: 2
-            }}
-          >
-            <Stack direction="row" spacing={2} alignItems="center">
-              <Avatar 
-                sx={{ 
-                  width: 50, 
-                  height: 50,
-                  background: 'linear-gradient(135deg, #2e7d32 0%, #43a047 100%)'
-                }}
-              >
-                {currentUser?.displayName?.[0] || 'U'}
-              </Avatar>
-              <Box>
-                <Typography variant="body1" fontWeight="bold">
-                  {currentUser?.displayName || 'Пользователь'}
-                </Typography>
-                <Typography variant="caption" color="text.secondary">
-                  {currentUser?.email}
-                </Typography>
-              </Box>
-            </Stack>
-          </Paper>
-        </Box>
-        
-        <Divider />
-        
-        {/* Navigation Items */}
-        <List sx={{ px: 1 }}>
-          {navItems.map((item) => (
-            <React.Fragment key={item.value}>
-              <ListItem 
-                disablePadding 
-                sx={{ mb: 0.5 }}
-              >
-                <ListItemButton
-                  onClick={() => {
-                    if (item.subItems) {
-                      handleExpandClick(item.value);
-                    } else {
-                      navigate(item.path);
-                      if (isMobile) setDrawerOpen(false);
-                    }
-                  }}
-                  selected={isActive(item.path)}
-                  sx={{
-                    borderRadius: 2,
-                    mx: 0.5,
-                    minHeight: isMobile ? 48 : 44,
-                    py: isMobile ? 1.5 : 1,
-                    transition: 'all 0.3s ease',
-                    '&.Mui-selected': {
-                      background: `linear-gradient(135deg, ${alpha(item.color || '#2196f3', 0.1)}, ${alpha(item.color || '#2196f3', 0.05)})`,
-                      borderLeft: `4px solid ${item.color}`,
-                      '& .MuiListItemIcon-root': {
-                        color: item.color
-                      }
-                    },
-                    '&:hover': {
-                      background: alpha(item.color || '#2196f3', 0.05),
-                      transform: isMobile ? 'none' : 'translateX(4px)'
-                    },
-                    '&:active': {
-                      transform: isMobile ? 'scale(0.98)' : 'none'
-                    }
-                  }}
-                >
-                  <ListItemIcon sx={{ color: isActive(item.path) ? item.color : 'inherit' }}>
-                    {item.icon}
-                  </ListItemIcon>
-                  <ListItemText 
-                    primary={item.label}
-                    primaryTypographyProps={{ fontWeight: isActive(item.path) ? 'bold' : 'normal' }}
-                  />
-                  {item.subItems && (expandedItems.includes(item.value) ? <ExpandLess /> : <ExpandMore />)}
-                </ListItemButton>
-              </ListItem>
-              
-              {/* Sub Items */}
-              {item.subItems && (
-                <Collapse in={expandedItems.includes(item.value)} timeout="auto" unmountOnExit>
-                  <List component="div" disablePadding>
-                    {item.subItems.map((subItem) => (
-                      <ListItem key={subItem.path} disablePadding sx={{ pl: 2 }}>
-                        <ListItemButton
-                          onClick={() => {
-                            navigate(subItem.path);
-                            if (isMobile) setDrawerOpen(false);
-                          }}
-                          selected={isActive(subItem.path)}
-                          sx={{
-                            borderRadius: 2,
-                            mx: 0.5,
-                            minHeight: isMobile ? 44 : 40,
-                            py: isMobile ? 1 : 0.5,
-                            '&.Mui-selected': {
-                              background: alpha(item.color || '#2196f3', 0.1)
-                            },
-                            '&:active': {
-                              transform: isMobile ? 'scale(0.98)' : 'none'
-                            }
-                          }}
-                        >
-                          <ListItemIcon sx={{ minWidth: 40 }}>
-                            {subItem.icon}
-                          </ListItemIcon>
-                          <ListItemText primary={subItem.label} />
-                        </ListItemButton>
-                      </ListItem>
-                    ))}
-                  </List>
-                </Collapse>
-              )}
-            </React.Fragment>
-          ))}
-        </List>
-        
-        {/* Bottom Actions */}
-        <Box sx={{ flexGrow: 1 }} />
-        <Divider />
-        <Box sx={{ p: 2 }}>
-          <Button
-            fullWidth
-            variant="outlined"
-            startIcon={<SettingsIcon />}
-            onClick={() => navigate('/settings')}
-            sx={{ 
-              borderRadius: 2, 
-              mb: 1,
-              minHeight: isMobile ? 48 : 44,
-              fontSize: isMobile ? '0.9rem' : '0.875rem'
-            }}
-          >
-            Настройки
-          </Button>
-        </Box>
-      </Drawer>
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              borderRight: 'none',
+              boxShadow: '0 8px 40px rgba(0,0,0,0.15)',
+              background: 'linear-gradient(180deg, #ffffff 0%, #f8f9fa 100%)',
+              overflowX: 'hidden',
+              WebkitOverflowScrolling: 'touch'
+            },
+            '& .MuiSwipeableDrawer-paper': {
+              transition: theme.transitions.create(['transform'], {
+                easing: theme.transitions.easing.easeOut,
+                duration: 250
+              }),
+            }
+          }}
+        >
+          {renderDrawerContent()}
+        </SwipeableDrawer>
+      ) : (
+        <Drawer
+          variant="persistent"
+          open={drawerOpen}
+          sx={{
+            width: drawerOpen ? drawerWidth : 0,
+            flexShrink: 0,
+            '& .MuiDrawer-paper': {
+              width: drawerWidth,
+              boxSizing: 'border-box',
+              borderRight: 'none',
+              boxShadow: '2px 0 20px rgba(0,0,0,0.08)',
+              background: 'linear-gradient(180deg, #ffffff 0%, #f5f5f5 100%)'
+            }
+          }}
+        >
+          {renderDrawerContent()}
+        </Drawer>
+      )}
 
       {/* Main Content */}
       <Box
@@ -455,7 +529,7 @@ const MainLayout: React.FC = () => {
         </Fade>
       </Box>
 
-      {/* Mobile Bottom Navigation */}
+      {/* Enhanced Mobile Bottom Navigation */}
       {isMobile && (
         <Paper 
           sx={{ 
@@ -465,7 +539,9 @@ const MainLayout: React.FC = () => {
             right: 0,
             borderTop: '1px solid',
             borderColor: 'divider',
-            zIndex: 1000
+            zIndex: 1000,
+            background: 'rgba(255, 255, 255, 0.95)',
+            backdropFilter: 'blur(10px)'
           }} 
           elevation={8}
         >
@@ -473,23 +549,44 @@ const MainLayout: React.FC = () => {
             showLabels 
             value={(() => {
               const activeIndex = navItems.findIndex(item => isActive(item.path));
-              // If active item is not in first 4, show it in "More" tab
               return activeIndex >= 0 && activeIndex < 4 ? activeIndex : -1;
             })()}
             onChange={(event, newValue) => {
+              // Add haptic feedback
+              if ('vibrate' in navigator) {
+                navigator.vibrate(30);
+              }
+              
               if (newValue === 4) {
-                // "More" tab clicked - open drawer
-                setDrawerOpen(true);
+                toggleDrawer(true);
+                setLastNavigationAction('drawer');
               } else {
                 const item = navItems[newValue];
                 if (item) {
                   navigate(item.path);
+                  setLastNavigationAction(item.path);
                 }
               }
             }}
             sx={{
+              height: 64,
+              borderTop: '1px solid',
+              borderColor: 'divider',
+              background: 'transparent',
               '& .Mui-selected': {
                 color: 'primary.main'
+              },
+              '& .MuiBottomNavigationAction-root': {
+                minHeight: 64,
+                maxWidth: 'none',
+                padding: '6px 12px 8px',
+                transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+                WebkitTapHighlightColor: 'transparent',
+                touchAction: 'manipulation',
+                '&:active': {
+                  transform: 'scale(0.95)',
+                  transition: 'transform 0.1s ease'
+                }
               }
             }}
           >
@@ -504,12 +601,21 @@ const MainLayout: React.FC = () => {
                   '& .MuiBottomNavigationAction-label': {
                     fontSize: '0.75rem',
                     lineHeight: 1.2,
+                    fontWeight: 500,
+                    marginTop: '4px',
                     '&.Mui-selected': {
-                      fontSize: '0.75rem'
+                      fontSize: '0.8rem',
+                      fontWeight: 600
                     }
                   },
+                  '& .MuiSvgIcon-root': {
+                    transition: 'all 0.2s ease'
+                  },
                   '&.Mui-selected': {
-                    color: item.color
+                    color: item.color,
+                    '& .MuiSvgIcon-root': {
+                      transform: 'scale(1.1)'
+                    }
                   }
                 }}
               />
@@ -524,8 +630,19 @@ const MainLayout: React.FC = () => {
                   '& .MuiBottomNavigationAction-label': {
                     fontSize: '0.75rem',
                     lineHeight: 1.2,
+                    fontWeight: 500,
+                    marginTop: '4px',
                     '&.Mui-selected': {
-                      fontSize: '0.75rem'
+                      fontSize: '0.8rem',
+                      fontWeight: 600
+                    }
+                  },
+                  '& .MuiSvgIcon-root': {
+                    transition: 'all 0.2s ease'
+                  },
+                  '&:hover': {
+                    '& .MuiSvgIcon-root': {
+                      transform: 'scale(1.05)'
                     }
                   }
                 }}
@@ -538,4 +655,4 @@ const MainLayout: React.FC = () => {
   );
 };
 
-export default MainLayout;
+export default MainLayoutMobileOptimized;

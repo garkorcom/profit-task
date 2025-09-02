@@ -47,7 +47,7 @@ const SwipeableEstimateCard: React.FC<SwipeableEstimateCardProps> = ({
   onClick,
 }) => {
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
 
   // Swipe state
@@ -267,31 +267,72 @@ const SwipeableEstimateCard: React.FC<SwipeableEstimateCardProps> = ({
                     fontWeight="bold"
                     color="primary.main"
                   >
-                    {(estimate.totals?.grandTotal || 0).toLocaleString('ru-RU')} ₽
+                    ${(estimate.totals?.grandTotal || 0).toLocaleString('en-US')}
                   </Typography>
                 </Stack>
               </Box>
-
-              {/* Desktop actions */}
-              {!isMobile && (
-                <Stack direction="row" spacing={0.5} sx={{ ml: 1 }}>
-                  <IconButton size="small" onClick={handleAction(() => onEdit(estimate.id))}>
-                    <EditIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={handleAction(() => onShare(estimate))}>
-                    <ShareIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" onClick={handleAction(() => onExportPDF(estimate))}>
-                    <PdfIcon fontSize="small" />
-                  </IconButton>
-                  <IconButton size="small" color="error" onClick={handleAction(() => onDelete(estimate))}>
-                    <DeleteIcon fontSize="small" />
-                  </IconButton>
-                </Stack>
-              )}
             </Box>
           </CardContent>
         </CardActionArea>
+
+        {/* Desktop actions - вынесены за пределы CardActionArea */}
+        {!isMobile && (
+          <Box 
+            sx={{ 
+              position: 'absolute',
+              top: 8,
+              right: 8,
+              display: 'flex',
+              gap: 0.5
+            }}
+          >
+            <IconButton 
+              size="small" 
+              onClick={handleAction(() => onEdit(estimate.id))}
+              sx={{ 
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': { bgcolor: 'background.default' }
+              }}
+            >
+              <EditIcon fontSize="small" />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              onClick={handleAction(() => onShare(estimate))}
+              sx={{ 
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': { bgcolor: 'background.default' }
+              }}
+            >
+              <ShareIcon fontSize="small" />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              onClick={handleAction(() => onExportPDF(estimate))}
+              sx={{ 
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': { bgcolor: 'background.default' }
+              }}
+            >
+              <PdfIcon fontSize="small" />
+            </IconButton>
+            <IconButton 
+              size="small" 
+              color="error" 
+              onClick={handleAction(() => onDelete(estimate))}
+              sx={{ 
+                bgcolor: 'background.paper',
+                boxShadow: 1,
+                '&:hover': { bgcolor: 'error.light', color: 'error.contrastText' }
+              }}
+            >
+              <DeleteIcon fontSize="small" />
+            </IconButton>
+          </Box>
+        )}
       </Card>
 
       {/* Swipe hint */}

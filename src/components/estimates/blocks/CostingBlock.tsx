@@ -17,8 +17,14 @@ import {
   InputAdornment,
   Card,
   CardContent,
+  CircularProgress,
 } from '@mui/material';
+import { 
+  Calculate as CalculateIcon
+} from '@mui/icons-material';
 import { Estimate, BlockState, CostingBlockData, RoundingRule, Scenario } from '../../../types/estimate.types';
+import { recalculateEstimateTotals } from '../../../api/estimateV2Api';
+import { useAuth } from '../../../auth/AuthContext';
 
 interface CostingBlockProps {
   estimate: Estimate;
@@ -33,6 +39,7 @@ const CostingBlock: React.FC<CostingBlockProps> = ({
   onSave,
   saving,
 }) => {
+  const { currentUser } = useAuth();
   const blockData = (block.data || {}) as CostingBlockData;
   
   const [overheadPct, setOverheadPct] = useState(blockData?.overheadPct || 15);
@@ -42,6 +49,7 @@ const CostingBlock: React.FC<CostingBlockProps> = ({
   const [depositPct, setDepositPct] = useState(blockData?.depositPct || 30);
   const [roundingRule, setRoundingRule] = useState<RoundingRule>(blockData?.roundingRule || 'none');
   const [scenario, setScenario] = useState<Scenario>(blockData?.scenario || 'base');
+  const [isRecalculating, setIsRecalculating] = useState(false);
 
   const handleSave = () => {
     const data: CostingBlockData = {
@@ -56,6 +64,21 @@ const CostingBlock: React.FC<CostingBlockProps> = ({
     };
     
     onSave(data);
+  };
+
+  const handleRecalculate = async () => {
+    if (!currentUser || !estimate?.id) return;
+    
+    setIsRecalculating(true);
+    try {
+      console.log('🔄 Запуск пересчета смет пользователем');
+      await recalculateEstimateTotals(currentUser.uid, estimate.id);
+      console.log('✅ Пересчет завершен успешно');
+    } catch (error) {
+      console.error('❌ Ошибка пересчета:', error);
+    } finally {
+      setIsRecalculating(false);
+    }
   };
 
   return (
@@ -100,7 +123,7 @@ const CostingBlock: React.FC<CostingBlockProps> = ({
           onChange={(e) => setDiscountAmt(Number(e.target.value))}
           fullWidth
           InputProps={{
-            startAdornment: <InputAdornment position="start">₽</InputAdornment>,
+            startAdornment: <InputAdornment position="start">$</InputAdornment>,
           }}
         />
         
@@ -112,7 +135,7 @@ const CostingBlock: React.FC<CostingBlockProps> = ({
           onChange={(e) => setShippingAmt(Number(e.target.value))}
           fullWidth
           InputProps={{
-            startAdornment: <InputAdornment position="start">₽</InputAdornment>,
+            startAdornment: <InputAdornment position="start">$</InputAdornment>,
           }}
         />
         
@@ -145,8 +168,8 @@ const CostingBlock: React.FC<CostingBlockProps> = ({
             label="Округление"
           >
             <MenuItem value="none">Без округления</MenuItem>
-            <MenuItem value="ceil_1">До рубля вверх</MenuItem>
-            <MenuItem value="ceil_10">До 10 рублей вверх</MenuItem>
+            <MenuItem value="ceil_1">До USDля вверх</MenuItem>
+            <MenuItem value="ceil_10">До 10 USDлей вверх</MenuItem>
             <MenuItem value="bankers">Банковское округление</MenuItem>
           </Select>
         </FormControl>
@@ -179,24 +202,38 @@ const CostingBlock: React.FC<CostingBlockProps> = ({
             </Typography>
             {discountAmt > 0 && (
               <Typography variant="body2" color="error">
-                • Скидка: -{discountAmt.toLocaleString('ru-RU')} ₽
+                • Скидка: -{discountAmt.toLocaleString('en-US')} $
               </Typography>
             )}
             {shippingAmt > 0 && (
               <Typography variant="body2" color="text.secondary">
-                • Доставка: +{shippingAmt.toLocaleString('ru-RU')} ₽
+                • Доставка: +{shippingAmt.toLocaleString('en-US')} $
               </Typography>
             )}
           </CardContent>
         </Card>
         
-        <Button 
-          variant="contained" 
-          onClick={handleSave}
-          disabled={saving}
-        >
-          {saving ? 'Сохранение...' : 'Сохранить настройки'}
-        </Button>
+        {/* Кнопки управления */}
+        <Stack direction="row" spacing={2}>
+          <Button 
+            variant="outlined" 
+            startIcon={isRecalculating ? <CircularProgress size={16} /> : <CalculateIcon />}
+            onClick={handleRecalculate}
+            disabled={saving || isRecalculating || !estimate?.id}
+            color="primary"
+          >
+            {isRecalculating ? 'Пересчитываю...' : 'Пересчитать итоги'}
+          </Button>
+          
+          <Button 
+            variant="contained" 
+            onClick={handleSave}
+            disabled={saving || isRecalculating}
+            sx={{ minWidth: 180 }}
+          >
+            {saving ? 'Сохранение...' : 'Сохранить настройки'}
+          </Button>
+        </Stack>
       </Stack>
     </Box>
   );

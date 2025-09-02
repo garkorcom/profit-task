@@ -256,7 +256,7 @@ export const completeTimeEntryEnhanced = async (
   console.log('✅ Работа завершена:', {
     time: now.toLocaleTimeString(),
     activeDuration: `${activeDuration} мин`,
-    laborCost: `${laborCost.toFixed(2)} ₽`
+    laborCost: `${laborCost.toFixed(2)} $`
   });
 };
 

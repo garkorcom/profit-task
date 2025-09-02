@@ -374,7 +374,7 @@ const TimeControlPage: React.FC = () => {
                     } 
                     secondary={
                       <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                        Сумма: {estimate.total} ₽
+                        Сумма: ${estimate.total}
                       </Typography>
                     } 
                   />
@@ -425,7 +425,7 @@ const TimeControlPage: React.FC = () => {
                     } 
                     secondary={
                       <Typography variant="body2" color="text.secondary" sx={{ fontWeight: 500 }}>
-                        Итого: {item.total} ₽
+                        Итого: ${item.total}
                       </Typography>
                     } 
                   />

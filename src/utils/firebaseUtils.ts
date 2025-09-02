@@ -7,9 +7,14 @@ import { serverTimestamp } from 'firebase/firestore';
 /**
  * Рекурсивно очищает объект от undefined полей для Firestore
  * @param obj - объект для очистки
+ * @param visited - Set для отслеживания посещенных объектов (защита от циклических ссылок)
  * @returns очищенный объект
  */
-export function cleanForFirestore<T extends Record<string, any>>(obj: T): Partial<T> {
+export function cleanForFirestore<T extends Record<string, any>>(
+  obj: T, 
+  visited: WeakSet<object> = new WeakSet(),
+  depth: number = 0
+): Partial<T> {
   if (obj === null || obj === undefined) {
     return {} as Partial<T>;
   }
@@ -18,40 +23,77 @@ export function cleanForFirestore<T extends Record<string, any>>(obj: T): Partia
     return obj;
   }
 
+  // Защита от циклических ссылок
+  if (visited.has(obj)) {
+    console.warn('Circular reference detected, skipping object');
+    return {} as Partial<T>;
+  }
+  visited.add(obj);
+
   if (Array.isArray(obj)) {
-    return obj.map(item => cleanForFirestore(item)) as any;
+    return obj.map(item => 
+      typeof item === 'object' && item !== null 
+        ? cleanForFirestore(item, visited, depth + 1) 
+        : item
+    ) as any;
   }
 
   const cleaned: Record<string, any> = {};
   
   for (const key in obj) {
+    if (!obj.hasOwnProperty(key)) continue;
+    
     const value = obj[key];
     
-    // Пропускаем undefined значения
-    if (value === undefined) {
+    // Пропускаем undefined, функции, символы
+    if (value === undefined || typeof value === 'function' || typeof value === 'symbol') {
+      continue;
+    }
+    
+    // Skip timestamp fields in nested objects to prevent Firestore errors
+    if (key === 'updatedAt' && typeof value === 'string' && depth > 0) {
+      continue;
+    }
+    
+    // Пропускаем DOM элементы и другие сложные объекты браузера
+    if (value && typeof value === 'object' && (
+      value.nodeType !== undefined || // DOM элементы
+      value.constructor?.name === 'HTMLElement' ||
+      value.constructor?.name === 'HTMLDivElement' ||
+      value.constructor?.name?.startsWith('HTML')
+    )) {
       continue;
     }
     
     // Рекурсивно обрабатываем вложенные объекты
     if (value !== null && typeof value === 'object' && !Array.isArray(value)) {
       // Проверяем, не является ли это специальным объектом Firestore
-      if (value._methodName === 'serverTimestamp') {
+      if (value && typeof value === 'object' && value._methodName === 'serverTimestamp') {
         cleaned[key] = value;
-      } else if (value.toDate && typeof value.toDate === 'function') {
+      } else if (value && typeof value === 'object' && value.toDate && typeof value.toDate === 'function') {
         // Firestore Timestamp
         cleaned[key] = value;
-      } else {
-        // Обычный объект - рекурсивно очищаем
-        const cleanedNested = cleanForFirestore(value);
+      } else if (value.constructor === Object || !value.constructor || value.constructor.name === 'Object') {
+        // Только plain objects - рекурсивно очищаем
+        const cleanedNested = cleanForFirestore(value, visited, depth + 1);
         if (Object.keys(cleanedNested).length > 0) {
           cleaned[key] = cleanedNested;
         }
+      } else {
+        // Сложные объекты пропускаем
+        continue;
       }
     } else if (Array.isArray(value)) {
       // Обрабатываем массивы
-      cleaned[key] = value.map((item: any) => 
-        typeof item === 'object' ? cleanForFirestore(item) : item
-      );
+      const cleanedArray = value.map((item: any) => 
+        typeof item === 'object' && item !== null 
+          ? cleanForFirestore(item, visited, depth + 1) 
+          : item
+      ).filter((item: any) => item !== undefined);
+      
+      if (cleanedArray.length > 0) {
+        cleaned[key] = cleanedArray;
+      }
     } else {
       // Примитивные значения
       cleaned[key] = value;

@@ -278,7 +278,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                             </Box>
                             <Box textAlign="right">
                               <Typography variant="h6" color="primary">
-                                {version.total.toFixed(2)} ₽
+                                {version.total.toFixed(2)} $
                               </Typography>
                             </Box>
                           </Box>
@@ -344,7 +344,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                           />
                         </TableCell>
                         <TableCell>
-                          {new Date(version.createdAt).toLocaleString('ru-RU')}
+                          {new Date(version.createdAt).toLocaleString('en-US')}
                         </TableCell>
                         <TableCell>{version.createdBy}</TableCell>
                         <TableCell>
@@ -362,7 +362,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                         </TableCell>
                         <TableCell align="right">
                           <Typography variant="body1" fontWeight="bold">
-                            {version.total.toFixed(2)} ₽
+                            {version.total.toFixed(2)} $
                           </Typography>
                         </TableCell>
                         <TableCell>
@@ -447,7 +447,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                           fontWeight="bold"
                         >
                           {version.total > previousVersion.total ? '+' : ''}
-                          {(version.total - previousVersion.total).toFixed(2)} ₽
+                          {(version.total - previousVersion.total).toFixed(2)} $
                         </Typography>
                       </Box>
                     </CardContent>

@@ -232,7 +232,7 @@ const ProjectBlock: React.FC<ProjectBlockProps> = ({
                   <Stack direction="row" spacing={1} alignItems="center">
                     <MoneyIcon fontSize="small" color="action" />
                     <Typography variant="body2">
-                      Бюджет: {selectedProject.budget.toLocaleString('ru-RU')} ₽
+                      Бюджет: {selectedProject.budget.toLocaleString('en-US')} $
                     </Typography>
                   </Stack>
                 )}

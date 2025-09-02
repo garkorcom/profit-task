@@ -12,12 +12,22 @@ import React, { useEffect, useMemo, useState } from 'react';
 import { 
   Box, Typography, Button, Alert, Stack, TextField, IconButton, Divider, Chip,
   MenuItem, Select, InputLabel, FormControl, Card, CardContent, CardActions,
-  Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, ListItemButton
+  Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, ListItemButton,
+  useTheme, useMediaQuery, CircularProgress
 } from '@mui/material';
-import { Add as AddIcon, Delete as DeleteIcon, Download as ImportIcon, Save as SaveIcon } from '@mui/icons-material';
+import { 
+  Add as AddIcon, 
+  Delete as DeleteIcon, 
+  Download as ImportIcon, 
+  Save as SaveIcon,
+  Psychology as AIIcon,
+  AutoAwesome as MagicIcon,
+  SmartToy as BotIcon
+} from '@mui/icons-material';
 import { Estimate, BlockState } from '../../../types/estimate.types';
 import { useAuth } from '../../../auth/AuthContext';
 import { ServiceTemplate, getServiceTemplatesStream } from '../../../api/serviceTemplateApi';
+import { generateEstimateWithClaude, CLAUDE_MODELS } from '../../../api/anthropicApi';
 
 interface ServicesBlockProps {
   estimate: Estimate;
@@ -57,6 +67,8 @@ const defaultState: ServicesState = {
 
 const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, saving }) => {
   const { currentUser } = useAuth();
+  const theme = useTheme();
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const initialData = (block?.data as any) || {};
   const [state, setState] = useState<ServicesState>({
     sections: initialData.sections || defaultState.sections,
@@ -67,6 +79,11 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
   // Templates
   const [templates, setTemplates] = useState<ServiceTemplate[]>([]);
   const [importOpen, setImportOpen] = useState(false);
+
+  // AI Integration
+  const [aiDialogOpen, setAiDialogOpen] = useState(false);
+  const [aiLoading, setAiLoading] = useState(false);
+  const [aiDescription, setAiDescription] = useState('');
 
   useEffect(() => {
     if (!currentUser) return;
@@ -143,15 +160,113 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
     setImportOpen(false);
   };
 
+  // AI функция для генерации услуг
+  const generateServicesWithAI = async () => {
+    if (!aiDescription.trim()) return;
+    
+    setAiLoading(true);
+    try {
+      const aiEstimate = await generateEstimateWithClaude(aiDescription, CLAUDE_MODELS.HAIKU);
+      
+      // Конвертируем AI смету в наши услуги
+      const newRows: ServiceRow[] = [];
+      let targetSectionId = state.sections[0]?.id;
+      
+      aiEstimate.sections.forEach((section) => {
+        // Создаем новую секцию если нужно
+        if (section.name !== 'Основные работы') {
+          const sectionId = uuid();
+          setState((s) => ({ 
+            ...s, 
+            sections: [...s.sections, { id: sectionId, title: section.name }]
+          }));
+          targetSectionId = sectionId;
+        }
+        
+        // Добавляем услуги из секции
+        section.items.forEach((item) => {
+          // Конвертируем в PERT оценку (предполагаем что rate это часы)
+          const hours = item.quantity || 1;
+          const pertHours = {
+            optimistic: Math.max(0.5, hours * 0.7),
+            mostLikely: hours,
+            pessimistic: hours * 1.5
+          };
+          
+          newRows.push({
+            id: uuid(),
+            sectionId: targetSectionId || state.sections[0]?.id || uuid(),
+            name: item.name,
+            description: item.description,
+            unit: item.unit === 'шт' ? 'шт' : 'ч',
+            rate: item.unit === 'ч' ? state.hourlyRate : item.rate,
+            pert: pertHours,
+          });
+        });
+      });
+      
+      setState((s) => ({ ...s, rows: [...s.rows, ...newRows] }));
+      setAiDialogOpen(false);
+      setAiDescription('');
+      
+    } catch (error) {
+      console.error('AI генерация не удалась:', error);
+      alert('Ошибка при генерации услуг с помощью AI. Попробуйте еще раз.');
+    }
+    setAiLoading(false);
+  };
+
   return (
     <Box>
-      <Stack direction="row" alignItems="center" justifyContent="space-between" sx={{ mb: 2 }}>
-        <Typography variant="h6">Услуги</Typography>
-        <Stack direction="row" spacing={1}>
-          <Button variant="outlined" startIcon={<ImportIcon />} onClick={() => setImportOpen(true)}>
+      <Stack 
+        direction={isMobile ? "column" : "row"} 
+        alignItems={isMobile ? "stretch" : "center"} 
+        justifyContent="space-between" 
+        sx={{ mb: 2 }}
+        spacing={isMobile ? 2 : 0}
+      >
+        <Typography variant="h6" sx={{ textAlign: isMobile ? 'center' : 'left' }}>
+          Услуги
+        </Typography>
+        <Stack 
+          direction={isMobile ? "column" : "row"} 
+          spacing={1} 
+          sx={{ width: isMobile ? '100%' : 'auto' }}
+        >
+          <Button 
+            variant="outlined" 
+            startIcon={<AIIcon />} 
+            onClick={() => setAiDialogOpen(true)}
+            fullWidth={isMobile}
+            sx={{ 
+              color: '#9c27b0',
+              borderColor: '#9c27b0',
+              minHeight: 48,
+              '&:hover': {
+                borderColor: '#7b1fa2',
+                backgroundColor: 'rgba(156, 39, 176, 0.04)'
+              }
+            }}
+          >
+            🤖 AI Генератор
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<ImportIcon />} 
+            onClick={() => setImportOpen(true)}
+            fullWidth={isMobile}
+            sx={{ minHeight: 48 }}
+          >
             Импорт из шаблонов
           </Button>
-          <Button variant="contained" startIcon={<SaveIcon />} onClick={handleSave} disabled={saving}>
+          <Button 
+            variant="contained" 
+            startIcon={<SaveIcon />} 
+            onClick={handleSave} 
+            disabled={saving}
+            fullWidth={isMobile}
+            sx={{ minHeight: 48 }}
+          >
             {saving ? 'Сохранение...' : 'Сохранить блок'}
           </Button>
         </Stack>
@@ -159,16 +274,24 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
 
       <Card variant="outlined" sx={{ mb: 2 }}>
         <CardContent>
-          <Stack direction="row" spacing={2} alignItems="center">
+          <Stack 
+            direction={isMobile ? "column" : "row"} 
+            spacing={2} 
+            alignItems={isMobile ? "stretch" : "center"}
+          >
             <TextField
-              label="Базовая ставка (₽/час)"
+              label="Базовая ставка ($/час)"
               type="number"
               value={state.hourlyRate}
               onChange={(e) => setState((s) => ({ ...s, hourlyRate: Number(e.target.value || 0) }))}
-              sx={{ width: 220 }}
+              sx={{ width: isMobile ? '100%' : 220 }}
               inputProps={{ min: 0 }}
             />
-            <Chip label={`Итого: ${totals.hours.toFixed(1)} ч / ${totals.cost.toFixed(0)} ₽`} color="success" />
+            <Chip 
+              label={`Итого: ${totals.hours.toFixed(1)} ч / $${totals.cost.toFixed(0)}`} 
+              color="success"
+              sx={{ alignSelf: isMobile ? 'center' : 'auto' }}
+            />
           </Stack>
         </CardContent>
       </Card>
@@ -176,7 +299,12 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
       {state.sections.map((sec) => (
         <Card key={sec.id} variant="outlined" sx={{ mb: 2 }}>
           <CardContent>
-            <Stack direction="row" spacing={1} alignItems="center" justifyContent="space-between">
+            <Stack 
+              direction={isMobile ? "column" : "row"} 
+              spacing={1} 
+              alignItems={isMobile ? "stretch" : "center"} 
+              justifyContent="space-between"
+            >
               <TextField
                 label="Название секции"
                 value={sec.title}
@@ -188,7 +316,15 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
                 }
                 fullWidth
               />
-              <IconButton aria-label="Удалить секцию" onClick={() => removeSection(sec.id)}>
+              <IconButton 
+                aria-label="Удалить секцию" 
+                onClick={() => removeSection(sec.id)}
+                sx={{ 
+                  alignSelf: isMobile ? 'flex-end' : 'center',
+                  minHeight: 48,
+                  minWidth: 48 
+                }}
+              >
                 <DeleteIcon />
               </IconButton>
             </Stack>
@@ -203,72 +339,169 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
                   const lineTotal = hours * row.rate;
                   return (
                     <Card key={row.id} variant="outlined" sx={{ p: 1 }}>
-                      <Stack direction={{ xs: 'column', md: 'row' }} spacing={1} alignItems="center">
+                      <Stack direction={{ xs: 'column', lg: 'row' }} spacing={1} alignItems="center">
                         <TextField
                           label="Услуга / работа"
                           value={row.name}
                           onChange={(e) => updateRow(row.id, { name: e.target.value })}
-                          sx={{ flex: 2, minWidth: 220 }}
+                          sx={{ 
+                            flex: isMobile ? undefined : 2, 
+                            minWidth: isMobile ? '100%' : 220,
+                            width: isMobile ? '100%' : 'auto'
+                          }}
                         />
                         <TextField
                           label="Описание"
                           value={row.description || ''}
                           onChange={(e) => updateRow(row.id, { description: e.target.value })}
-                          sx={{ flex: 3, minWidth: 260 }}
+                          sx={{ 
+                            flex: isMobile ? undefined : 3, 
+                            minWidth: isMobile ? '100%' : 260,
+                            width: isMobile ? '100%' : 'auto'
+                          }}
                         />
-                        <FormControl sx={{ width: 120 }}>
-                          <InputLabel>Ед.</InputLabel>
-                          <Select
-                            label="Ед."
-                            value={row.unit}
-                            onChange={(e) => updateRow(row.id, { unit: e.target.value as string })}
-                          >
-                            <MenuItem value="ч">ч</MenuItem>
-                            <MenuItem value="шт">шт</MenuItem>
-                            <MenuItem value="м2">м2</MenuItem>
-                          </Select>
-                        </FormControl>
-                        <TextField
-                          type="number"
-                          label="Ставка (₽/ед)"
-                          value={row.rate}
-                          onChange={(e) => updateRow(row.id, { rate: Number(e.target.value || 0) })}
-                          sx={{ width: 140 }}
-                          inputProps={{ min: 0 }}
-                        />
-                        <TextField
-                          type="number"
-                          label="PERT min"
-                          value={row.pert.optimistic}
-                          onChange={(e) => updateRow(row.id, { pert: { ...row.pert, optimistic: Number(e.target.value || 0) } })}
-                          sx={{ width: 110 }}
-                          inputProps={{ min: 0 }}
-                        />
-                        <TextField
-                          type="number"
-                          label="PERT ml"
-                          value={row.pert.mostLikely}
-                          onChange={(e) => updateRow(row.id, { pert: { ...row.pert, mostLikely: Number(e.target.value || 0) } })}
-                          sx={{ width: 110 }}
-                          inputProps={{ min: 0 }}
-                        />
-                        <TextField
-                          type="number"
-                          label="PERT max"
-                          value={row.pert.pessimistic}
-                          onChange={(e) => updateRow(row.id, { pert: { ...row.pert, pessimistic: Number(e.target.value || 0) } })}
-                          sx={{ width: 110 }}
-                          inputProps={{ min: 0 }}
-                        />
-                        <Chip label={`${hours.toFixed(1)} ч / ${lineTotal.toFixed(0)} ₽`} color="info" />
-                        <IconButton aria-label="Удалить строку" onClick={() => removeRow(row.id)}>
-                          <DeleteIcon />
-                        </IconButton>
+                        
+                        {/* Мобильная версия: компактный ряд для числовых полей */}
+                        {isMobile ? (
+                          <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
+                            <FormControl sx={{ minWidth: 80, flex: 1 }}>
+                              <InputLabel>Ед.</InputLabel>
+                              <Select
+                                label="Ед."
+                                value={row.unit}
+                                onChange={(e) => updateRow(row.id, { unit: e.target.value as string })}
+                              >
+                                <MenuItem value="ч">ч</MenuItem>
+                                <MenuItem value="шт">шт</MenuItem>
+                                <MenuItem value="м2">м2</MenuItem>
+                              </Select>
+                            </FormControl>
+                            <TextField
+                              type="number"
+                              label="Ставка"
+                              value={row.rate}
+                              onChange={(e) => updateRow(row.id, { rate: Number(e.target.value || 0) })}
+                              sx={{ flex: 1 }}
+                              inputProps={{ min: 0 }}
+                            />
+                          </Stack>
+                        ) : (
+                          <>
+                            <FormControl sx={{ width: 120 }}>
+                              <InputLabel>Ед.</InputLabel>
+                              <Select
+                                label="Ед."
+                                value={row.unit}
+                                onChange={(e) => updateRow(row.id, { unit: e.target.value as string })}
+                              >
+                                <MenuItem value="ч">ч</MenuItem>
+                                <MenuItem value="шт">шт</MenuItem>
+                                <MenuItem value="м2">м2</MenuItem>
+                              </Select>
+                            </FormControl>
+                            <TextField
+                              type="number"
+              label="Ставка ($/ед)"
+                              value={row.rate}
+                              onChange={(e) => updateRow(row.id, { rate: Number(e.target.value || 0) })}
+                              sx={{ width: 140 }}
+                              inputProps={{ min: 0 }}
+                            />
+                          </>
+                        )}
+                        
+                        {/* PERT поля */}
+                        {isMobile ? (
+                          <Stack direction="row" spacing={1} sx={{ width: '100%' }}>
+                            <TextField
+                              type="number"
+                              label="Мин"
+                              value={row.pert.optimistic}
+                              onChange={(e) => updateRow(row.id, { pert: { ...row.pert, optimistic: Number(e.target.value || 0) } })}
+                              sx={{ flex: 1 }}
+                              inputProps={{ min: 0 }}
+                            />
+                            <TextField
+                              type="number"
+                              label="Ожид"
+                              value={row.pert.mostLikely}
+                              onChange={(e) => updateRow(row.id, { pert: { ...row.pert, mostLikely: Number(e.target.value || 0) } })}
+                              sx={{ flex: 1 }}
+                              inputProps={{ min: 0 }}
+                            />
+                            <TextField
+                              type="number"
+                              label="Макс"
+                              value={row.pert.pessimistic}
+                              onChange={(e) => updateRow(row.id, { pert: { ...row.pert, pessimistic: Number(e.target.value || 0) } })}
+                              sx={{ flex: 1 }}
+                              inputProps={{ min: 0 }}
+                            />
+                          </Stack>
+                        ) : (
+                          <>
+                            <TextField
+                              type="number"
+                              label="PERT min"
+                              value={row.pert.optimistic}
+                              onChange={(e) => updateRow(row.id, { pert: { ...row.pert, optimistic: Number(e.target.value || 0) } })}
+                              sx={{ width: 110 }}
+                              inputProps={{ min: 0 }}
+                            />
+                            <TextField
+                              type="number"
+                              label="PERT ml"
+                              value={row.pert.mostLikely}
+                              onChange={(e) => updateRow(row.id, { pert: { ...row.pert, mostLikely: Number(e.target.value || 0) } })}
+                              sx={{ width: 110 }}
+                              inputProps={{ min: 0 }}
+                            />
+                            <TextField
+                              type="number"
+                              label="PERT max"
+                              value={row.pert.pessimistic}
+                              onChange={(e) => updateRow(row.id, { pert: { ...row.pert, pessimistic: Number(e.target.value || 0) } })}
+                              sx={{ width: 110 }}
+                              inputProps={{ min: 0 }}
+                            />
+                          </>
+                        )}
+                        {/* Мобильная версия: результат и кнопка удаления в отдельном ряду */}
+                        {isMobile ? (
+                          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
+                            <Chip 
+                              label={`${hours.toFixed(1)} ч / $${lineTotal.toFixed(0)}`} 
+                              color="info" 
+                              sx={{ fontSize: '0.875rem' }}
+                            />
+                            <IconButton 
+                              aria-label="Удалить строку" 
+                              onClick={() => removeRow(row.id)}
+                              color="error"
+                              sx={{ minHeight: 48, minWidth: 48 }}
+                            >
+                              <DeleteIcon />
+                            </IconButton>
+                          </Stack>
+                        ) : (
+                          <>
+                            <Chip label={`${hours.toFixed(1)} ч / $${lineTotal.toFixed(0)}`} color="info" />
+                            <IconButton aria-label="Удалить строку" onClick={() => removeRow(row.id)}>
+                              <DeleteIcon />
+                            </IconButton>
+                          </>
+                        )}
                       </Stack>
                     </Card>
                   );
                 })}
-              <Button startIcon={<AddIcon />} onClick={() => addRow(sec.id)}>
+              <Button 
+                startIcon={<AddIcon />} 
+                onClick={() => addRow(sec.id)}
+                fullWidth={isMobile}
+                variant="outlined"
+                sx={{ minHeight: 48 }}
+              >
                 Добавить строку
               </Button>
             </Stack>
@@ -277,10 +510,86 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
       ))}
 
       <Stack direction="row" spacing={1}>
-        <Button startIcon={<AddIcon />} onClick={addSection}>
+        <Button 
+          startIcon={<AddIcon />} 
+          onClick={addSection}
+          variant="contained"
+          fullWidth={isMobile}
+          sx={{ minHeight: 48 }}
+        >
           Добавить секцию
         </Button>
       </Stack>
+
+      {/* AI Генератор услуг */}
+      <Dialog open={aiDialogOpen} onClose={() => setAiDialogOpen(false)} maxWidth="md" fullWidth>
+        <DialogTitle>
+          <Stack direction="row" alignItems="center" spacing={1}>
+            <AIIcon sx={{ color: '#9c27b0' }} />
+            <Typography variant="h6">🤖 AI Генератор услуг</Typography>
+          </Stack>
+        </DialogTitle>
+        <DialogContent>
+          <Typography variant="body2" color="text.secondary" sx={{ mb: 3 }}>
+            Опишите проект или услуги, и AI автоматически создаст детальную смету с PERT-оценками времени.
+          </Typography>
+          
+          <TextField
+            fullWidth
+            multiline
+            rows={4}
+            label="Описание проекта или услуг"
+            value={aiDescription}
+            onChange={(e) => setAiDescription(e.target.value)}
+            placeholder="Например: Разработка интернет-магазина с каталогом товаров, корзиной, системой оплаты и админ-панелью"
+            sx={{ mb: 2 }}
+          />
+          
+          <Alert severity="info" sx={{ mb: 2 }}>
+            <Typography variant="body2">
+              <strong>💡 Подсказка:</strong> Чем детальнее описание, тем точнее будет смета. 
+              Укажите технологии, функциональность, сложность задач.
+            </Typography>
+          </Alert>
+
+          {aiLoading && (
+            <Alert severity="info">
+              <Stack direction="row" alignItems="center" spacing={1}>
+                <BotIcon sx={{ animation: 'spin 1s linear infinite' }} />
+                <Typography>AI анализирует проект и создает смету...</Typography>
+              </Stack>
+            </Alert>
+          )}
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setAiDialogOpen(false)} disabled={aiLoading}>
+            Отмена
+          </Button>
+          <Button 
+            variant="contained" 
+            onClick={generateServicesWithAI}
+            disabled={!aiDescription.trim() || aiLoading}
+            startIcon={<MagicIcon />}
+            sx={{ 
+              background: 'linear-gradient(45deg, #9c27b0 30%, #e91e63 90%)',
+              '&:hover': {
+                background: 'linear-gradient(45deg, #7b1fa2 30%, #c2185b 90%)'
+              }
+            }}
+          >
+            {aiLoading ? 'Генерирую...' : 'Сгенерировать услуги'}
+          </Button>
+        </DialogActions>
+        
+        <style>
+          {`
+            @keyframes spin {
+              from { transform: rotate(0deg); }
+              to { transform: rotate(360deg); }
+            }
+          `}
+        </style>
+      </Dialog>
 
       {/* Импорт из шаблонов */}
       <Dialog open={importOpen} onClose={() => setImportOpen(false)} maxWidth="sm" fullWidth>

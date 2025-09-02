@@ -4,6 +4,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useSearchParams } from 'react-router-dom';
+import { cleanForFirestore } from '../../utils/firebaseUtils';
 import {
   Box,
   Stepper,
@@ -141,7 +142,7 @@ const EstimateConstructor: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg'));
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   const isTablet = useMediaQuery(theme.breakpoints.between('sm', 'md'));
   
@@ -152,6 +153,8 @@ const EstimateConstructor: React.FC = () => {
   const [activeBlock, setActiveBlock] = useState<number>(0);
   const [loading, setLoading] = useState(true);
   const [saving, setSaving] = useState(false);
+  const [isRecalculating, setIsRecalculating] = useState(false);
+  const [skipSubscription, setSkipSubscription] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
   
   // Load or create estimate
@@ -219,20 +222,20 @@ const EstimateConstructor: React.FC = () => {
   
   // Subscribe to estimate changes
   useEffect(() => {
-    if (!currentUser || !estimate) return;
+    if (!currentUser || !estimate || skipSubscription) return;
     
     const unsubscribe = subscribeToEstimate(
       currentUser.uid,
       estimate.id,
       (updatedEstimate) => {
-        if (updatedEstimate) {
+        if (updatedEstimate && !skipSubscription) {
           setEstimate(updatedEstimate);
         }
       }
     );
     
     return unsubscribe;
-  }, [currentUser, estimate?.id]);
+  }, [currentUser, estimate?.id, skipSubscription]);
   
   // Handlers
   const handleBlockChange = (blockIndex: number) => {
@@ -258,15 +261,23 @@ const EstimateConstructor: React.FC = () => {
       delete newErrors[blockKey];
       setErrors(newErrors);
       
+      // Clean data before saving to prevent Firestore errors
+      console.log('📊 Original data before cleaning:', JSON.stringify(data, null, 2));
+      const cleanedData = cleanForFirestore(data);
+      console.log('✨ Cleaned data after processing:', JSON.stringify(cleanedData, null, 2));
+      
+      const blockUpdateData = {
+        status: 'complete' as const,
+        data: cleanedData,
+      };
+      console.log('🚀 Final block update data:', JSON.stringify(blockUpdateData, null, 2));
+      
       // Update block
       await updateEstimateBlock(
         currentUser.uid,
         estimate.id,
         blockKey,
-        {
-          status: 'complete',
-          data,
-        }
+        blockUpdateData
       );
       
       // Recalculate totals if block affects costs
@@ -324,6 +335,35 @@ const EstimateConstructor: React.FC = () => {
     if (!estimate) return;
     // TODO: Implement preview functionality
     alert(`Предпросмотр сметы ${estimate.number} - функция в разработке`);
+  };
+
+  const handleRecalculate = async () => {
+    if (!currentUser || !estimate?.id) return;
+    
+    setIsRecalculating(true);
+    setSkipSubscription(true); // Временно отключаем подписку
+    
+    try {
+      console.log('🔄 Запуск пересчета смет пользователем из боковой панели');
+      await recalculateEstimateTotals(currentUser.uid, estimate.id);
+      console.log('✅ Пересчет завершен успешно');
+      
+      // Обновляем состояние сметы принудительно
+      const updatedEstimate = await getEstimate(currentUser.uid, estimate.id);
+      if (updatedEstimate) {
+        setEstimate(updatedEstimate);
+        console.log('🔄 Состояние сметы обновлено в интерфейсе');
+      }
+    } catch (error) {
+      console.error('❌ Ошибка пересчета:', error);
+    } finally {
+      setIsRecalculating(false);
+      // Включаем подписку обратно через небольшую задержку
+      setTimeout(() => {
+        setSkipSubscription(false);
+        console.log('🔄 Подписка на изменения включена обратно');
+      }, 1000);
+    }
   };
   
   const handleShare = () => {
@@ -659,8 +699,20 @@ const EstimateConstructor: React.FC = () => {
                 <Button
                   fullWidth
                   variant="outlined"
+                  startIcon={isRecalculating ? <CircularProgress size={16} /> : <CostingIcon />}
+                  onClick={handleRecalculate}
+                  disabled={loading || saving || isRecalculating || !estimate?.id}
+                  color="primary"
+                >
+                  {isRecalculating ? 'Пересчитываю...' : 'Пересчитать итоги'}
+                </Button>
+                
+                <Button
+                  fullWidth
+                  variant="outlined"
                   startIcon={<PreviewIcon />}
                   onClick={handlePreview}
+                  disabled={isRecalculating}
                 >
                   Предпросмотр
                 </Button>
@@ -731,18 +783,37 @@ const EstimateConstructor: React.FC = () => {
           }}
           icon={<SpeedDialIcon />}
         >
-          <SpeedDialAction
-            icon={<PreviewIcon />}
-            tooltipTitle="Предпросмотр"
-            onClick={handlePreview}
-            sx={{
-              '& .MuiSpeedDialAction-fab': {
-                width: isVerySmall ? 40 : 48,
-                height: isVerySmall ? 40 : 48,
-                minHeight: isVerySmall ? 40 : 48
-              }
-            }}
-          />
+          {!loading && !saving && estimate?.id && (
+            <SpeedDialAction
+              icon={isRecalculating ? <CircularProgress size={20} color="inherit" /> : <CostingIcon />}
+              tooltipTitle={isRecalculating ? "Пересчитываю..." : "Пересчитать итоги"}
+              onClick={isRecalculating ? undefined : handleRecalculate}
+              sx={{
+                '& .MuiSpeedDialAction-fab': {
+                  width: isVerySmall ? 40 : 48,
+                  height: isVerySmall ? 40 : 48,
+                  minHeight: isVerySmall ? 40 : 48,
+                  backgroundColor: isRecalculating ? 'action.disabled' : undefined,
+                  pointerEvents: isRecalculating ? 'none' : 'auto'
+                }
+              }}
+            />
+          )}
+          
+          {!isRecalculating && (
+            <SpeedDialAction
+              icon={<PreviewIcon />}
+              tooltipTitle="Предпросмотр"
+              onClick={handlePreview}
+              sx={{
+                '& .MuiSpeedDialAction-fab': {
+                  width: isVerySmall ? 40 : 48,
+                  height: isVerySmall ? 40 : 48,
+                  minHeight: isVerySmall ? 40 : 48
+                }
+              }}
+            />
+          )}
           
           {estimate.publicShareId && (
             <SpeedDialAction

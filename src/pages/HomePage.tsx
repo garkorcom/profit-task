@@ -39,7 +39,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { isWorking, currentEntry, elapsedSeconds, stopWork } = useTimeTracking();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1024px для мобильной версии
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -49,13 +49,41 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    const unsubProjects = getProjectsStream(currentUser.uid, setProjects);
-    const unsubTasks = getTasksStream(currentUser.uid, setTasks);
-    const unsubTime = getTimeEntriesStream(currentUser.uid, {}, (entries) => {
-      setTimeEntries(entries);
-      setLoading(false);
+    
+    console.log('🚀 Loading HomePage data for user:', currentUser.uid);
+    setLoading(true);
+    
+    let loadedCount = 0;
+    const totalStreams = 3;
+    
+    const checkAllLoaded = () => {
+      loadedCount++;
+      if (loadedCount === totalStreams) {
+        console.log('✅ All HomePage streams loaded');
+        setLoading(false);
+      }
+    };
+    
+    const unsubProjects = getProjectsStream(currentUser.uid, (data) => {
+      console.log('📁 Projects loaded:', data.length);
+      setProjects(data);
+      checkAllLoaded();
     });
+    
+    const unsubTasks = getTasksStream(currentUser.uid, (data) => {
+      console.log('📋 Tasks loaded:', data.length);
+      setTasks(data);
+      checkAllLoaded();
+    });
+    
+    const unsubTime = getTimeEntriesStream(currentUser.uid, {}, (entries) => {
+      console.log('⏰ Time entries loaded:', entries.length);
+      setTimeEntries(entries);
+      checkAllLoaded();
+    });
+    
     return () => {
+      console.log('🔌 Unsubscribing from HomePage streams');
       unsubProjects();
       unsubTasks();
       unsubTime();
@@ -103,6 +131,615 @@ const HomePage: React.FC = () => {
   };
 
   if (loading) return <LoadingSpinner />;
+
+  console.log('🔍 HomePage Debug:', { 
+    isMobile, 
+    windowWidth: window.innerWidth,
+    breakpointLg: theme.breakpoints.values.lg
+  });
+
+  // Форсируем мобильную версию для тестирования
+  if (isMobile || true) {
+    return (
+      <>
+        <Box sx={{ 
+          minHeight: '100vh',
+          background: 'linear-gradient(180deg, #f8f9fa 0%, #e9ecef 100%)',
+          pb: 12 // Space for bottom navigation
+        }}>
+          {/* Mobile Header with advanced design */}
+          <Box sx={{ 
+            background: 'linear-gradient(135deg, #1b5e20 0%, #2e7d32 30%, #43a047 100%)', 
+            color: 'white',
+            position: 'relative',
+            overflow: 'hidden',
+            '&::before': {
+              content: '""',
+              position: 'absolute',
+              top: 0,
+              left: 0,
+              right: 0,
+              bottom: 0,
+              background: 'radial-gradient(circle at 70% 20%, rgba(255,255,255,0.1) 0%, transparent 50%)',
+              pointerEvents: 'none'
+            }
+          }}>
+            <Box sx={{ position: 'relative', zIndex: 1, p: 2, pt: 3 }}>
+              {/* Header top row */}
+              <Stack direction="row" justifyContent="space-between" alignItems="flex-start" mb={2}>
+                <Box flex={1}>
+                  <Typography variant="body1" fontWeight="600" sx={{ opacity: 0.95, mb: 0.5 }}>
+                    {getGreeting()}
+                  </Typography>
+                  <Typography variant="h5" fontWeight="800" sx={{ 
+                    letterSpacing: '-0.5px',
+                    lineHeight: 1.2,
+                    textShadow: '0 1px 2px rgba(0,0,0,0.1)'
+                  }}>
+                    {currentUser?.displayName || 'Пользователь'}
+                  </Typography>
+                  <Typography variant="caption" sx={{ 
+                    opacity: 0.8, 
+                    display: 'block',
+                    mt: 0.5,
+                    fontWeight: 500
+                  }}>
+                    {new Date().toLocaleDateString('ru-RU', { 
+                      weekday: 'long', 
+                      day: 'numeric', 
+                      month: 'short' 
+                    })}
+                  </Typography>
+                </Box>
+                
+                <Stack direction="row" spacing={0.5}>
+                  <IconButton 
+                    size="medium"
+                    sx={{ 
+                      color: 'white',
+                      background: 'rgba(255,255,255,0.1)',
+                      backdropFilter: 'blur(10px)',
+                      '&:hover': {
+                        background: 'rgba(255,255,255,0.2)',
+                        transform: 'scale(1.05)'
+                      },
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={() => navigate('/notifications')}
+                  >
+                    <Badge badgeContent={3} color="error">
+                      <NotificationsIcon fontSize="small" />
+                    </Badge>
+                  </IconButton>
+                  <IconButton 
+                    size="medium"
+                    sx={{ 
+                      color: 'white',
+                      background: 'rgba(255,255,255,0.1)',
+                      backdropFilter: 'blur(10px)',
+                      '&:hover': {
+                        background: 'rgba(255,255,255,0.2)',
+                        transform: 'scale(1.05)'
+                      },
+                      transition: 'all 0.2s ease'
+                    }}
+                    onClick={() => navigate('/profile')}
+                  >
+                    <PersonIcon fontSize="small" />
+                  </IconButton>
+                </Stack>
+              </Stack>
+
+              {/* Work Status Card */}
+              {isWorking ? (
+                <Paper sx={{ 
+                  p: 2.5, 
+                  background: 'rgba(255, 255, 255, 0.98)',
+                  backdropFilter: 'blur(20px)',
+                  borderRadius: 3,
+                  textAlign: 'center',
+                  boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                  border: '1px solid rgba(255,255,255,0.2)',
+                  mt: 2
+                }}>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Chip 
+                        label="В работе" 
+                        color="success" 
+                        size="small"
+                        sx={{ 
+                          fontWeight: 700,
+                          fontSize: '0.75rem',
+                          height: 24
+                        }}
+                      />
+                    </Box>
+                    <Typography variant="h3" color="success.main" fontWeight="900" sx={{
+                      fontFamily: 'monospace',
+                      letterSpacing: '1px',
+                      textShadow: '0 2px 4px rgba(76, 175, 80, 0.2)'
+                    }}>
+                      {formatTime(elapsedSeconds)}
+                    </Typography>
+                    <Typography variant="body2" color="text.secondary" sx={{
+                      fontWeight: 600,
+                      display: '-webkit-box',
+                      WebkitLineClamp: 2,
+                      WebkitBoxOrient: 'vertical',
+                      overflow: 'hidden',
+                      lineHeight: 1.3
+                    }}>
+                      {currentEntry?.taskName}
+                    </Typography>
+                    <Button 
+                      variant="contained" 
+                      color="error" 
+                      size="large"
+                      startIcon={<StopIcon />} 
+                      onClick={() => stopWork()}
+                      fullWidth
+                      sx={{
+                        py: 1.5,
+                        borderRadius: 2,
+                        fontWeight: 700,
+                        textTransform: 'none',
+                        fontSize: '1rem',
+                        boxShadow: '0 4px 16px rgba(244, 67, 54, 0.3)',
+                        '&:hover': {
+                          transform: 'translateY(-1px)',
+                          boxShadow: '0 6px 20px rgba(244, 67, 54, 0.4)'
+                        }
+                      }}
+                    >
+                      Завершить работу
+                    </Button>
+                  </Stack>
+                </Paper>
+              ) : (
+                <Button
+                  variant="contained"
+                  fullWidth
+                  size="large"
+                  startIcon={<StartWorkIcon />}
+                  onClick={() => setStartWorkOpen(true)}
+                  sx={{
+                    background: 'rgba(255, 255, 255, 0.95)',
+                    color: 'success.dark',
+                    py: 2,
+                    borderRadius: 3,
+                    fontWeight: 800,
+                    fontSize: '1.1rem',
+                    textTransform: 'none',
+                    letterSpacing: '0.5px',
+                    mt: 2,
+                    boxShadow: '0 8px 32px rgba(0,0,0,0.12)',
+                    border: '1px solid rgba(255,255,255,0.2)',
+                    backdropFilter: 'blur(20px)',
+                    '&:hover': {
+                      background: 'rgba(255, 255, 255, 1)',
+                      transform: 'translateY(-2px)',
+                      boxShadow: '0 12px 40px rgba(0,0,0,0.15)'
+                    },
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                  }}
+                >
+                  Начать работу
+                </Button>
+              )}
+            </Box>
+          </Box>
+
+          {/* Main Content */}
+          <Box sx={{ px: 2, py: 3 }}>
+            {/* Stats Dashboard */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" fontWeight="700" color="text.primary" sx={{ 
+                mb: 2.5,
+                fontSize: '1.1rem',
+                letterSpacing: '-0.3px'
+              }}>
+                📊 Сводка
+              </Typography>
+              <Box sx={{ 
+                display: 'grid', 
+                gridTemplateColumns: 'repeat(2, 1fr)', 
+                gap: 2
+              }}>
+                {[
+                  { 
+                    icon: <SpeedIcon />, 
+                    value: `${stats.productivity}%`, 
+                    label: 'Продуктивность',
+                    subLabel: 'эта неделя',
+                    color: '#4caf50',
+                    bgColor: '#e8f5e9',
+                    gradient: 'linear-gradient(135deg, #4caf50 0%, #66bb6a 100%)'
+                  },
+                  { 
+                    icon: <ProjectIcon />, 
+                    value: stats.activeProjects, 
+                    label: 'Проектов',
+                    subLabel: `из ${stats.totalProjects} всего`,
+                    color: '#2196f3',
+                    bgColor: '#e3f2fd',
+                    gradient: 'linear-gradient(135deg, #2196f3 0%, #42a5f5 100%)'
+                  },
+                  { 
+                    icon: <TaskIcon />, 
+                    value: stats.pendingTasks, 
+                    label: 'Задач',
+                    subLabel: `${stats.completedTasks} выполнено`,
+                    color: '#ff9800',
+                    bgColor: '#fff3e0',
+                    gradient: 'linear-gradient(135deg, #ff9800 0%, #ffb74d 100%)'
+                  },
+                  { 
+                    icon: <MoneyIcon />, 
+                    value: `$${stats.weekEarned}`, 
+                    label: 'Заработано',
+                    subLabel: `${stats.weekHours} часов`,
+                    color: '#9c27b0',
+                    bgColor: '#f3e5f5',
+                    gradient: 'linear-gradient(135deg, #9c27b0 0%, #ba68c8 100%)'
+                  }
+                ].map((stat, index) => (
+                  <Card key={index} sx={{ 
+                    borderRadius: 3,
+                    overflow: 'hidden',
+                    position: 'relative',
+                    background: 'white',
+                    boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+                    border: `1px solid ${stat.bgColor}`,
+                    transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                    '&:hover': {
+                      transform: 'translateY(-4px)',
+                      boxShadow: '0 8px 32px rgba(0,0,0,0.12)'
+                    }
+                  }}>
+                    <Box sx={{
+                      background: stat.gradient,
+                      height: 4,
+                      width: '100%'
+                    }} />
+                    <CardContent sx={{ p: 2 }}>
+                      <Stack spacing={1.5} alignItems="center" textAlign="center">
+                        <Avatar sx={{ 
+                          background: stat.gradient,
+                          width: 44, 
+                          height: 44,
+                          boxShadow: `0 4px 16px ${stat.color}40`
+                        }}>
+                          {stat.icon}
+                        </Avatar>
+                        <Box>
+                          <Typography variant="h5" fontWeight="900" color="text.primary" sx={{
+                            fontSize: '1.5rem',
+                            lineHeight: 1
+                          }}>
+                            {stat.value}
+                          </Typography>
+                          <Typography variant="body2" color="text.secondary" sx={{
+                            fontWeight: 600,
+                            fontSize: '0.8rem',
+                            mt: 0.5
+                          }}>
+                            {stat.label}
+                          </Typography>
+                          {stat.subLabel && (
+                            <Typography variant="caption" color="text.disabled" sx={{
+                              fontSize: '0.7rem',
+                              display: 'block',
+                              mt: 0.3
+                            }}>
+                              {stat.subLabel}
+                            </Typography>
+                          )}
+                        </Box>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                ))}
+              </Box>
+            </Box>
+
+            {/* Quick Actions Section */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" fontWeight="700" color="text.primary" sx={{ 
+                mb: 2.5,
+                fontSize: '1.1rem',
+                letterSpacing: '-0.3px'
+              }}>
+                ⚡ Быстрые действия
+              </Typography>
+              <Card sx={{ 
+                borderRadius: 3,
+                background: 'white',
+                boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(0,0,0,0.06)'
+              }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Box sx={{ 
+                    display: 'grid', 
+                    gridTemplateColumns: 'repeat(2, 1fr)', 
+                    gap: 2
+                  }}>
+                    {[
+                      { 
+                        icon: <NewTaskIcon />, 
+                        text: 'Новая задача', 
+                        path: '/tasks',
+                        color: '#1976d2',
+                        bgColor: '#e3f2fd'
+                      },
+                      { 
+                        icon: <NewProjectIcon />, 
+                        text: 'Новый проект', 
+                        path: '/projects',
+                        color: '#388e3c',
+                        bgColor: '#e8f5e9'
+                      },
+                      { 
+                        icon: <NewEstimateIcon />, 
+                        text: 'Создать смету', 
+                        path: '/estimates/quick-create',
+                        color: '#f57c00',
+                        bgColor: '#fff3e0'
+                      },
+                      { 
+                        icon: <BusinessIcon />, 
+                        text: 'Контрагенты', 
+                        path: '/counterparties',
+                        color: '#7b1fa2',
+                        bgColor: '#f3e5f5'
+                      }
+                    ].map((action, index) => (
+                      <Button
+                        key={index}
+                        variant="outlined"
+                        startIcon={action.icon}
+                        onClick={() => navigate(action.path)}
+                        sx={{
+                          py: 2,
+                          px: 2,
+                          borderRadius: 2.5,
+                          fontSize: '0.85rem',
+                          fontWeight: 600,
+                          textTransform: 'none',
+                          justifyContent: 'flex-start',
+                          borderColor: action.bgColor,
+                          color: action.color,
+                          background: `${action.bgColor}20`,
+                          '&:hover': {
+                            borderColor: action.color,
+                            background: action.bgColor,
+                            transform: 'translateY(-1px)',
+                            boxShadow: `0 4px 16px ${action.color}30`
+                          },
+                          transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+                        }}
+                      >
+                        {action.text}
+                      </Button>
+                    ))}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Box>
+
+            {/* Time Tracking Summary */}
+            <Box sx={{ mb: 4 }}>
+              <Typography variant="h6" fontWeight="700" color="text.primary" sx={{ 
+                mb: 2.5,
+                fontSize: '1.1rem',
+                letterSpacing: '-0.3px'
+              }}>
+                ⏰ Активность
+              </Typography>
+              <Card sx={{ 
+                borderRadius: 3,
+                background: 'white',
+                boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(0,0,0,0.06)'
+              }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Stack spacing={2.5}>
+                    <Box sx={{ 
+                      p: 2.5, 
+                      background: 'linear-gradient(135deg, #e3f2fd 0%, #bbdefb 100%)', 
+                      borderRadius: 2.5,
+                      border: '2px solid #2196f3',
+                      position: 'relative',
+                      overflow: 'hidden',
+                      '&::before': {
+                        content: '""',
+                        position: 'absolute',
+                        top: 0,
+                        left: 0,
+                        right: 0,
+                        bottom: 0,
+                        background: 'linear-gradient(45deg, transparent 30%, rgba(255,255,255,0.1) 50%, transparent 70%)',
+                        animation: 'shimmer 3s infinite'
+                      },
+                      '@keyframes shimmer': {
+                        '0%': { transform: 'translateX(-100%)' },
+                        '100%': { transform: 'translateX(100%)' }
+                      }
+                    }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Box>
+                          <Typography variant="body2" fontWeight="700" color="#1565c0">
+                            Сегодня
+                          </Typography>
+                          <Typography variant="h4" color="#1976d2" fontWeight="900" sx={{
+                            fontFamily: 'monospace',
+                            letterSpacing: '1px'
+                          }}>
+                            {formatTime(elapsedSeconds)}
+                          </Typography>
+                        </Box>
+                        <ClockIcon sx={{ fontSize: 40, color: '#42a5f5', opacity: 0.7 }} />
+                      </Stack>
+                    </Box>
+
+                    <Box sx={{ 
+                      p: 2.5, 
+                      background: 'linear-gradient(135deg, #e8f5e9 0%, #c8e6c9 100%)', 
+                      borderRadius: 2.5,
+                      border: '2px solid #4caf50'
+                    }}>
+                      <Stack direction="row" justifyContent="space-between" alignItems="center">
+                        <Box>
+                          <Typography variant="body2" fontWeight="700" color="#2e7d32">
+                            Эта неделя
+                          </Typography>
+                          <Typography variant="h4" color="#388e3c" fontWeight="900">
+                            {stats.weekHours} ч
+                          </Typography>
+                        </Box>
+                        <ChartIcon sx={{ fontSize: 40, color: '#66bb6a', opacity: 0.7 }} />
+                      </Stack>
+                    </Box>
+
+                    <Button 
+                      variant="outlined" 
+                      fullWidth
+                      onClick={() => navigate('/time-control')}
+                      sx={{ 
+                        py: 1.5,
+                        borderRadius: 2.5,
+                        fontWeight: 600,
+                        textTransform: 'none',
+                        borderColor: '#e0e0e0',
+                        color: '#666',
+                        '&:hover': {
+                          borderColor: '#2196f3',
+                          color: '#2196f3',
+                          background: '#f3f4f6'
+                        }
+                      }}
+                    >
+                      Подробный отчет →
+                    </Button>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Box>
+
+            {/* Tasks Section */}
+            <Box>
+              <Typography variant="h6" fontWeight="700" color="text.primary" sx={{ 
+                mb: 2.5,
+                fontSize: '1.1rem',
+                letterSpacing: '-0.3px'
+              }}>
+                📋 Текущие задачи
+              </Typography>
+              <Card sx={{ 
+                borderRadius: 3,
+                background: 'white',
+                boxShadow: '0 2px 16px rgba(0,0,0,0.08)',
+                border: '1px solid rgba(0,0,0,0.06)'
+              }}>
+                <CardContent sx={{ p: 3 }}>
+                  <Stack direction="row" justifyContent="space-between" alignItems="center" mb={3}>
+                    <Typography variant="body1" fontWeight="600">
+                      Активные задачи
+                    </Typography>
+                    <Chip 
+                      label={tasks.filter(t => t.status !== 'completed').length} 
+                      size="small" 
+                      color="warning"
+                      sx={{ fontWeight: 700 }}
+                    />
+                  </Stack>
+                  
+                  <Stack spacing={2}>
+                    {tasks
+                      .filter(t => t.status !== 'completed')
+                      .slice(0, 4)
+                      .map((task, index) => (
+                        <Paper 
+                          key={task.id}
+                          elevation={0}
+                          sx={{
+                            p: 2.5,
+                            background: 'linear-gradient(135deg, #fafafa 0%, #f5f5f5 100%)',
+                            borderRadius: 2.5,
+                            cursor: 'pointer',
+                            border: '1px solid #e8e8e8',
+                            transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+                            '&:hover': {
+                              transform: 'translateY(-2px)',
+                              boxShadow: '0 8px 24px rgba(0,0,0,0.1)',
+                              borderColor: '#2196f3'
+                            }
+                          }}
+                          onClick={() => navigate('/tasks')}
+                        >
+                          <Stack spacing={1.5}>
+                            <Typography variant="body1" fontWeight="700" color="text.primary" sx={{
+                              display: '-webkit-box',
+                              WebkitLineClamp: 2,
+                              WebkitBoxOrient: 'vertical',
+                              overflow: 'hidden',
+                              lineHeight: 1.3
+                            }}>
+                              {task.task}
+                            </Typography>
+                            <Stack direction="row" spacing={1} flexWrap="wrap">
+                              <Chip 
+                                label={task.projectName || 'Без проекта'} 
+                                size="small" 
+                                sx={{ 
+                                  height: 24,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600,
+                                  background: '#e3f2fd',
+                                  color: '#1976d2'
+                                }}
+                              />
+                              <Chip 
+                                label={task.status === 'in_progress' ? 'В работе' : 'Новая'} 
+                                size="small" 
+                                color={task.status === 'in_progress' ? 'success' : 'default'}
+                                sx={{ 
+                                  height: 24,
+                                  fontSize: '0.75rem',
+                                  fontWeight: 600
+                                }}
+                              />
+                            </Stack>
+                          </Stack>
+                        </Paper>
+                      ))}
+                    
+                    {tasks.filter(t => t.status !== 'completed').length === 0 && (
+                      <Box textAlign="center" py={4}>
+                        <TrophyIcon sx={{ 
+                          fontSize: 64, 
+                          color: 'warning.main', 
+                          mb: 2,
+                          filter: 'drop-shadow(0 2px 8px rgba(255, 193, 7, 0.3))'
+                        }} />
+                        <Typography variant="h6" fontWeight="700" color="text.primary" mb={1}>
+                          Отличная работа!
+                        </Typography>
+                        <Typography variant="body2" color="text.secondary">
+                          Все задачи выполнены
+                        </Typography>
+                      </Box>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Box>
+          </Box>
+        </Box>
+        <StartWorkDialog open={startWorkOpen} onClose={() => setStartWorkOpen(false)} />
+      </>
+    );
+  }
 
   return (
     <>
@@ -312,7 +949,7 @@ const HomePage: React.FC = () => {
               },
               { 
                 icon: <MoneyIcon sx={{ fontSize: 30 }} />, 
-                value: `${stats.weekEarned}₽`, 
+                value: `$${stats.weekEarned}`, 
                 label: 'За неделю',
                 subLabel: `${stats.weekHours} часов`,
                 color: '#9c27b0',
@@ -565,23 +1202,23 @@ const HomePage: React.FC = () => {
           </Box>
         </Container>
 
-        {/* Floating Action Button */}
-        {!isWorking && (
+        {/* Floating Action Button - только для desktop */}
+        {!isWorking && !isMobile && (
           <Zoom in>
             <Fab
               color="success"
-              size={isMobile ? "medium" : "large"}
+              size="large"
               sx={{
                 position: 'fixed',
-                bottom: isMobile ? 80 : 24,
-                right: isMobile ? 16 : 24,
-                width: isMobile ? 56 : 64,
-                height: isMobile ? 56 : 64,
+                bottom: 24,
+                right: 24,
+                width: 64,
+                height: 64,
                 boxShadow: '0 8px 32px rgba(76, 175, 80, 0.3)'
               }}
               onClick={() => setStartWorkOpen(true)}
             >
-              <StartWorkIcon sx={{ fontSize: isMobile ? 24 : 32 }} />
+              <StartWorkIcon sx={{ fontSize: 32 }} />
             </Fab>
           </Zoom>
         )}

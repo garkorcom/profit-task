@@ -27,6 +27,8 @@ import {
 import {
   Estimate,
   EstimateItem,
+  ServiceItem,
+  ProductLine,
   EstimateStatus,
   EstimateTotals,
   BlockKey,
@@ -181,18 +183,46 @@ export const updateEstimate = async (
 ): Promise<void> => {
   const estimateRef = doc(db, `users/${userId}/estimates`, estimateId);
   
-  const cleanedUpdates = cleanForFirestore({
+  // Apply nuclear serialization to updates
+  const nuclearSerializeUpdates = (data: any): any => {
+    try {
+      const jsonString = JSON.stringify(data, (key, value) => {
+        // Skip functions, undefined, symbols
+        if (typeof value === 'function' || typeof value === 'symbol' || value === undefined) {
+          return undefined;
+        }
+        
+        // Skip Firestore specific objects
+        if (value && typeof value === 'object') {
+          if (value._methodName === 'serverTimestamp' || 
+              (value.toDate && typeof value.toDate === 'function') ||
+              value.constructor?.name?.includes('Timestamp') ||
+              value.constructor?.name?.includes('FieldValue')) {
+            return undefined;
+          }
+        }
+        
+        return value;
+      });
+      
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error('Nuclear serialization failed in updateEstimate:', error);
+      return {};
+    }
+  };
+
+  const safeUpdates = nuclearSerializeUpdates({
     ...updates,
     updatedAt: new Date().toISOString(),
   });
   
-  await updateDoc(estimateRef, cleanedUpdates);
+  console.log('🔥 Nuclear serialized updates:', JSON.stringify(safeUpdates, null, 2));
   
-  // Add audit log entry
-  await addAuditLogEntry(userId, estimateId, {
-    action: 'updated',
-    details: updates,
-  });
+  await updateDoc(estimateRef, safeUpdates);
+  
+  // Skip audit log entry to prevent circular dependency during recalculation
+  // (audit log updates would trigger infinite loop)
 };
 
 /**
@@ -265,10 +295,55 @@ export const updateEstimateBlock = async <T>(
   const updatedBlocks = [...estimate.blocks];
   updatedBlocks[blockIndex] = updatedBlock;
   
-  await updateDoc(estimateRef, cleanForFirestore({
-    blocks: updatedBlocks,
-    updatedAt: serverTimestamp(),
-  }));
+  console.log('🔍 Before cleanForFirestore - updatedBlocks:', JSON.stringify(updatedBlocks, null, 2));
+  
+  // Ultimate nuclear serialization approach - convert everything to JSON and back
+  const nuclearSerialize = (data: any): any => {
+    try {
+      // First: JSON stringify/parse to eliminate all non-serializable objects
+      const jsonString = JSON.stringify(data, (key, value) => {
+        // Skip functions, undefined, symbols
+        if (typeof value === 'function' || typeof value === 'symbol' || value === undefined) {
+          return undefined;
+        }
+        
+        // Skip Firestore specific objects
+        if (value && typeof value === 'object') {
+          if (value._methodName === 'serverTimestamp' || 
+              (value.toDate && typeof value.toDate === 'function') ||
+              value.constructor?.name?.includes('Timestamp') ||
+              value.constructor?.name?.includes('FieldValue')) {
+            return undefined;
+          }
+        }
+        
+        return value;
+      });
+      
+      return JSON.parse(jsonString);
+    } catch (error) {
+      console.error('Nuclear serialization failed:', error);
+      return {};
+    }
+  };
+
+  // Apply nuclear serialization to the entire blocks array
+  const safeBlocks = nuclearSerialize(updatedBlocks.map(block => ({
+    key: block.key,
+    status: block.status, 
+    dataVersion: block.dataVersion,
+    ...(block.data ? { data: block.data } : {}),
+    ...(block.lastEditedBy ? { lastEditedBy: block.lastEditedBy } : {})
+  })));
+  
+  console.log('🧹 Safe blocks created:', JSON.stringify(safeBlocks, null, 2));
+  
+  const updateData = {
+    blocks: safeBlocks,
+    updatedAt: serverTimestamp(), // Keep serverTimestamp only at top level
+  };
+  
+  await updateDoc(estimateRef, updateData);
   
   // Recalculate totals if needed
   if (['services', 'products', 'costing'].includes(blockKey)) {
@@ -325,6 +400,35 @@ export const validateBlock = async (
 // ==================== РАБОТА С ПОЗИЦИЯМИ ====================
 
 /**
+ * Вычисление полей строки позиции
+ */
+const calculateLineFields = (item: Partial<EstimateItem>): Partial<EstimateItem> => {
+  const qty = item.qty || 0;
+  const taxRate = 0.20; // 20% НДС
+  
+  let unitPrice = 0;
+  
+  if (item.type === 'service') {
+    const serviceItem = item as Partial<ServiceItem>;
+    unitPrice = serviceItem.rate || 0;
+  } else if (item.type === 'material' || item.type === 'equipment') {
+    const productItem = item as Partial<ProductLine>;
+    unitPrice = productItem.unitPrice || productItem.unitCost || 0;
+  }
+  
+  const lineSubtotal = unitPrice * qty;
+  const lineTax = lineSubtotal * taxRate;
+  const lineTotal = lineSubtotal + lineTax;
+  
+  return {
+    ...item,
+    lineSubtotal,
+    lineTax,
+    lineTotal,
+  };
+};
+
+/**
  * Добавление позиции в смету
  */
 export const addEstimateItem = async (
@@ -334,8 +438,11 @@ export const addEstimateItem = async (
 ): Promise<string> => {
   const itemId = doc(collection(db, 'temp')).id;
   
+  // Calculate line fields before saving
+  const calculatedItem = calculateLineFields(item);
+  
   const newItem: EstimateItem = {
-    ...item,
+    ...calculatedItem,
     id: itemId,
     estimateId,
   } as EstimateItem;
@@ -362,8 +469,21 @@ export const updateEstimateItem = async (
   itemId: string,
   updates: Partial<EstimateItem>
 ): Promise<void> => {
+  // Get current item to merge with updates
   const itemRef = doc(db, `users/${userId}/estimates/${estimateId}/items`, itemId);
-  await updateDoc(itemRef, cleanForFirestore(updates));
+  const currentItemDoc = await getDoc(itemRef);
+  
+  if (!currentItemDoc.exists()) {
+    throw new Error('Item not found');
+  }
+  
+  const currentItem = currentItemDoc.data() as EstimateItem;
+  const mergedItem = { ...currentItem, ...updates };
+  
+  // Calculate line fields before saving
+  const calculatedUpdates = calculateLineFields(mergedItem);
+  
+  await updateDoc(itemRef, cleanForFirestore(calculatedUpdates));
   
   // Recalculate totals
   await recalculateEstimateTotals(userId, estimateId);
@@ -425,7 +545,7 @@ export const recalculateEstimateTotals = async (
   userId: string,
   estimateId: string
 ): Promise<void> => {
-  // Get all items
+  // Get all items from items collection (legacy)
   const items = await getEstimateItems(userId, estimateId);
   
   // Get estimate for costing data
@@ -435,6 +555,17 @@ export const recalculateEstimateTotals = async (
   const costingBlock = estimate.blocks.find(b => b.key === 'costing');
   const costingData = costingBlock?.data as CostingBlockData || {};
   
+  // Get services from services block
+  const servicesBlock = estimate.blocks.find(b => b.key === 'services');
+  const servicesData = servicesBlock?.data as any || {};
+  const serviceRows = servicesData.rows || [];
+  const servicesTotals = servicesData.totals || { hours: 0, cost: 0 };
+  
+  console.log('🔍 Services Block Debug:');
+  console.log('📊 Services block data:', JSON.stringify(servicesData, null, 2));
+  console.log('📋 Service rows count:', serviceRows.length);
+  console.log('💰 Services totals:', servicesTotals);
+  
   // Calculate costs by category
   let materialsCost = 0;
   let laborCost = 0;
@@ -442,25 +573,51 @@ export const recalculateEstimateTotals = async (
   let subcontractCost = 0;
   let subtotalPrice = 0;
   
-  items.forEach(item => {
-    subtotalPrice += item.lineSubtotal;
+  // Use pre-calculated totals from services block
+  if (servicesTotals.cost > 0) {
+    laborCost += servicesTotals.cost;
+    subtotalPrice += servicesTotals.cost;
+  } else {
+    // Fallback: Process services from services block individually
+    serviceRows.forEach((row: any) => {
+      // Calculate PERT estimate: (optimistic + 4*mostLikely + pessimistic)/6
+      const pertEstimate = row.pert ? 
+        (row.pert.optimistic + 4 * row.pert.mostLikely + row.pert.pessimistic) / 6 : 0;
+      
+      const serviceTotal = row.rate * pertEstimate;
+      laborCost += serviceTotal;
+      subtotalPrice += serviceTotal;
+    });
+  }
+  
+  // Process items from items collection (legacy support)
+  items.forEach((item) => {
+    // Recalculate lineSubtotal for each item to handle existing data
+    const calculatedItem = calculateLineFields(item) as EstimateItem;
+    const lineSubtotal = calculatedItem.lineSubtotal || 0;
+    
+    subtotalPrice += lineSubtotal;
     
     if (item.type === 'service') {
       const serviceItem = item as any;
-      laborCost += (serviceItem.unitCost || 0) * item.qty;
+      // Use rate for services (hourly rate * hours)
+      const rate = serviceItem.rate || 0;
+      laborCost += rate * item.qty;
     } else if (item.type === 'material') {
       const productItem = item as any;
       const wasteFactor = 1 + ((productItem.wastePct || 0) / 100);
-      materialsCost += productItem.unitCost * item.qty * wasteFactor;
+      const unitCost = productItem.unitCost || productItem.unitPrice || 0;
+      materialsCost += unitCost * item.qty * wasteFactor;
     } else if (item.type === 'equipment') {
       const productItem = item as any;
-      equipmentCost += productItem.unitCost * item.qty;
+      const unitCost = productItem.unitCost || productItem.unitPrice || 0;
+      equipmentCost += unitCost * item.qty;
     }
     
     // Check for subcontract
     const productItem = item as any;
     if (productItem.vendorId && productItem.isSubcontract) {
-      subcontractCost += item.lineSubtotal;
+      subcontractCost += lineSubtotal;
     }
   });
   

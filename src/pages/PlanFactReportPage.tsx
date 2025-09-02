@@ -199,7 +199,7 @@ const PlanFactReportPage: React.FC = () => {
   };
 
   const formatCurrency = (value: number): string => {
-    return new Intl.NumberFormat('ru-RU', {
+    return new Intl.NumberFormat('en-US', {
       style: 'currency',
       currency: 'RUB',
       minimumFractionDigits: 0
@@ -442,8 +442,8 @@ const PlanFactReportPage: React.FC = () => {
               <TableCell align="center">Статус</TableCell>
               <TableCell align="right">План (часы)</TableCell>
               <TableCell align="right">Факт (часы)</TableCell>
-              <TableCell align="right">План (₽)</TableCell>
-              <TableCell align="right">Факт (₽)</TableCell>
+              <TableCell align="right">План ($)</TableCell>
+              <TableCell align="right">Факт ($)</TableCell>
               <TableCell align="right">Отклонение</TableCell>
               <TableCell align="center">Выполнение</TableCell>
             </TableRow>
@@ -602,7 +602,7 @@ const PlanFactReportPage: React.FC = () => {
           <Typography variant="body2" component="ul" sx={{ mt: 1, mb: 0 }}>
             <li>Плановые показатели рассчитываются на основе оценок трудозатрат в задачах</li>
             <li>Фактические показатели формируются из данных учета рабочего времени</li>
-            <li>Стоимость рассчитывается по средней ставке 1000 ₽/час</li>
+            <li>Стоимость рассчитывается по средней ставке 1000 $/час</li>
             <li>Отклонения более 10% требуют внимания руководителя</li>
           </Typography>
         </Alert>

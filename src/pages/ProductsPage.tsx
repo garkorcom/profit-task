@@ -381,16 +381,16 @@ const ProductsPage: React.FC = () => {
                             <>
                               <StockIndicator current={p.currentStock} min={p.minStock} reserved={p.reservedStock} />
                               <Box mt={1} display="flex" gap={2}>
-                                {p.salePrice !== undefined && <Chip size="small" label={`Цена: ${p.salePrice} ₽`} />}
-                                {p.costPrice !== undefined && <Chip size="small" variant="outlined" label={`Себест.: ${p.costPrice} ₽`} />}
+                                {p.salePrice !== undefined && <Chip size="small" label={`Цена: ${p.salePrice} $`} />}
+                                {p.costPrice !== undefined && <Chip size="small" variant="outlined" label={`Себест.: ${p.costPrice} $`} />}
                               </Box>
                             </>
                           ) : (
                             <Box>
                               <Typography variant="body2" color="text.secondary">Ед.: {p.unit}</Typography>
                               <Box mt={1} display="flex" gap={2}>
-                                {p.salePrice !== undefined && <Chip size="small" label={`Цена: ${p.salePrice} ₽`} />}
-                                {p.costPrice !== undefined && <Chip size="small" variant="outlined" label={`Себест.: ${p.costPrice} ₽`} />}
+                                {p.salePrice !== undefined && <Chip size="small" label={`Цена: ${p.salePrice} $`} />}
+                                {p.costPrice !== undefined && <Chip size="small" variant="outlined" label={`Себест.: ${p.costPrice} $`} />}
                               </Box>
                             </Box>
                           )}
@@ -455,7 +455,7 @@ const ProductsPage: React.FC = () => {
               ) : (
                 movements.map(m => (
                   <TableRow key={m.id}>
-                    <TableCell>{m.createdAt?.toDate?.().toLocaleString('ru-RU') || 'Н/Д'}</TableCell>
+                    <TableCell>{m.createdAt?.toDate?.().toLocaleString('en-US') || 'Н/Д'}</TableCell>
                     <TableCell>{m.productName}</TableCell>
                     <TableCell><Chip label={getMovementTypeLabel(m.type)} size="small" color={m.quantity > 0 ? 'success' : 'error'} /></TableCell>
                     <TableCell align="right"><Typography color={m.quantity > 0 ? 'success.main' : 'error.main'}>{m.quantity > 0 ? '+' : ''}{m.quantity}</Typography></TableCell>
@@ -551,7 +551,7 @@ const ProductsPage: React.FC = () => {
                 )}
               </Box>
             )}
-            <TextField label="Цена продажи" type="number" value={productForm.salePrice || 0} onChange={e => setProductForm({ ...productForm, salePrice: Number(e.target.value) })} fullWidth InputProps={{ endAdornment: <InputAdornment position="end">₽</InputAdornment> }} />
+            <TextField label="Цена продажи" type="number" value={productForm.salePrice || 0} onChange={e => setProductForm({ ...productForm, salePrice: Number(e.target.value) })} fullWidth InputProps={{ endAdornment: <InputAdornment position="end">$</InputAdornment> }} />
             <TextField label="Описание" value={productForm.description || ''} onChange={e => setProductForm({ ...productForm, description: e.target.value })} multiline rows={2} fullWidth />
           </Box>
         </DialogContent>

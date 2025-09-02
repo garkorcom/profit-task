@@ -229,7 +229,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
           />
           <Chip
             icon={<MoneyIcon />}
-            label={`${total.toLocaleString('ru-RU')} ₽`}
+            label={`${total.toLocaleString('en-US')} $`}
             size="small"
             color="primary"
           />
@@ -295,13 +295,13 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
                               ×
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {item.price.toLocaleString('ru-RU')} ₽
+                              {item.price.toLocaleString('en-US')} $
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               =
                             </Typography>
                             <Typography variant="body2" fontWeight="bold" color="primary">
-                              {item.total.toLocaleString('ru-RU')} ₽
+                              {item.total.toLocaleString('en-US')} $
                             </Typography>
                           </Stack>
                         }
@@ -362,7 +362,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
                               value={item.price}
                               onChange={(e) => handleUpdatePrice(item.id, Number(e.target.value))}
                               InputProps={{
-                                endAdornment: <InputAdornment position="end">₽</InputAdornment>,
+                                endAdornment: <InputAdornment position="end">$</InputAdornment>,
                               }}
                               sx={{ flex: 1 }}
                               inputProps={{
@@ -437,7 +437,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
               sx={{ minHeight: 56 }}
               startIcon={saving ? undefined : <SaveIcon />}
             >
-              {saving ? 'Сохранение...' : `Сохранить (${total.toLocaleString('ru-RU')} ₽)`}
+              {saving ? 'Сохранение...' : `Сохранить (${total.toLocaleString('en-US')} $)`}
             </Button>
           </Paper>
         </>
@@ -534,7 +534,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
                 price: Math.max(0, Number(e.target.value)) 
               }))}
               InputProps={{
-                endAdornment: <InputAdornment position="end">₽</InputAdornment>,
+                endAdornment: <InputAdornment position="end">$</InputAdornment>,
               }}
               inputProps={{
                 style: { fontSize: '16px', textAlign: 'right' }
@@ -548,7 +548,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
                   Итого за позицию:
                 </Typography>
                 <Typography variant="h6" color="primary">
-                  {(newItemForm.quantity * newItemForm.price).toLocaleString('ru-RU')} ₽
+                  {(newItemForm.quantity * newItemForm.price).toLocaleString('en-US')} $
                 </Typography>
               </Paper>
             )}

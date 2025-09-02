@@ -3,7 +3,7 @@
  * Оптимизирована для мобильных устройств
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
 import {
   Box,
   Typography,
@@ -85,7 +85,7 @@ const EstimatesHub: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
   const theme = useTheme();
-  const isMobile = useMediaQuery(theme.breakpoints.down('sm'));
+  const isMobile = useMediaQuery(theme.breakpoints.down('lg')); // 1024px для мобильной версии
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
   
   // States
@@ -93,7 +93,17 @@ const EstimatesHub: React.FC = () => {
   const [loading, setLoading] = useState(true);
   const [tabValue, setTabValue] = useState(0);
   const [searchQuery, setSearchQuery] = useState('');
+  const [debouncedSearchQuery, setDebouncedSearchQuery] = useState('');
   const [speedDialOpen, setSpeedDialOpen] = useState(false);
+  
+  // Debounced search to improve performance
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      setDebouncedSearchQuery(searchQuery);
+    }, 300);
+    
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
   
   // Load estimates
   useEffect(() => {
@@ -115,34 +125,46 @@ const EstimatesHub: React.FC = () => {
     };
   }, [currentUser]);
   
-  // Filter estimates by status and search
-  const filterEstimates = (status?: string) => {
-    let filtered = estimates;
+  // Optimized filtering with memoization
+  const filteredEstimates = useMemo(() => {
+    console.log('🔄 Filtering estimates, total:', estimates.length);
     
-    if (status) {
-      filtered = filtered.filter(e => e.status === status);
-    }
+    // First, sort all estimates by date (newest first)
+    const sortedEstimates = [...estimates].sort((a, b) => {
+      const dateA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0;
+      const dateB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0;
+      return dateB - dateA;
+    });
     
-    if (searchQuery) {
-      const query = searchQuery.toLowerCase();
-      filtered = filtered.filter(e => 
+    // Apply search filter if needed
+    let searchFiltered = sortedEstimates;
+    if (debouncedSearchQuery) {
+      const query = debouncedSearchQuery.toLowerCase();
+      searchFiltered = sortedEstimates.filter(e => 
         e.number?.toLowerCase().includes(query) ||
         e.terms?.toLowerCase().includes(query)
       );
     }
     
-    // Sort by date (newest first)
-    return filtered.sort((a, b) => {
-      const dateA = typeof a.createdAt === 'string' ? new Date(a.createdAt).getTime() : 0;
-      const dateB = typeof b.createdAt === 'string' ? new Date(b.createdAt).getTime() : 0;
-      return dateB - dateA;
+    // Group by status in one pass
+    const result = {
+      all: searchFiltered,
+      draft: searchFiltered.filter(e => e.status === 'draft'),
+      sent: searchFiltered.filter(e => e.status === 'sent'), 
+      approved: searchFiltered.filter(e => e.status === 'accepted' || e.status === 'converted')
+    };
+    
+    console.log('📊 Filtered results:', {
+      all: result.all.length,
+      draft: result.draft.length,
+      sent: result.sent.length,
+      approved: result.approved.length
     });
-  };
+    
+    return result;
+  }, [estimates, debouncedSearchQuery]);
   
-  const draftEstimates = filterEstimates('draft');
-  const sentEstimates = filterEstimates('sent');
-  const approvedEstimates = filterEstimates('approved');
-  const allEstimates = filterEstimates();
+  const { all: allEstimates, draft: draftEstimates, sent: sentEstimates, approved: approvedEstimates } = filteredEstimates;
   
   // Handlers
   const handleCreateNew = () => {
@@ -161,53 +183,6 @@ const EstimatesHub: React.FC = () => {
   const handleImport = () => {
     // TODO: Implement import functionality
     alert('Функция в разработке - импорт смет');
-  };
-  
-  const handleOpenEstimate = (id: string) => {
-    if (isMobile) {
-      navigate(`/mobile/estimate/${id}`);
-    } else {
-      navigate(`/estimates/${id}/constructor`);
-    }
-  };
-  
-  const handleEdit = (id: string) => {
-    navigate(`/estimates/${id}/constructor`);
-  };
-  
-  const handleDelete = async (estimate: Estimate) => {
-    if (!currentUser || !window.confirm('Удалить смету?')) return;
-    
-    console.log('Удаляем смету:', estimate.id, 'projectId:', estimate.projectId);
-    
-    try {
-      // Используем только новый V2 API для всех смет
-      console.log('Удаляем смету через V2 API:', estimate.id);
-      await deleteEstimateV2(currentUser.uid, estimate.id);
-      console.log('Смета удалена успешно');
-      
-      // Обновляем список смет после удаления
-      // (список обновится автоматически через подписку)
-    } catch (error: any) {
-      console.error('Error deleting estimate:', error);
-      console.error('Error details:', error?.message || error);
-      alert(`Ошибка при удалении сметы: ${error?.message || 'Неизвестная ошибка'}`);
-    }
-  };
-  
-  const handleShare = (estimate: Estimate) => {
-    // Implement share functionality
-    const shareUrl = `${window.location.origin}/public/estimate/${estimate.id}`;
-    if (navigator.share) {
-      navigator.share({
-        title: `Смета ${estimate.number}`,
-        text: estimate.terms || `Смета ${estimate.number}`,
-        url: shareUrl,
-      });
-    } else {
-      navigator.clipboard.writeText(shareUrl);
-      alert('Ссылка скопирована в буфер обмена');
-    }
   };
   
   // Функции очистки старых смет
@@ -274,7 +249,43 @@ const EstimatesHub: React.FC = () => {
     }
   };
   
-  const handleExportPDF = async (estimate: Estimate) => {
+  
+  // Memoized handlers to prevent unnecessary re-renders
+  const handleEditMemo = useCallback((id: string) => {
+    navigate(`/estimates/${id}/constructor`);
+  }, [navigate]);
+  
+  const handleDeleteMemo = useCallback(async (estimate: Estimate) => {
+    if (!currentUser || !window.confirm('Удалить смету?')) return;
+    
+    console.log('Удаляем смету:', estimate.id, 'projectId:', estimate.projectId);
+    
+    try {
+      console.log('Удаляем смету через V2 API:', estimate.id);
+      await deleteEstimateV2(currentUser.uid, estimate.id);
+      console.log('Смета удалена успешно');
+    } catch (error: any) {
+      console.error('Error deleting estimate:', error);
+      console.error('Error details:', error?.message || error);
+      alert(`Ошибка при удалении сметы: ${error?.message || 'Неизвестная ошибка'}`);
+    }
+  }, [currentUser]);
+  
+  const handleShareMemo = useCallback((estimate: Estimate) => {
+    const shareUrl = `${window.location.origin}/public/estimate/${estimate.id}`;
+    if (navigator.share) {
+      navigator.share({
+        title: `Смета ${estimate.number}`,
+        text: estimate.terms || `Смета ${estimate.number}`,
+        url: shareUrl,
+      });
+    } else {
+      navigator.clipboard.writeText(shareUrl);
+      alert('Ссылка скопирована в буфер обмена');
+    }
+  }, []);
+  
+  const handleExportPDFMemo = useCallback(async (estimate: Estimate) => {
     if (!currentUser) return;
     
     try {
@@ -283,21 +294,29 @@ const EstimatesHub: React.FC = () => {
       console.error('Error generating PDF:', error);
       alert('Ошибка при генерации PDF');
     }
-  };
+  }, [currentUser]);
   
-  // Render estimate card using SwipeableEstimateCard
-  const EstimateCard = ({ estimate }: { estimate: Estimate }) => {
+  const handleOpenEstimateMemo = useCallback((id: string) => {
+    if (isMobile) {
+      navigate(`/mobile/estimate/${id}`);
+    } else {
+      navigate(`/estimates/${id}/constructor`);
+    }
+  }, [isMobile, navigate]);
+
+  // Optimized estimate card component with React.memo
+  const EstimateCard = React.memo<{ estimate: Estimate }>(({ estimate }) => {
     return (
       <SwipeableEstimateCard
         estimate={estimate}
-        onEdit={handleEdit}
-        onDelete={handleDelete}
-        onShare={handleShare}
-        onExportPDF={handleExportPDF}
-        onClick={handleOpenEstimate}
+        onEdit={handleEditMemo}
+        onDelete={handleDeleteMemo}
+        onShare={handleShareMemo}
+        onExportPDF={handleExportPDFMemo}
+        onClick={handleOpenEstimateMemo}
       />
     );
-  };
+  });
   
   // Speed dial actions
   const speedDialActions = [
@@ -366,7 +385,7 @@ const EstimatesHub: React.FC = () => {
             color="primary"
           />
           <Chip 
-            label={`На сумму: ${allEstimates.reduce((sum, e) => sum + (e.totals?.grandTotal || 0), 0).toLocaleString('ru-RU')} ₽`}
+            label={`На сумму: ${allEstimates.reduce((sum, e) => sum + (e.totals?.grandTotal || 0), 0).toLocaleString('en-US')} $`}
             color="success"
           />
         </Stack>

@@ -1,12 +1,15 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { AuthProvider } from './auth/AuthContext';
 import AppRouter from './router/AppRouter';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { TimeTrackingProvider } from './contexts/TimeTrackingContext';
+import { initializeMobileOptimizations } from './utils/mobileOptimizations';
 import './utils/createTestEstimate'; // Импортируем для доступа из консоли
 import './utils/cleanOldContractors'; // Импортируем для очистки старых контрагентов
+import './utils/recalculateAllEstimates'; // Импортируем утилиту пересчета смет
 
+// Enhanced mobile-first theme with better performance
 const theme = createTheme({
   palette: {
     primary: { 
@@ -63,13 +66,26 @@ const theme = createTheme({
   shape: {
     borderRadius: 8
   },
+  // Mobile-optimized breakpoints
+  breakpoints: {
+    values: {
+      xs: 0,
+      sm: 600,
+      md: 768, // Standard tablet breakpoint
+      lg: 1024,
+      xl: 1200
+    }
+  },
   components: {
     MuiButton: {
       styleOverrides: {
         root: {
           borderRadius: 8,
           padding: '8px 16px',
-          transition: 'all 0.3s ease'
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)', // Faster transitions for mobile
+          minHeight: 44, // Better touch targets
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation'
         }
       }
     },
@@ -77,14 +93,40 @@ const theme = createTheme({
       styleOverrides: {
         root: {
           boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
-          transition: 'all 0.3s ease'
+          transition: 'all 0.2s cubic-bezier(0.4, 0, 0.2, 1)',
+          // Optimize for mobile scrolling
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden'
         }
       }
     },
     MuiPaper: {
       styleOverrides: {
         root: {
-          boxShadow: '0 2px 12px rgba(0,0,0,0.08)'
+          boxShadow: '0 2px 12px rgba(0,0,0,0.08)',
+          WebkitBackfaceVisibility: 'hidden',
+          backfaceVisibility: 'hidden'
+        }
+      }
+    },
+    // Optimize Material-UI for mobile performance
+    MuiIconButton: {
+      styleOverrides: {
+        root: {
+          minWidth: 44,
+          minHeight: 44,
+          WebkitTapHighlightColor: 'transparent',
+          touchAction: 'manipulation'
+        }
+      }
+    },
+    MuiTouchRipple: {
+      styleOverrides: {
+        root: {
+          // Faster ripple for mobile
+          '& .MuiTouchRipple-ripple': {
+            animationDuration: '300ms'
+          }
         }
       }
     }
@@ -92,6 +134,11 @@ const theme = createTheme({
 });
 
 function App() {
+  // Initialize mobile optimizations on app start
+  useEffect(() => {
+    initializeMobileOptimizations();
+  }, []);
+
   return (
     <ThemeProvider theme={theme}>
       <CssBaseline />
