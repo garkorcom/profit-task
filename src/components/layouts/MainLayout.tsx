@@ -180,7 +180,7 @@ const MainLayout: React.FC = () => {
     return pathMap[location.pathname] || 'Страница';
   };
 
-  const drawerWidth = 280;
+  const drawerWidth = isMobile ? Math.min(280, window.innerWidth * 0.8) : 280; // Адаптивная ширина drawer
 
   return (
     <Box sx={{ display: 'flex', minHeight: '100vh', bgcolor: 'background.default' }}>
@@ -445,7 +445,7 @@ const MainLayout: React.FC = () => {
             easing: theme.transitions.easing.sharp,
             duration: theme.transitions.duration.leavingScreen,
           }),
-          marginLeft: !isMobile && drawerOpen ? 0 : `-${drawerWidth}px`,
+          marginLeft: !isMobile && drawerOpen ? 0 : 0, // Убираем отрицательный margin на мобильных
           width: !isMobile && drawerOpen ? `calc(100% - ${drawerWidth}px)` : '100%',
           mt: 8
         }}
