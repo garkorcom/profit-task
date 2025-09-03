@@ -81,7 +81,7 @@ export interface Estimate {
   items: EstimateItem[];
   subtotal: number;
   total: number;
-  currency?: 'RUB' | 'USD' | 'EUR';
+  currency?: 'USD' | 'USD' | 'EUR';
   defaultRate?: number;
   taxRate?: number;
   discountRate?: number;

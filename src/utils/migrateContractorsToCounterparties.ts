@@ -139,7 +139,7 @@ export const migrateContractorsToCounterparties = async (
           // Финансы
           financial: {
             paymentTerms: 'Net30' as const,
-            currency: 'RUB',
+            currency: 'USD',
           },
           
           // Метаданные

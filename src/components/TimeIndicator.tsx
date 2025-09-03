@@ -279,7 +279,7 @@ const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) =>
                   Начало работы
                 </Typography>
                 <Typography variant="body2" fontWeight="medium">
-                  {new Date(currentSession.startTime).toLocaleTimeString('ru-RU', {
+                  {new Date(currentSession.startTime).toLocaleTimeString('en-US', {
                     hour: '2-digit',
                     minute: '2-digit'
                   })}

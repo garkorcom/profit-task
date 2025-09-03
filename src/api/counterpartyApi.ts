@@ -79,7 +79,7 @@ export const createCounterparty = async (
     
     financial: {
       paymentTerms: data.financial?.paymentTerms || 'Net30',
-      currency: data.financial?.currency || 'RUB',
+      currency: data.financial?.currency || 'USD',
       ...data.financial,
     },
     
@@ -125,7 +125,7 @@ export const getCounterparty = async (
     // Ensure financial field exists with defaults
     financial: data.financial || {
       paymentTerms: 'Net30',
-      currency: 'RUB',
+      currency: 'USD',
     },
   } as Counterparty;
 };
@@ -437,7 +437,7 @@ export const getCounterparties = async (
       // Ensure financial field exists with defaults
       financial: data.financial || {
         paymentTerms: 'Net30',
-        currency: 'RUB',
+        currency: 'USD',
       },
     } as Counterparty;
   });
@@ -542,7 +542,7 @@ export const subscribeToCounterparty = (
         // Ensure financial field exists with defaults
         financial: data.financial || {
           paymentTerms: 'Net30',
-          currency: 'RUB',
+          currency: 'USD',
         },
       } as Counterparty);
     } else {
@@ -581,7 +581,7 @@ export const subscribeToCounterparties = (
         // Ensure financial field exists with defaults
         financial: data.financial || {
           paymentTerms: 'Net30',
-          currency: 'RUB',
+          currency: 'USD',
         },
       } as Counterparty;
     });

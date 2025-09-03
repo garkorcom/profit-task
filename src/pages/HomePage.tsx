@@ -184,7 +184,7 @@ const HomePage: React.FC = () => {
                     mt: 0.5,
                     fontWeight: 500
                   }}>
-                    {new Date().toLocaleDateString('ru-RU', { 
+                    {new Date().toLocaleDateString('en-US', { 
                       weekday: 'long', 
                       day: 'numeric', 
                       month: 'short' 
@@ -767,7 +767,7 @@ const HomePage: React.FC = () => {
                       {getGreeting()}, {currentUser?.displayName || 'Пользователь'}!
                     </Typography>
                     <Typography variant="body1" sx={{ opacity: 0.9 }}>
-                      {new Date().toLocaleDateString('ru-RU', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
+                      {new Date().toLocaleDateString('en-US', { weekday: 'long', year: 'numeric', month: 'long', day: 'numeric' })}
                     </Typography>
                   </Box>
                   <Stack direction="row" spacing={1}>

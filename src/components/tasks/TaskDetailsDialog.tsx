@@ -129,7 +129,7 @@ const TaskDetailsDialog: React.FC<TaskDetailsDialogProps> = ({
   const formatDate = (date: any): string => {
     if (!date) return '';
     const d = date.toDate ? date.toDate() : new Date(date);
-    return d.toLocaleString('ru-RU');
+    return d.toLocaleString('en-US');
   };
   
   if (!task) return null;

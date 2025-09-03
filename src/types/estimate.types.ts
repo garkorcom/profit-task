@@ -24,7 +24,8 @@ export type BlockKey =
   | 'products'       // Товары
   | 'costing'        // Себестоимость
   | 'communication'  // Коммуникация
-  | 'statuses';      // Статусы
+  | 'statuses'       // Статусы
+  | 'estimate_tasks'; // Задачи для сметы (Pre-construction)
 
 export type ItemType = 'service' | 'material' | 'equipment';
 
@@ -128,6 +129,33 @@ export interface StatusesBlockData {
     guard?: string;            // условие перехода
     auto?: boolean;            // автоматический переход
   }>;
+}
+
+/**
+ * Данные блока "Задачи для сметы"
+ */
+export interface EstimateTasksBlockData {
+  tasks: Array<{
+    id: string;
+    name: string;
+    description?: string;
+    plannedHours: number;
+    actualHours?: number;
+    assignedRole?: string;
+    assignedUserId?: string;
+    includeMode: 'COGS' | 'OH' | 'NONE';  // Ключевое для ТЗ
+    status: 'not_started' | 'in_progress' | 'blocked' | 'done' | 'quality_assurance' | 'approved' | 'rejected';
+    priority: 'low' | 'medium' | 'high' | 'urgent';
+    plannedStartDate?: string;
+    plannedEndDate?: string;
+    actualStartDate?: string;
+    actualEndDate?: string;
+    tags?: string[];
+    notes?: string;
+  }>;
+  defaultIncludeMode: 'COGS' | 'OH' | 'NONE';  // Настройка по умолчанию
+  totalPlannedHours: number;
+  totalActualHours: number;
 }
 
 // ==================== ПОЗИЦИИ СМЕТЫ ====================
@@ -332,7 +360,7 @@ export const ROLE_PERMISSIONS: Record<EstimateRole, EstimatePermissions> = {
     canSend: true,
     canAccept: false,
     canConvert: false,
-    canManageBlocks: ['services', 'products', 'costing'],
+    canManageBlocks: ['services', 'products', 'costing', 'estimate_tasks'],
   },
   manager: {
     canView: true,
@@ -342,7 +370,7 @@ export const ROLE_PERMISSIONS: Record<EstimateRole, EstimatePermissions> = {
     canSend: true,
     canAccept: true,
     canConvert: true,
-    canManageBlocks: ['counterparty', 'project', 'services', 'products', 'costing', 'communication', 'statuses'],
+    canManageBlocks: ['counterparty', 'project', 'services', 'products', 'costing', 'communication', 'statuses', 'estimate_tasks'],
   },
   accountant: {
     canView: true,
@@ -352,7 +380,7 @@ export const ROLE_PERMISSIONS: Record<EstimateRole, EstimatePermissions> = {
     canSend: false,
     canAccept: false,
     canConvert: true,
-    canManageBlocks: ['costing'],
+    canManageBlocks: ['costing', 'estimate_tasks'],
   },
 };
 

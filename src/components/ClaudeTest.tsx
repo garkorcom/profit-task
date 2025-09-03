@@ -283,7 +283,7 @@ const ClaudeTest: React.FC = () => {
             {generatedEstimate && (
               <Alert severity="success">
                 <Typography variant="h6" mb={2}>
-                  💰 Общая стоимость: ${generatedEstimate.totalCost.toLocaleString()}
+                  💰 Общая стоимость: ${generatedEstimate.totalCost.toLocaleString('en-US')}
                 </Typography>
                 {generatedEstimate.sections.map((section, sectionIndex) => (
                   <Box key={sectionIndex} sx={{ mb: 2 }}>

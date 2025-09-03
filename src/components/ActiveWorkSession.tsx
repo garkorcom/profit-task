@@ -84,7 +84,7 @@ const ActiveWorkSession: React.FC = () => {
             </Typography>
             
             <Typography variant="caption" sx={{ opacity: 0.7, display: 'block', mt: 1 }}>
-              Начало: {currentSession.startTime.toLocaleTimeString('ru-RU')}
+              Начало: {currentSession.startTime.toLocaleTimeString('en-US')}
             </Typography>
           </Box>
           

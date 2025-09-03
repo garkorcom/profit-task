@@ -185,7 +185,7 @@ export function formatFirestoreDate(timestamp: any): string {
     return '';
   }
   
-  return date.toLocaleDateString('ru-RU', {
+  return date.toLocaleDateString('en-US', {
     year: 'numeric',
     month: 'long',
     day: 'numeric',

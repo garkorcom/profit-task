@@ -55,7 +55,7 @@ import { cleanForFirestore } from '../utils/firebaseUtils';
  */
 export const generateEstimateNumber = async (): Promise<string> => {
   const year = new Date().getFullYear();
-  const counterRef = doc(db, 'counters', 'estimates', year.toString(), 'sequence');
+  const counterRef = doc(db, 'counters', `estimates_${year}`);
   
   const newNumber = await runTransaction(db, async (transaction) => {
     const counterDoc = await transaction.get(counterRef);
@@ -123,7 +123,7 @@ export const createEstimate = async (
     projectId: data?.projectId || null,
     counterpartyId: data?.counterpartyId || null,
     
-    currency: data?.currency || 'RUB',
+    currency: data?.currency || 'USD',
     taxProfileId: null,
     
     totals: emptyTotals,

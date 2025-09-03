@@ -201,7 +201,7 @@ const PlanFactReportPage: React.FC = () => {
   const formatCurrency = (value: number): string => {
     return new Intl.NumberFormat('en-US', {
       style: 'currency',
-      currency: 'RUB',
+      currency: 'USD',
       minimumFractionDigits: 0
     }).format(value);
   };

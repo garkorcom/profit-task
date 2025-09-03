@@ -50,6 +50,7 @@ import {
   Calculate as CostingIcon,
   Chat as CommunicationIcon,
   Timeline as StatusesIcon,
+  Assignment as EstimateTasksIcon,
   Add as AddIcon,
   ArrowForward as NextIcon,
   ArrowBack as BackIcon,
@@ -82,6 +83,7 @@ import ProductsBlock from '../../components/estimates/blocks/ProductsBlock';
 import CostingBlock from '../../components/estimates/blocks/CostingBlock';
 import CommunicationBlock from '../../components/estimates/blocks/CommunicationBlock';
 import StatusesBlock from '../../components/estimates/blocks/StatusesBlock';
+import EstimateTasksBlock from '../../components/estimates/blocks/EstimateTasksBlock';
 
 // Конфигурация блоков
 const BLOCK_CONFIG = [
@@ -98,6 +100,13 @@ const BLOCK_CONFIG = [
     icon: <ProjectIcon />,
     description: 'Привяжите к проекту и локации',
     component: ProjectBlock,
+  },
+  {
+    key: 'estimate_tasks' as BlockKey,
+    label: 'Задачи сметы',
+    icon: <EstimateTasksIcon />,
+    description: 'Планирование работ по подготовке сметы',
+    component: EstimateTasksBlock,
   },
   {
     key: 'services' as BlockKey,
@@ -333,8 +342,10 @@ const EstimateConstructor: React.FC = () => {
   
   const handlePreview = () => {
     if (!estimate) return;
-    // TODO: Implement preview functionality
-    alert(`Предпросмотр сметы ${estimate.number} - функция в разработке`);
+    
+    // Открываем предпросмотр в новом окне, используя публичную страницу
+    const previewUrl = `${window.location.origin}/public/estimate/${estimate.id}`;
+    window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
   };
 
   const handleRecalculate = async () => {
@@ -449,7 +460,13 @@ const EstimateConstructor: React.FC = () => {
   const completion = calculateCompletion();
   const activeBlockConfig = BLOCK_CONFIG[activeBlock];
   const ActiveBlockComponent = activeBlockConfig?.component;
-  const activeBlockData = estimate.blocks.find(b => b.key === activeBlockConfig?.key);
+  const activeBlockData = estimate.blocks.find(b => b.key === activeBlockConfig?.key) || {
+    key: activeBlockConfig?.key as BlockKey,
+    status: 'empty' as const,
+    dataVersion: 1,
+    data: {},
+    updatedAt: new Date().toISOString(),
+  };
   
   return (
     <Box sx={{ 
@@ -515,7 +532,7 @@ const EstimateConstructor: React.FC = () => {
                   <StepLabel
                     StepIconComponent={() => (
                       <Badge
-                        badgeContent={getBlockStatusIcon(block!)}
+                        badgeContent={block ? getBlockStatusIcon(block) : null}
                         overlap="circular"
                       >
                         {config.icon}
@@ -572,7 +589,7 @@ const EstimateConstructor: React.FC = () => {
               )}
               
               {/* Block component */}
-              {ActiveBlockComponent && activeBlockData && (
+              {ActiveBlockComponent && (
                 <ActiveBlockComponent
                   estimate={estimate}
                   block={activeBlockData}
@@ -872,11 +889,10 @@ const EstimateConstructor: React.FC = () => {
             fontWeight="bold"
             color="primary"
           >
-            {estimate.totals.grandTotal.toLocaleString('ru-RU', { 
-              style: 'currency', 
-              currency: 'RUB',
+            {estimate.totals.grandTotal.toLocaleString('en-US', { style: 'currency', 
+              currency: 'USD',
               maximumFractionDigits: 0,
-            })}
+             })}
           </Typography>
         </Paper>
       )}
@@ -896,11 +912,10 @@ const TotalLine: React.FC<{
       {label}
     </Typography>
     <Typography variant={variant} color={color} fontWeight="bold">
-      {value.toLocaleString('ru-RU', { 
-        style: 'currency', 
-        currency: 'RUB',
+      {value.toLocaleString('en-US', { style: 'currency', 
+        currency: 'USD',
         maximumFractionDigits: 0,
-      })}
+       })}
     </Typography>
   </Stack>
 );

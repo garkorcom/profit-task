@@ -170,7 +170,7 @@ const StockDocumentsPage: React.FC = () => {
             {docs.map(d => (
               <TableRow key={d.id}>
                 <TableCell>{d.number || d.id.slice(-6)}</TableCell>
-                <TableCell>{d.date || d.createdAt?.toDate?.()?.toLocaleDateString('ru-RU') || ''}</TableCell>
+                <TableCell>{d.date || d.createdAt?.toDate?.()?.toLocaleDateString('en-US') || ''}</TableCell>
                 <TableCell>{d.type === 'income' ? 'Приход' : 'Расход'}</TableCell>
                 <TableCell>{d.status === 'posted' ? <Chip size="small" color="success" label="Проведён" /> : <Chip size="small" label="Черновик" />}</TableCell>
                 <TableCell align="right">{d.lines?.length || 0}</TableCell>

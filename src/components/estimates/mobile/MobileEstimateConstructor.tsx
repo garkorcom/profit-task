@@ -114,6 +114,14 @@ const MobileEstimateConstructor: React.FC<MobileEstimateConstructorProps> = ({
     return () => clearInterval(autoSaveTimer);
   }, [services]);
 
+  const handlePreview = () => {
+    if (!estimate) return;
+    
+    // Открываем предпросмотр в новом окне, используя публичную страницу
+    const previewUrl = `${window.location.origin}/public/estimate/${estimate.id}`;
+    window.open(previewUrl, '_blank', 'width=1200,height=800,scrollbars=yes,resizable=yes');
+  };
+
   const handleAutoSave = useCallback(async () => {
     if (services.length === 0) return;
     
@@ -288,7 +296,7 @@ const MobileEstimateConstructor: React.FC<MobileEstimateConstructorProps> = ({
             </Stack>
           </Box>
           
-          <IconButton color="inherit" onClick={onBack}>
+          <IconButton color="inherit" onClick={handlePreview} title="Предпросмотр">
             <PreviewIcon />
           </IconButton>
         </Toolbar>

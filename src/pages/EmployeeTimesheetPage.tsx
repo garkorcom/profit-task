@@ -193,7 +193,7 @@ const EmployeeTimesheetPage: React.FC = () => {
         .sort((a, b) => b[0].localeCompare(a[0]))
         .map(([month, entries]) => {
           const monthHours = entries.reduce((sum, entry) => sum + (entry.hours || 0), 0);
-          const monthName = new Date(month + '-01').toLocaleDateString('ru-RU', { 
+          const monthName = new Date(month + '-01').toLocaleDateString('en-US', { 
             year: 'numeric', 
             month: 'long' 
           });
@@ -224,7 +224,7 @@ const EmployeeTimesheetPage: React.FC = () => {
                       .map((entry) => (
                         <TableRow key={entry.id}>
                           <TableCell>
-                            {new Date(entry.date).toLocaleDateString('ru-RU')}
+                            {new Date(entry.date).toLocaleDateString('en-US')}
                           </TableCell>
                           <TableCell>{projects.find(p => p.id === entry.projectId)?.name || entry.projectId}</TableCell>
                           <TableCell>{entry.description || '—'}</TableCell>

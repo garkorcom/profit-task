@@ -114,7 +114,7 @@ const NotificationsPage: React.FC = () => {
               <TableBody>
                 {list.map(n => (
                   <TableRow key={n.id}>
-                    <TableCell>{(n.createdAt as any)?.toDate?.()?.toLocaleString?.('ru-RU') || ''}</TableCell>
+                    <TableCell>{(n.createdAt as any)?.toDate?.()?.toLocaleString?.('en-US') || ''}</TableCell>
                     <TableCell>{n.recipientName || n.recipientId}</TableCell>
                     <TableCell>{n.channel}</TableCell>
                     <TableCell>{n.type}</TableCell>

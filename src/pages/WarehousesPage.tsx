@@ -57,7 +57,7 @@ const WarehousesPage: React.FC = () => {
     const rows = [
       ['Дата', 'Товар', 'Тип', 'Склад', 'Кол-во', 'Комментарий'] as string[],
       ...filteredTransactions.map(t => [
-        (t.createdAt as any)?.toDate?.()?.toLocaleString?.('ru-RU') || '',
+        (t.createdAt as any)?.toDate?.()?.toLocaleString?.('en-US') || '',
         productById[t.productId]?.name || t.productId,
         t.type,
         warehouses.find(w => w.id === t.warehouseId)?.name || t.warehouseId,
@@ -216,7 +216,7 @@ const WarehousesPage: React.FC = () => {
               <TableBody>
                 {filteredTransactions.map(t => (
                   <TableRow key={t.id}>
-                    <TableCell>{(t.createdAt as any)?.toDate?.()?.toLocaleString?.('ru-RU') || ''}</TableCell>
+                    <TableCell>{(t.createdAt as any)?.toDate?.()?.toLocaleString?.('en-US') || ''}</TableCell>
                     <TableCell>{productById[t.productId]?.name || t.productId}</TableCell>
                     <TableCell>{t.type}</TableCell>
                     <TableCell>{warehouses.find(w => w.id === t.warehouseId)?.name || t.warehouseId}</TableCell>

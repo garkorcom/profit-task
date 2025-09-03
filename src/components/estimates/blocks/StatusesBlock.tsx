@@ -2,7 +2,7 @@
  * Блок "Статусы" для конструктора смет
  */
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { 
   Box, 
   Typography, 
@@ -58,6 +58,43 @@ const StatusesBlock: React.FC<StatusesBlockProps> = ({
     { key: 'has_payment_terms', label: 'Указаны условия оплаты', done: false, required: true },
     { key: 'has_valid_date', label: 'Установлен срок действия', done: false, required: false },
   ]);
+
+  // Update checklist based on actual block completion status
+  useEffect(() => {
+    setChecklist(currentChecklist => 
+      currentChecklist.map(item => {
+        let done = false;
+        
+        switch (item.key) {
+          case 'has_counterparty':
+            const counterpartyBlock = estimate.blocks.find(b => b.key === 'counterparty');
+            done = counterpartyBlock?.status === 'complete';
+            break;
+          case 'has_items':
+            const servicesBlock = estimate.blocks.find(b => b.key === 'services');
+            const productsBlock = estimate.blocks.find(b => b.key === 'products');
+            done = servicesBlock?.status === 'complete' || productsBlock?.status === 'complete';
+            break;
+          case 'has_address':
+            const projectBlock = estimate.blocks.find(b => b.key === 'project');
+            done = projectBlock?.status === 'complete';
+            break;
+          case 'has_payment_terms':
+            const counterpartyBlockForPayment = estimate.blocks.find(b => b.key === 'counterparty');
+            done = counterpartyBlockForPayment?.status === 'complete' && !!(counterpartyBlockForPayment?.data as any)?.paymentTerms;
+            break;
+          case 'has_valid_date':
+            // Check if estimate has validUntil date
+            done = !!estimate.validUntil;
+            break;
+          default:
+            done = item.done;
+        }
+        
+        return { ...item, done };
+      })
+    );
+  }, [estimate.blocks, estimate.validUntil]);
 
   const handleChecklistToggle = (key: string) => {
     setChecklist(checklist.map(item => 

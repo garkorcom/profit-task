@@ -89,7 +89,7 @@ export const createProject = async (
     participants: [],
     
     financials: {
-      currency: data.financials?.currency || 'RUB',
+      currency: data.financials?.currency || 'USD',
       ...data.financials,
     },
     

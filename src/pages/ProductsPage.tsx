@@ -273,7 +273,7 @@ const ProductsPage: React.FC = () => {
 
   const sortedProducts = [...filteredProducts].sort((a, b) => {
     if (sortBy === 'name_asc') {
-      return a.name.localeCompare(b.name, 'ru');
+      return a.name.localeCompare(b.name, 'en');
     }
     // stock_desc for products; services go last
     const aAvail = (a.currentStock || 0) - (a.reservedStock || 0);

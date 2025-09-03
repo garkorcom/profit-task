@@ -19,13 +19,13 @@ import {
   Card,
   CardContent,
   CardActionArea,
-
+  Grid,
   IconButton,
   TextField,
   InputAdornment,
-
+  LinearProgress,
   Alert,
-
+  Divider,
   Stack,
   CircularProgress,
   useTheme,
@@ -38,6 +38,15 @@ import {
   Warning as DraftIcon,
   Schedule as PendingIcon,
   Search as SearchIcon,
+  Dashboard as DashboardIcon,
+  TrendingUp as TrendingUpIcon,
+  TrendingDown as TrendingDownIcon,
+  Assessment as AssessmentIcon,
+  Timeline as TimelineIcon,
+  Visibility as ViewsIcon,
+  Send as SendIcon,
+  ThumbUp as AcceptedIcon,
+  Cancel as RejectedIcon,
 
   NoteAdd as QuickAddIcon,
   FolderCopy as TemplateIcon,
@@ -165,6 +174,43 @@ const EstimatesHub: React.FC = () => {
   }, [estimates, debouncedSearchQuery]);
   
   const { all: allEstimates, draft: draftEstimates, sent: sentEstimates, approved: approvedEstimates } = filteredEstimates;
+  
+  // Dashboard metrics calculations
+  const dashboardMetrics = useMemo(() => {
+    const totalValue = allEstimates.reduce((sum, e) => sum + (e.totals?.grandTotal || 0), 0);
+    const avgValue = allEstimates.length > 0 ? totalValue / allEstimates.length : 0;
+    const conversionRate = sentEstimates.length > 0 ? (approvedEstimates.length / sentEstimates.length) * 100 : 0;
+    
+    // Monthly trend calculation
+    const currentMonth = new Date().getMonth();
+    const currentYear = new Date().getFullYear();
+    const lastMonth = currentMonth === 0 ? 11 : currentMonth - 1;
+    const lastMonthYear = currentMonth === 0 ? currentYear - 1 : currentYear;
+    
+    const currentMonthEstimates = allEstimates.filter(e => {
+      const date = typeof e.createdAt === 'string' ? new Date(e.createdAt) : null;
+      return date && date.getMonth() === currentMonth && date.getFullYear() === currentYear;
+    });
+    
+    const lastMonthEstimates = allEstimates.filter(e => {
+      const date = typeof e.createdAt === 'string' ? new Date(e.createdAt) : null;
+      return date && date.getMonth() === lastMonth && date.getFullYear() === lastMonthYear;
+    });
+    
+    const monthlyGrowth = lastMonthEstimates.length > 0 
+      ? ((currentMonthEstimates.length - lastMonthEstimates.length) / lastMonthEstimates.length) * 100
+      : currentMonthEstimates.length > 0 ? 100 : 0;
+    
+    return {
+      totalCount: allEstimates.length,
+      totalValue,
+      avgValue,
+      conversionRate,
+      monthlyGrowth,
+      currentMonthCount: currentMonthEstimates.length,
+      lastMonthCount: lastMonthEstimates.length,
+    };
+  }, [allEstimates, sentEstimates, approvedEstimates]);
   
   // Handlers
   const handleCreateNew = () => {
@@ -385,10 +431,156 @@ const EstimatesHub: React.FC = () => {
             color="primary"
           />
           <Chip 
-            label={`На сумму: ${allEstimates.reduce((sum, e) => sum + (e.totals?.grandTotal || 0), 0).toLocaleString('en-US')} $`}
+            label={`На сумму: ${dashboardMetrics.totalValue.toLocaleString('en-US')} $`}
             color="success"
           />
         </Stack>
+      </Paper>
+      
+      {/* Dashboard Metrics */}
+      <Paper sx={{ p: isMobile ? 1.5 : 2, mb: 2 }}>
+        <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center', mb: 2 }}>
+          <DashboardIcon sx={{ mr: 1 }} />
+          Аналитика
+        </Typography>
+        
+        <Box sx={{ display: 'flex', flexDirection: 'column', gap: 2 }}>
+          {/* First row - main metrics */}
+          <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: '1fr 1fr', md: 'repeat(3, 1fr)' }, gap: 2 }}>
+            {/* Total Value Card */}
+            <Card sx={{ 
+              background: 'linear-gradient(135deg, #1976d2 0%, #42a5f5 100%)',
+              color: 'white',
+              height: '100%'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                      ${dashboardMetrics.totalValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Общая стоимость
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      Средняя: ${dashboardMetrics.avgValue.toLocaleString('en-US', { maximumFractionDigits: 0 })}
+                    </Typography>
+                  </Box>
+                  <MoneyIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* Monthly Growth Card */}
+            <Card sx={{ 
+              background: dashboardMetrics.monthlyGrowth >= 0 
+                ? 'linear-gradient(135deg, #388e3c 0%, #66bb6a 100%)'
+                : 'linear-gradient(135deg, #d32f2f 0%, #f44336 100%)',
+              color: 'white',
+              height: '100%'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                      {dashboardMetrics.monthlyGrowth >= 0 ? '+' : ''}{dashboardMetrics.monthlyGrowth.toFixed(1)}%
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Рост за месяц
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      {dashboardMetrics.currentMonthCount} в этом месяце
+                    </Typography>
+                  </Box>
+                  {dashboardMetrics.monthlyGrowth >= 0 ? 
+                    <TrendingUpIcon sx={{ fontSize: 40, opacity: 0.8 }} /> :
+                    <TrendingDownIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                  }
+                </Box>
+              </CardContent>
+            </Card>
+
+            {/* Conversion Rate Card */}
+            <Card sx={{ 
+              background: 'linear-gradient(135deg, #7b1fa2 0%, #ab47bc 100%)',
+              color: 'white',
+              height: '100%'
+            }}>
+              <CardContent>
+                <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                  <Box>
+                    <Typography variant="h4" sx={{ fontWeight: 'bold', mb: 0.5 }}>
+                      {dashboardMetrics.conversionRate.toFixed(1)}%
+                    </Typography>
+                    <Typography variant="body2" sx={{ opacity: 0.9 }}>
+                      Конверсия
+                    </Typography>
+                    <Typography variant="caption" sx={{ opacity: 0.8 }}>
+                      {approvedEstimates.length} из {sentEstimates.length} отправленных
+                    </Typography>
+                  </Box>
+                  <AssessmentIcon sx={{ fontSize: 40, opacity: 0.8 }} />
+                </Box>
+              </CardContent>
+            </Card>
+          </Box>
+
+          {/* Second row - Status Distribution Card */}
+          <Card sx={{ height: '100%' }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom sx={{ display: 'flex', alignItems: 'center' }}>
+                <TimelineIcon sx={{ mr: 1 }} />
+                Распределение по статусам
+              </Typography>
+              <Box sx={{ display: 'grid', gridTemplateColumns: { xs: '1fr', sm: 'repeat(3, 1fr)' }, gap: 2, mt: 2 }}>
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <DraftIcon color="warning" sx={{ mr: 1, fontSize: 20 }} />
+                      <Typography variant="body2">Черновики</Typography>
+                    </Box>
+                    <Typography variant="h6" fontWeight="bold">{draftEstimates.length}</Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={allEstimates.length > 0 ? (draftEstimates.length / allEstimates.length) * 100 : 0}
+                    sx={{ '& .MuiLinearProgress-bar': { backgroundColor: '#ff9800' } }}
+                  />
+                </Box>
+                
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <SendIcon color="info" sx={{ mr: 1, fontSize: 20 }} />
+                      <Typography variant="body2">Отправленные</Typography>
+                    </Box>
+                    <Typography variant="h6" fontWeight="bold">{sentEstimates.length}</Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={allEstimates.length > 0 ? (sentEstimates.length / allEstimates.length) * 100 : 0}
+                    sx={{ '& .MuiLinearProgress-bar': { backgroundColor: '#2196f3' } }}
+                  />
+                </Box>
+                
+                <Box>
+                  <Box sx={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', mb: 1 }}>
+                    <Box sx={{ display: 'flex', alignItems: 'center' }}>
+                      <AcceptedIcon color="success" sx={{ mr: 1, fontSize: 20 }} />
+                      <Typography variant="body2">Принятые</Typography>
+                    </Box>
+                    <Typography variant="h6" fontWeight="bold">{approvedEstimates.length}</Typography>
+                  </Box>
+                  <LinearProgress 
+                    variant="determinate" 
+                    value={allEstimates.length > 0 ? (approvedEstimates.length / allEstimates.length) * 100 : 0}
+                    sx={{ '& .MuiLinearProgress-bar': { backgroundColor: '#4caf50' } }}
+                  />
+                </Box>
+              </Box>
+            </CardContent>
+          </Card>
+        </Box>
       </Paper>
       
       {/* Tabs */}

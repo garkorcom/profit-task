@@ -172,7 +172,26 @@ const PublicEstimatePage: React.FC = () => {
     // Для новой структуры V2
     if (estimate.blocks) {
       const servicesBlock = estimate.blocks.find((block: any) => block.key === 'services');
-      return (servicesBlock?.data as any)?.items || [];
+      
+      if (servicesBlock?.data) {
+        // Пробуем разные возможные структуры данных
+        const data = servicesBlock.data as any;
+        
+        // Вариант 1: данные в rows (как в API)
+        if (data.rows && Array.isArray(data.rows)) {
+          return data.rows;
+        }
+        
+        // Вариант 2: данные в items
+        if (data.items && Array.isArray(data.items)) {
+          return data.items;
+        }
+        
+        // Вариант 3: данные напрямую являются массивом
+        if (Array.isArray(data)) {
+          return data;
+        }
+      }
     }
     
     // Для старой структуры - прямо в estimate.items
@@ -183,7 +202,7 @@ const PublicEstimatePage: React.FC = () => {
     return [];
   };
 
-  const formatCurrency = (amount: number, currency: string = 'RUB') => {
+  const formatCurrency = (amount: number, currency: string = 'USD') => {
     const symbol = currency === 'USD' ? '$' : currency === 'EUR' ? '€' : '$';
     return `${amount.toLocaleString('en-US')} ${symbol}`;
   };
@@ -438,29 +457,31 @@ const PublicEstimatePage: React.FC = () => {
                         <TableRow key={item.id || index}>
                           <TableCell>
                             <Typography variant="body2">
-                              {item.name}
+                              {item.name || item.title || '—'}
                             </Typography>
-                            {item.description && (
+                            {(item.description || item.details) && (
                               <Typography variant="caption" color="text.secondary" display="block">
-                                {item.description}
+                                {item.description || item.details}
                               </Typography>
                             )}
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2">
-                              {(item as any).quantity || ''}
+                              {item.quantity || item.qty || item.hours || '—'}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2">
-                              {item.unit || ''}
+                              {item.unit || item.uom || 'шт'}
                             </Typography>
                           </TableCell>
                           <TableCell align="right">
                             <Typography variant="body2">
                               {formatCurrency(
-                                (item as any).unitPrice || 
-                                (item as any).rate || 0, 
+                                item.unitPrice || 
+                                item.rate || 
+                                item.price ||
+                                item.cost || 0, 
                                 estimate.currency
                               )}
                             </Typography>
@@ -468,8 +489,11 @@ const PublicEstimatePage: React.FC = () => {
                           <TableCell align="right">
                             <Typography variant="body2" fontWeight="medium">
                               {formatCurrency(
-                                (item as any).totalCost || 
-                                (item as any).total || 0, 
+                                item.totalCost || 
+                                item.total || 
+                                item.amount ||
+                                ((item.quantity || item.qty || item.hours || 0) * 
+                                 (item.unitPrice || item.rate || item.price || item.cost || 0)), 
                                 estimate.currency
                               )}
                             </Typography>
