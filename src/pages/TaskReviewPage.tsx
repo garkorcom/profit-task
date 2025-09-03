@@ -48,7 +48,7 @@ import {
 import { 
   getTimeEntriesByTaskStream,
   TimeEntry
-} from '../api/timeEntryApi';
+} from '../api/timeEntryUnified';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 import TaskStatusChip from '../components/tasks/TaskStatusChip';
 import TaskPriorityChip from '../components/tasks/TaskPriorityChip';

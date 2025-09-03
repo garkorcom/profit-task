@@ -21,6 +21,7 @@ import StockDocumentsPage from '../pages/StockDocumentsPage';
 import ShipmentDetailsPage from '../pages/ShipmentDetailsPage';
 import NotificationsPage from '../pages/NotificationsPage';
 import TimeControlPage from '../pages/TimeControlPage';
+import TimeManagementPage from '../pages/TimeManagementPage';
 import DevToolsPage from '../pages/DevToolsPage';
 import EstimatesHub from '../pages/estimates/EstimatesHub';
 import QuickEstimateCreate from '../pages/estimates/QuickEstimateCreate';
@@ -32,6 +33,9 @@ import ProjectsV2Page from '../pages/project/ProjectsV2Page';
 import ProjectDetailsPage from '../pages/project/ProjectDetailsPage';
 import PublicEstimatePage from '../pages/PublicEstimatePage';
 import ClaudeTest from '../components/ClaudeTest';
+import ReportsPage from '../components/reports/ReportsPage';
+import AboutPage from '../pages/AboutPage';
+import OperationalOverviewPage from '../pages/OperationalOverviewPage';
 import { useAuth } from '../auth/AuthContext';
 
 const AppRouter: React.FC = () => {
@@ -51,7 +55,10 @@ const AppRouter: React.FC = () => {
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/review" element={<TaskReviewPage />} />
             <Route path="/analytics" element={<AnalyticsDashboard />} />
+            <Route path="/reports" element={<ReportsPage />} />
             <Route path="/reports/plan-fact" element={<PlanFactReportPage />} />
+            <Route path="/operational-overview" element={<OperationalOverviewPage />} />
+            <Route path="/about" element={<AboutPage />} />
             <Route path="/profile" element={<UserProfilePage />} />
             <Route path="/products" element={<ProductsPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
@@ -63,6 +70,7 @@ const AppRouter: React.FC = () => {
             <Route path="/counterparties/:counterpartyId" element={<CounterpartyDetailsPage />} />
             <Route path="/counterparties/:counterpartyId/edit" element={<CounterpartyEditPage />} />
             <Route path="/time-control" element={<TimeControlPage />} />
+            <Route path="/time-management" element={<TimeManagementPage />} />
             <Route path="/estimates" element={<EstimatesHub />} />
             <Route path="/estimates/quick-create" element={<QuickEstimateCreate />} />
             <Route path="/estimates/new" element={<EstimateConstructor />} />

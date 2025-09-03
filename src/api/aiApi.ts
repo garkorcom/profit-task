@@ -12,7 +12,7 @@ import {
   Timestamp
 } from 'firebase/firestore';
 import { Task, TaskStatus } from './taskApi';
-import { TimeEntry } from './timeEntryApi';
+import { TimeEntry } from './timeEntryUnified';
 import { Project } from './projectApi';
 import { Employee } from './employeeApi';
 

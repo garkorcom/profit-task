@@ -18,7 +18,7 @@ import {
   TrendingUp as EfficiencyIcon,
   Schedule as ScheduleIcon
 } from '@mui/icons-material';
-import { getTimeEntryStatistics, formatDuration, formatTimeHMS } from '../api/timeEntryEnhanced';
+import { getTimeEntryStatistics, formatDuration, formatTimeHMS } from '../api/timeEntryUnified';
 import { useAuth } from '../auth/AuthContext';
 
 interface TimeStatisticsProps {

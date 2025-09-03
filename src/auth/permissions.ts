@@ -64,6 +64,31 @@ export enum Permission {
   VIEW_OWN_TIME_ENTRIES = 'view_own_time_entries',
   EDIT_TIME_ENTRIES = 'edit_time_entries',
   DELETE_TIME_ENTRIES = 'delete_time_entries',
+  CREATE_TIME_ENTRY_DRAFT = 'create_time_entry_draft',
+  SUBMIT_TIME_ENTRY = 'submit_time_entry',
+  RECALL_TIME_ENTRY = 'recall_time_entry',
+  APPROVE_TIME_ENTRY = 'approve_time_entry',
+  REJECT_TIME_ENTRY = 'reject_time_entry',
+  BULK_APPROVE_TIME = 'bulk_approve_time',
+  
+  // Ставки и расценки
+  VIEW_LABOR_RATES = 'view_labor_rates',
+  MANAGE_LABOR_RATES = 'manage_labor_rates',
+  VIEW_OWN_LABOR_RATES = 'view_own_labor_rates',
+  
+  // ERP модуль
+  CREATE_ESTIMATE_TASKS = 'create_estimate_tasks',
+  EDIT_ESTIMATE_TASKS = 'edit_estimate_tasks',
+  VIEW_ESTIMATE_TASKS = 'view_estimate_tasks',
+  MANAGE_INCLUDE_MODE = 'manage_include_mode',
+  VIEW_COGS_RECORDS = 'view_cogs_records',
+  MANAGE_COGS_RECORDS = 'manage_cogs_records',
+  
+  // Отчеты ERP
+  VIEW_COGS_REPORT = 'view_cogs_report',
+  VIEW_TIMESHEET_REPORT = 'view_timesheet_report',
+  VIEW_VARIANCE_REPORT = 'view_variance_report',
+  EXPORT_ERP_REPORTS = 'export_erp_reports',
   
   // Настройки
   VIEW_SETTINGS = 'view_settings',
@@ -77,7 +102,7 @@ export enum Permission {
 /**
  * Типы ролей в системе
  */
-export type UserRole = 'owner' | 'manager' | 'employee' | 'contractor';
+export type UserRole = 'owner' | 'manager' | 'employee' | 'contractor' | 'estimator' | 'pm' | 'accountant' | 'field';
 
 /**
  * Конфигурация разрешений для каждой роли
@@ -165,6 +190,140 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     Permission.TRACK_TIME,
     Permission.VIEW_OWN_TIME_ENTRIES,
   ],
+  
+  // Сметчик/Инженер - Pre-construction work
+  estimator: [
+    // Сметы
+    Permission.VIEW_ESTIMATES,
+    Permission.CREATE_ESTIMATES,
+    Permission.EDIT_ESTIMATES,
+    
+    // ERP модуль
+    Permission.CREATE_ESTIMATE_TASKS,
+    Permission.EDIT_ESTIMATE_TASKS,
+    Permission.VIEW_ESTIMATE_TASKS,
+    Permission.MANAGE_INCLUDE_MODE,
+    
+    // Учет времени
+    Permission.TRACK_TIME,
+    Permission.VIEW_OWN_TIME_ENTRIES,
+    Permission.CREATE_TIME_ENTRY_DRAFT,
+    Permission.SUBMIT_TIME_ENTRY,
+    Permission.RECALL_TIME_ENTRY,
+    
+    // Контрагенты
+    Permission.VIEW_CONTRACTORS,
+    
+    // Ставки (только свои)
+    Permission.VIEW_OWN_LABOR_RATES,
+  ],
+  
+  // Руководитель проекта (PM)
+  pm: [
+    // Проекты
+    Permission.VIEW_ALL_PROJECTS,
+    Permission.CREATE_PROJECTS,
+    Permission.EDIT_PROJECTS,
+    
+    // Задачи
+    Permission.VIEW_ALL_TASKS,
+    Permission.CREATE_TASKS,
+    Permission.EDIT_ALL_TASKS,
+    Permission.DELETE_TASKS,
+    Permission.ASSIGN_TASKS,
+    
+    // Сметы
+    Permission.VIEW_ESTIMATES,
+    Permission.CREATE_ESTIMATES,
+    Permission.EDIT_ESTIMATES,
+    Permission.APPROVE_ESTIMATES,
+    
+    // ERP модуль
+    Permission.VIEW_ESTIMATE_TASKS,
+    Permission.VIEW_COGS_RECORDS,
+    
+    // Учет времени - управление командой
+    Permission.TRACK_TIME,
+    Permission.VIEW_ALL_TIME_ENTRIES,
+    Permission.VIEW_OWN_TIME_ENTRIES,
+    Permission.CREATE_TIME_ENTRY_DRAFT,
+    Permission.SUBMIT_TIME_ENTRY,
+    Permission.RECALL_TIME_ENTRY,
+    Permission.APPROVE_TIME_ENTRY,
+    Permission.REJECT_TIME_ENTRY,
+    Permission.BULK_APPROVE_TIME,
+    
+    // Отчетность
+    Permission.VIEW_REPORTS,
+    Permission.VIEW_COGS_REPORT,
+    Permission.VIEW_TIMESHEET_REPORT,
+    Permission.VIEW_VARIANCE_REPORT,
+    Permission.EXPORT_ERP_REPORTS,
+    
+    // Контрагенты
+    Permission.VIEW_CONTRACTORS,
+    Permission.CREATE_CONTRACTORS,
+    Permission.EDIT_CONTRACTORS,
+  ],
+  
+  // Бухгалтер/Финансовый менеджер
+  accountant: [
+    // Финансы
+    Permission.VIEW_FINANCES,
+    Permission.MANAGE_FINANCES,
+    Permission.VIEW_REPORTS,
+    Permission.EXPORT_REPORTS,
+    
+    // Ставки и расценки
+    Permission.VIEW_LABOR_RATES,
+    Permission.MANAGE_LABOR_RATES,
+    
+    // ERP модуль
+    Permission.VIEW_COGS_RECORDS,
+    Permission.MANAGE_COGS_RECORDS,
+    
+    // Учет времени - утверждение административных/OH записей
+    Permission.VIEW_ALL_TIME_ENTRIES,
+    Permission.APPROVE_TIME_ENTRY,
+    Permission.REJECT_TIME_ENTRY,
+    Permission.BULK_APPROVE_TIME,
+    
+    // Отчетность ERP
+    Permission.VIEW_COGS_REPORT,
+    Permission.VIEW_TIMESHEET_REPORT,
+    Permission.VIEW_VARIANCE_REPORT,
+    Permission.EXPORT_ERP_REPORTS,
+    
+    // Контрагенты
+    Permission.VIEW_CONTRACTORS,
+    Permission.CREATE_CONTRACTORS,
+    Permission.EDIT_CONTRACTORS,
+    
+    // Интеграции
+    Permission.VIEW_SETTINGS,
+  ],
+  
+  // Исполнитель (Field) - работники на объекте
+  field: [
+    // Проекты (только свои)
+    Permission.VIEW_OWN_PROJECTS,
+    
+    // Задачи проекта
+    Permission.VIEW_OWN_TASKS,
+    
+    // Учет времени (основная функция)
+    Permission.TRACK_TIME,
+    Permission.VIEW_OWN_TIME_ENTRIES,
+    Permission.CREATE_TIME_ENTRY_DRAFT,
+    Permission.SUBMIT_TIME_ENTRY,
+    Permission.RECALL_TIME_ENTRY,
+    
+    // НЕТ доступа к:
+    // - Финансам и ставкам
+    // - Сметам 
+    // - Управлению проектами
+    // - Утверждению времени других
+  ],
 };
 
 /**
@@ -203,6 +362,41 @@ export const permissionGroups = {
     Permission.EDIT_PRODUCTS,
     Permission.DELETE_PRODUCTS,
     Permission.MANAGE_STOCK,
+  ],
+  
+  // ERP-специфические группы
+  timeTrackingWorkflow: [
+    Permission.CREATE_TIME_ENTRY_DRAFT,
+    Permission.SUBMIT_TIME_ENTRY,
+    Permission.RECALL_TIME_ENTRY,
+    Permission.APPROVE_TIME_ENTRY,
+    Permission.REJECT_TIME_ENTRY,
+    Permission.BULK_APPROVE_TIME,
+  ],
+  
+  laborRateManagement: [
+    Permission.VIEW_LABOR_RATES,
+    Permission.MANAGE_LABOR_RATES,
+    Permission.VIEW_OWN_LABOR_RATES,
+  ],
+  
+  estimateTaskManagement: [
+    Permission.CREATE_ESTIMATE_TASKS,
+    Permission.EDIT_ESTIMATE_TASKS,
+    Permission.VIEW_ESTIMATE_TASKS,
+    Permission.MANAGE_INCLUDE_MODE,
+  ],
+  
+  cogsManagement: [
+    Permission.VIEW_COGS_RECORDS,
+    Permission.MANAGE_COGS_RECORDS,
+  ],
+  
+  erpReporting: [
+    Permission.VIEW_COGS_REPORT,
+    Permission.VIEW_TIMESHEET_REPORT,
+    Permission.VIEW_VARIANCE_REPORT,
+    Permission.EXPORT_ERP_REPORTS,
   ],
 };
 
@@ -258,6 +452,26 @@ export const roleDescriptions: Record<UserRole, { name: string; description: str
     description: 'Ограниченный доступ к назначенным задачам',
     color: '#ff9800',
   },
+  estimator: {
+    name: 'Сметчик/Инженер',
+    description: 'Подготовка смет, pre-construction работы',
+    color: '#795548',
+  },
+  pm: {
+    name: 'Руководитель проекта (PM)',
+    description: 'Управление проектами, утверждение времени команды',
+    color: '#3f51b5',
+  },
+  accountant: {
+    name: 'Бухгалтер/Финансист',
+    description: 'Управление финансами, ставками и отчетностью',
+    color: '#607d8b',
+  },
+  field: {
+    name: 'Исполнитель (Field)',
+    description: 'Работник на объекте, учет времени и задач',
+    color: '#8bc34a',
+  },
 };
 
 /**
@@ -312,6 +526,28 @@ export const permissionDescriptions: Record<Permission, string> = {
   [Permission.VIEW_OWN_TIME_ENTRIES]: 'Просмотр своих записей времени',
   [Permission.EDIT_TIME_ENTRIES]: 'Редактирование записей времени',
   [Permission.DELETE_TIME_ENTRIES]: 'Удаление записей времени',
+  [Permission.CREATE_TIME_ENTRY_DRAFT]: 'Создание черновика записи времени',
+  [Permission.SUBMIT_TIME_ENTRY]: 'Подача записи времени на утверждение',
+  [Permission.RECALL_TIME_ENTRY]: 'Отзыв поданной записи времени',
+  [Permission.APPROVE_TIME_ENTRY]: 'Утверждение записей времени',
+  [Permission.REJECT_TIME_ENTRY]: 'Отклонение записей времени',
+  [Permission.BULK_APPROVE_TIME]: 'Массовое утверждение времени',
+  
+  [Permission.VIEW_LABOR_RATES]: 'Просмотр ставок труда',
+  [Permission.MANAGE_LABOR_RATES]: 'Управление ставками труда',
+  [Permission.VIEW_OWN_LABOR_RATES]: 'Просмотр своих ставок',
+  
+  [Permission.CREATE_ESTIMATE_TASKS]: 'Создание задач для сметы',
+  [Permission.EDIT_ESTIMATE_TASKS]: 'Редактирование задач сметы',
+  [Permission.VIEW_ESTIMATE_TASKS]: 'Просмотр задач сметы',
+  [Permission.MANAGE_INCLUDE_MODE]: 'Управление режимом включения (COGS/OH/NONE)',
+  [Permission.VIEW_COGS_RECORDS]: 'Просмотр записей себестоимости',
+  [Permission.MANAGE_COGS_RECORDS]: 'Управление записями себестоимости',
+  
+  [Permission.VIEW_COGS_REPORT]: 'Просмотр отчета COGS',
+  [Permission.VIEW_TIMESHEET_REPORT]: 'Просмотр отчета времени',
+  [Permission.VIEW_VARIANCE_REPORT]: 'Просмотр отчета отклонений',
+  [Permission.EXPORT_ERP_REPORTS]: 'Экспорт ERP отчетов',
   
   [Permission.VIEW_SETTINGS]: 'Просмотр настроек',
   [Permission.MANAGE_SETTINGS]: 'Управление настройками',

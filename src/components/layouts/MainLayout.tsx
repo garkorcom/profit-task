@@ -23,11 +23,14 @@ import ExpandMore from '@mui/icons-material/ExpandMore';
 import PersonIcon from '@mui/icons-material/Person';
 import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
+import InfoIcon from '@mui/icons-material/Info';
+import AssessmentIcon from '@mui/icons-material/Assessment';
 import CriticalStockBell from '../dashboard/CriticalStockBell';
 import { usePermissions } from '../../auth/usePermissions';
 import { Permission } from '../../auth/permissions';
 import { roleDescriptions } from '../../auth/permissions';
 import { useAuth } from '../../auth/AuthContext';
+import GlobalTimeTrackingManager from '../time/GlobalTimeTrackingManager';
 
 // Базовая конфигурация пунктов меню с требуемыми разрешениями
 const allNavItems = [
@@ -49,8 +52,8 @@ const allNavItems = [
     color: '#ff9800'
   },
   { 
-    path: '/time-control', 
-    label: 'Учет времени', 
+    path: '/time-management', 
+    label: 'Управление временем', 
     value: 'time', 
     icon: <TimerIcon />,
     permission: Permission.TRACK_TIME,
@@ -83,6 +86,8 @@ const allNavItems = [
       { path: '/projects', label: 'Проекты', icon: <ArchitectureIcon /> },
       { path: '/counterparties', label: 'Контрагенты', icon: <ContactsIcon /> },
       { path: '/warehouses', label: 'Склады', icon: <WarehouseIcon /> },
+      { path: '/reports', label: 'Отчеты ERP', icon: <AssessmentIcon /> },
+      { path: '/about', label: 'О проекте', icon: <InfoIcon /> },
       { path: '/units', label: 'Единицы измерения', icon: <FolderIcon /> },
       { path: '/delivery-methods', label: 'Способы доставки', icon: <FolderIcon /> },
       { path: '/bank-accounts', label: 'Банки и счета', icon: <FolderIcon /> }
@@ -536,6 +541,9 @@ const MainLayout: React.FC = () => {
           </BottomNavigation>
         </Paper>
       )}
+
+      {/* Global Time Tracking Manager */}
+      <GlobalTimeTrackingManager />
     </Box>
   );
 };

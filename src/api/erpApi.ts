@@ -420,17 +420,38 @@ export const timeEntriesApi = {
   /**
    * Создать запись времени
    */
-  async create(userId: string, entryData: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> {
+  async create(
+    userId: string, 
+    entryData: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'>,
+    userRole: string = 'employee'
+  ): Promise<{
+    id: string;
+    warnings: string[];
+    adjustedHours?: number;
+  }> {
     // Валидация
-    await this.validateTimeEntry(userId, entryData);
+    const validation = await this.validateTimeEntry(userId, entryData, userRole);
+    
+    if (!validation.isValid) {
+      throw new Error(validation.errors.join('; '));
+    }
+
+    // Применяем округление если нужно
+    const finalHours = validation.suggestedHours || entryData.hours;
 
     const docRef = await addDoc(collection(db, `users/${userId}/timeEntries`), {
       ...entryData,
-      status: 'draft',
+      hours: finalHours,
+      status: 'Draft',
       createdAt: serverTimestamp(),
       updatedAt: serverTimestamp(),
     });
-    return docRef.id;
+    
+    return {
+      id: docRef.id,
+      warnings: validation.warnings,
+      adjustedHours: validation.suggestedHours !== entryData.hours ? finalHours : undefined
+    };
   },
 
   /**
@@ -515,31 +536,56 @@ export const timeEntriesApi = {
   /**
    * Валидация записи времени
    */
-  async validateTimeEntry(userId: string, entryData: Partial<TimeEntry>): Promise<void> {
-    const errors: string[] = [];
-
+  async validateTimeEntry(
+    userId: string, 
+    entryData: Partial<TimeEntry>,
+    userRole: string = 'employee'
+  ): Promise<{
+    isValid: boolean;
+    errors: string[];
+    warnings: string[];
+    suggestedHours?: number;
+  }> {
+    // Импортируем валидатор времени
+    const { timeValidator } = await import('../utils/timeValidation');
+    const { roleHasPermission } = await import('../auth/permissions');
+    
     // Базовые проверки
-    if (!entryData.hours || entryData.hours <= 0) {
-      errors.push('Количество часов должно быть больше 0');
+    if (!entryData.date || !entryData.hours || !entryData.userId) {
+      return {
+        isValid: false,
+        errors: ['Дата, часы и пользователь обязательны'],
+        warnings: []
+      };
     }
 
-    if (!entryData.date) {
-      errors.push('Дата обязательна');
-    }
+    // Получаем существующие записи пользователя
+    const existingEntries = await this.getByUser(userId, entryData.userId!, 
+      entryData.date, entryData.date);
 
-    // Проверка на будущие даты
-    if (entryData.date && entryData.date > new Date().toISOString().split('T')[0]) {
-      errors.push('Нельзя логировать время в будущем');
-    }
+    // Создаем временную запись для валидации
+    const tempEntry = {
+      userId: entryData.userId!,
+      date: entryData.date!,
+      hours: entryData.hours!,
+      taskId: entryData.taskId || 'temp',
+      status: entryData.status || 'draft' as const,
+      submittedAt: entryData.submittedAt
+    };
 
-    // TODO: добавить другие валидации из ТЗ
-    // - проверка дневных/недельных лимитов
-    // - проверка пересекающихся записей
-    // - проверка статуса задачи
+    // Комплексная валидация
+    const result = timeValidator.validateTimeEntry(
+      tempEntry,
+      existingEntries,
+      userRole as any
+    );
 
-    if (errors.length > 0) {
-      throw new Error(errors.join('; '));
-    }
+    return {
+      isValid: result.isValid,
+      errors: result.errors.map(e => e.message),
+      warnings: result.warnings.map(w => w.message),
+      suggestedHours: result.suggestedValue
+    };
   },
 };
 

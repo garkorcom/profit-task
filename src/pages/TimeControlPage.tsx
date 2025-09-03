@@ -15,7 +15,7 @@ import {
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
-import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryApi';
+import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryUnified';
 import { Project, getProjectsStream } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
 import { getEstimatesStream, Estimate, EstimateItem } from '../legacy/api/estimateApi';
@@ -74,7 +74,7 @@ const TimeControlPage: React.FC = () => {
         getProjectsStream(currentUser.uid, setProjects),
         getTasksStream(currentUser.uid, setTasks),
         getEstimatesStream(currentUser.uid, '', setEstimates),
-        getTimeEntriesStream(currentUser.uid, {}, setTimeEntries)
+        getTimeEntriesStream(currentUser.uid, setTimeEntries)
       ];
       setLoading(false);
       return () => unsubscribes.forEach(unsub => unsub());

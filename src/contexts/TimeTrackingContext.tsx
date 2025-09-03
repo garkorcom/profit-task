@@ -13,19 +13,48 @@ import {
   TimeEntry,
   TimeEntryStatus,
   getTimeEntriesByTaskStream,
-  uploadTimeEntryPhoto // Возвращаем импорт
-} from '../api/timeEntryApi';
-import {
-  pauseTimeEntryEnhanced,
-  completeTimeEntryEnhanced,
-} from '../api/timeEntryEnhanced';
+  getTimeEntriesStream,
+  uploadTimeEntryPhoto,
+  pauseTimeEntry,
+  resumeTimeEntry,
+  completeTimeEntry
+} from '../api/timeEntryUnified';
 import { deleteField, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
 import { Estimate, EstimateItem } from '../legacy/api/estimateApi';
 import { Project } from '../api/projectApi';
 import { db } from '../firebase/firebase';
 
+// Типы для глобального управления UI
+export interface ModalPrefillData {
+  taskId?: string;
+  taskType?: 'project_task' | 'estimate_task';
+  projectId?: string;
+  projectName?: string;
+  estimateId?: string;
+  estimateName?: string;
+  task?: Task;
+  project?: Project;
+  estimate?: Estimate;
+  service?: EstimateItem;
+}
+
+export interface ValidationResult {
+  isValid: boolean;
+  errors: string[];
+  warnings: string[];
+  message?: string;
+}
+
+export interface TimeEntryValidationData {
+  startTime: Date;
+  endTime?: Date;
+  taskId?: string;
+  projectId: string;
+  duration?: number;
+}
+
 interface TimeTrackingContextType {
-  // Текущее состояние
+  // Текущее состояние работы
   isWorking: boolean;
   isPaused: boolean;
   currentEntry: TimeEntry | null;
@@ -45,11 +74,27 @@ interface TimeTrackingContextType {
   pauseWork: (reason?: string) => Promise<void>;
   resumeWork: () => Promise<void>;
   
-  // Получение данных
+  // НОВОЕ: Глобальное состояние UI
+  isModalOpen: boolean;
+  modalPrefillData: ModalPrefillData | null;
+  
+  // НОВЫЕ: Методы управления UI
+  openTimeEntryModal: (prefillData?: ModalPrefillData) => void;
+  closeTimeEntryModal: () => void;
+  
+  // Управление историей времени
+  timeEntries: TimeEntry[];
+  isLoadingTimeEntries: boolean;
+  refreshTimeEntries: () => Promise<void>;
+  
+  // Валидация
+  validateTimeEntry: (data: TimeEntryValidationData) => ValidationResult;
+  
+  // Получение данных (существующие)
   getTaskTimeEntries: (taskId: string) => Promise<TimeEntry[]>;
   getTotalTaskDuration: (taskId: string) => number;
   
-  // Проверки
+  // Проверки (существующие)
   canStartWork: (task: Task) => boolean;
   requiresPhoto: (task: Task) => boolean;
 }
@@ -75,6 +120,8 @@ export const useTimeTracking = () => {
 
 export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
+  
+  // Существующее состояние работы
   const [isWorking, setIsWorking] = useState(false);
   const [isPaused, setIsPaused] = useState(false);
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
@@ -83,6 +130,14 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [taskEntries, setTaskEntries] = useState<Record<string, TimeEntry[]>>({});
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
+
+  // НОВОЕ: Глобальное состояние UI
+  const [isModalOpen, setIsModalOpen] = useState(false);
+  const [modalPrefillData, setModalPrefillData] = useState<ModalPrefillData | null>(null);
+  
+  // НОВОЕ: Состояние истории времени
+  const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
+  const [isLoadingTimeEntries, setIsLoadingTimeEntries] = useState(false);
 
   // Загрузка всех задач пользователя
   useEffect(() => {
@@ -194,6 +249,23 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
   }, [currentUser, allTasks, tasksLoaded]);
 
+  // НОВОЕ: Загрузка истории времени
+  useEffect(() => {
+    if (!currentUser) return;
+    
+    setIsLoadingTimeEntries(true);
+    const unsubscribe = getTimeEntriesStream(
+      currentUser.uid,
+      (entries: TimeEntry[]) => {
+        setTimeEntries(entries);
+        setIsLoadingTimeEntries(false);
+        console.log('✅ Time entries loaded:', entries.length);
+      }
+    );
+    
+    return () => unsubscribe();
+  }, [currentUser]);
+
   // Таймер с учетом пауз
   useEffect(() => {
     if (!isWorking || !currentEntry) return;
@@ -273,7 +345,8 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     try {
       // Создаем новую сессию работы
-      const entry: Omit<TimeEntry, 'id' | 'createdAt' | 'updatedAt'> = {
+      const entry: Partial<TimeEntry> = {
+        userId: currentUser.uid,
         taskId: taskId,
         taskName: taskName,
         projectId: project.id,
@@ -336,8 +409,10 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       const fullEntry: TimeEntry = {
         ...entry,
         id: entryId,
-        startPhotoUrl
-      };
+        startPhotoUrl,
+        createdAt: new Date(),
+        updatedAt: new Date()
+      } as TimeEntry;
       
       // Определяем, что будет "текущей задачей" в UI
       const currentTaskObject = task || {
@@ -427,7 +502,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (savedTaskId) {
         // Для виртуальной задачи
         if (savedTaskId.startsWith('estimate-')) {
-          workingTask = { id: savedTaskId, task: workingEntry.taskName } as Task;
+          workingTask = { id: savedTaskId, task: workingEntry.taskName || workingEntry.task || 'Неизвестная задача' } as Task;
         } else {
           // Для реальной задачи
           workingTask = allTasks.find(t => t.id === savedTaskId) || null;
@@ -464,7 +539,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       
       // Завершаем сессию работы с корректным расчетом времени
       if (workingEntry.id) {
-        await completeTimeEntryEnhanced(
+        await completeTimeEntry(
           currentUser.uid,
           workingEntry.id,
           endPhotoUrl,
@@ -511,7 +586,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     try {
       // Используем улучшенную версию с корректным учетом времени
-      await pauseTimeEntryEnhanced(currentUser.uid, currentEntry.id, reason);
+      await pauseTimeEntry(currentUser.uid, currentEntry.id, reason);
       setIsPaused(true);
       
       // Обновляем запись в localStorage с новым статусом и временем паузы
@@ -542,46 +617,12 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     }
     
     try {
-      const entryRef = doc(db, `users/${currentUser.uid}/timeEntries`, currentEntry.id);
-      const entryDoc = await getDoc(entryRef);
-
-      if (!entryDoc.exists()) {
-        throw new Error('Time entry not found');
-      }
-
-      const currentData = entryDoc.data();
-      const now = new Date();
+      // Используем унифицированную функцию
+      await resumeTimeEntry(currentUser.uid, currentEntry.id);
       
-      let pauseDuration = 0;
-      let updatedPauses = currentData.pauses || [];
-      
-      if (currentData.currentPauseStart) {
-        const pauseStart = currentData.currentPauseStart.toDate ? currentData.currentPauseStart.toDate() : new Date(currentData.currentPauseStart);
-        pauseDuration = Math.floor((now.getTime() - pauseStart.getTime()) / 1000); // Считаем в секундах
-        
-        updatedPauses.push({
-          startTime: pauseStart,
-          endTime: now,
-          duration: Math.floor(pauseDuration / 60),
-          reason: currentData.pauseReason
-        });
-      }
-      
-      const totalPauseDuration = (currentData.totalPauseDuration || 0) + pauseDuration;
-
-      const updates = {
-        status: 'active' as TimeEntryStatus,
-        pauses: updatedPauses,
-        totalPauseDuration,
-        currentPauseStart: deleteField(),
-        pauseReason: deleteField(),
-        updatedAt: serverTimestamp()
-      };
-      
-      await updateDoc(entryRef, updates);
-
       setIsPaused(false);
       
+      // Обновляем локальное состояние
       const updatedEntry = { 
         ...currentEntry, 
         status: 'active' as TimeEntryStatus,
@@ -591,7 +632,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       localStorage.setItem('currentTimeEntry', JSON.stringify(updatedEntry));
       localStorage.removeItem('pauseStartTime');
       
-      console.log('▶️ Работа возобновлена в', now.toLocaleTimeString());
+      console.log('▶️ Работа возобновлена');
       
     } catch (error) {
       console.error('Error resuming work:', error);
@@ -606,26 +647,129 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const getTotalTaskDuration = (taskId: string): number => {
     const entries = taskEntries[taskId] || [];
     return entries.reduce((total, entry) => {
-      if (entry.duration && (entry.status === 'completed' || entry.status === 'approved')) {
-        return total + entry.duration;
+      if ((entry.duration || entry.activeDuration) && (entry.status === 'completed' || entry.status === 'approved')) {
+        return total + (entry.duration || entry.activeDuration || 0);
       }
       return total;
     }, 0);
   };
 
+  // НОВЫЕ: Методы управления глобальным UI
+  const openTimeEntryModal = (prefillData?: ModalPrefillData) => {
+    console.log('🎬 Opening time entry modal with data:', prefillData);
+    setModalPrefillData(prefillData || null);
+    setIsModalOpen(true);
+  };
+
+  const closeTimeEntryModal = () => {
+    console.log('❌ Closing time entry modal');
+    setIsModalOpen(false);
+    setModalPrefillData(null);
+  };
+
+  // НОВЫЙ: Обновление истории времени
+  const refreshTimeEntries = async (): Promise<void> => {
+    if (!currentUser) return;
+    
+    setIsLoadingTimeEntries(true);
+    try {
+      // Вызываем обновление через подписку - данные обновятся автоматически
+      console.log('🔄 Refreshing time entries');
+    } catch (error) {
+      console.error('Error refreshing time entries:', error);
+    } finally {
+      setIsLoadingTimeEntries(false);
+    }
+  };
+
+  // НОВЫЙ: Валидация записи времени
+  const validateTimeEntry = (data: TimeEntryValidationData): ValidationResult => {
+    const errors: string[] = [];
+    const warnings: string[] = [];
+
+    // Проверка обязательных полей
+    if (!data.projectId) {
+      errors.push('Проект обязателен для записи времени');
+    }
+
+    if (!data.startTime) {
+      errors.push('Время начала обязательно');
+    }
+
+    // Проверка продолжительности
+    if (data.endTime && data.startTime) {
+      const duration = (data.endTime.getTime() - data.startTime.getTime()) / 1000 / 60; // в минутах
+      
+      if (duration <= 0) {
+        errors.push('Время окончания должно быть больше времени начала');
+      }
+      
+      if (duration > 12 * 60) { // 12 часов
+        warnings.push('Продолжительность работы превышает 12 часов');
+      }
+
+      if (duration < 1) { // меньше минуты
+        warnings.push('Очень короткая запись времени (менее 1 минуты)');
+      }
+    }
+
+    // Проверка времени в будущем
+    if (data.startTime && data.startTime > new Date()) {
+      errors.push('Нельзя начать работу в будущем времени');
+    }
+
+    // Проверка пересечения с текущей активной сессией
+    if (isWorking && currentEntry && data.startTime) {
+      const currentStart = new Date(currentEntry.startTime);
+      if (data.startTime >= currentStart && !data.endTime) {
+        errors.push('У вас уже есть активная сессия работы');
+      }
+    }
+
+    return {
+      isValid: errors.length === 0,
+      errors,
+      warnings,
+      message: errors.length > 0 ? errors[0] : warnings.length > 0 ? warnings[0] : undefined
+    };
+  };
+
   const value: TimeTrackingContextType = {
+    // Существующие свойства работы
     isWorking,
     isPaused,
     currentEntry,
     currentSession: currentEntry, // Для обратной совместимости
     currentTask,
     elapsedSeconds,
+    
+    // Существующие методы работы
     startWork,
     stopWork,
     pauseWork,
     resumeWork,
+    
+    // НОВЫЕ: Глобальное состояние UI
+    isModalOpen,
+    modalPrefillData,
+    
+    // НОВЫЕ: Методы управления UI
+    openTimeEntryModal,
+    closeTimeEntryModal,
+    
+    // НОВЫЕ: Управление историей времени
+    timeEntries,
+    isLoadingTimeEntries,
+    refreshTimeEntries,
+    
+    // НОВЫЕ: Валидация
+    validateTimeEntry,
+    
+    // Существующие методы получения данных
     getTaskTimeEntries,
     getTotalTaskDuration,
+    
+    // Существующие проверки
     canStartWork,
     requiresPhoto
   };

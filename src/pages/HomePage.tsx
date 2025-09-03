@@ -30,7 +30,7 @@ import { useAuth } from '../auth/AuthContext';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
 import { Project, getProjectsStream } from '../api/projectApi';
 import { Task, getTasksStream } from '../api/taskApi';
-import { TimeEntry, getTimeEntriesStream } from '../api/timeEntryApi';
+import { TimeEntry, getTimeEntriesStream } from '../api/timeEntryUnified';
 import StartWorkDialog from '../components/StartWorkDialog';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -76,7 +76,7 @@ const HomePage: React.FC = () => {
       checkAllLoaded();
     });
     
-    const unsubTime = getTimeEntriesStream(currentUser.uid, {}, (entries) => {
+    const unsubTime = getTimeEntriesStream(currentUser.uid, (entries) => {
       console.log('⏰ Time entries loaded:', entries.length);
       setTimeEntries(entries);
       checkAllLoaded();
@@ -93,11 +93,17 @@ const HomePage: React.FC = () => {
   const stats = useMemo(() => {
     const weekAgo = new Date();
     weekAgo.setDate(weekAgo.getDate() - 7);
-    const weekEntries = timeEntries.filter(e => (e.startTime.toDate ? e.startTime.toDate() : new Date(e.startTime)) > weekAgo);
+    const weekEntries = timeEntries.filter(e => {
+      const startTime = (e.startTime as any)?.toDate ? (e.startTime as any).toDate() : new Date(e.startTime);
+      return startTime > weekAgo;
+    });
     const weekHours = weekEntries.reduce((sum, e) => sum + (e.duration || 0), 0) / 60;
     const monthAgo = new Date();
     monthAgo.setDate(monthAgo.getDate() - 30);
-    const monthEntries = timeEntries.filter(e => (e.startTime.toDate ? e.startTime.toDate() : new Date(e.startTime)) > monthAgo);
+    const monthEntries = timeEntries.filter(e => {
+      const startTime = (e.startTime as any)?.toDate ? (e.startTime as any).toDate() : new Date(e.startTime);
+      return startTime > monthAgo;
+    });
     const monthHours = monthEntries.reduce((sum, e) => sum + (e.duration || 0), 0) / 60;
     
     return {

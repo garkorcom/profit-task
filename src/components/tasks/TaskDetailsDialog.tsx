@@ -50,7 +50,7 @@ import {
   Edit as EditIcon
 } from '@mui/icons-material';
 import { Task, TaskStatus } from '../../api/taskApi';
-import { TimeEntry } from '../../api/timeEntryApi';
+import { TimeEntry } from '../../api/timeEntryUnified';
 import { useAuth } from '../../auth/AuthContext';
 import { useTimeTracking } from '../../contexts/TimeTrackingContext';
 import TaskStatusChip from './TaskStatusChip';

@@ -12,6 +12,7 @@ import {
   onSnapshot
 } from 'firebase/firestore';
 import { User as FirebaseUser } from 'firebase/auth';
+import { UserRole } from '../auth/permissions';
 
 export interface UserProfile {
   id: string;
@@ -19,7 +20,7 @@ export interface UserProfile {
   displayName?: string;
   photoURL?: string;
   phoneNumber?: string;
-  role: 'owner' | 'manager' | 'employee' | 'contractor';
+  role: UserRole;
   department?: string;
   position?: string;
   employeeId?: string; // Связь с таблицей employees

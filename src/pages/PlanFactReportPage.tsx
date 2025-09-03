@@ -41,7 +41,7 @@ import {
 import { useAuth } from '../auth/AuthContext';
 import { getProjectsStream, Project } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
-import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryApi';
+import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryUnified';
 import { getEstimatesStream, Estimate } from '../legacy/api/estimateApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
@@ -83,7 +83,7 @@ const PlanFactReportPage: React.FC = () => {
       // Загрузка данных
       const unsubProjects = getProjectsStream(currentUser.uid, setProjects);
       const unsubTasks = getTasksStream(currentUser.uid, setTasks);
-      const unsubTimeEntries = getTimeEntriesStream(currentUser.uid, {}, setTimeEntries);
+      const unsubTimeEntries = getTimeEntriesStream(currentUser.uid, setTimeEntries);
       const unsubEstimates = getEstimatesStream(currentUser.uid, '', setEstimates);
 
       setLoading(false);

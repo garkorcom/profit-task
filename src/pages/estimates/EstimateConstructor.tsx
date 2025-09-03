@@ -83,7 +83,7 @@ import ProductsBlock from '../../components/estimates/blocks/ProductsBlock';
 import CostingBlock from '../../components/estimates/blocks/CostingBlock';
 import CommunicationBlock from '../../components/estimates/blocks/CommunicationBlock';
 import StatusesBlock from '../../components/estimates/blocks/StatusesBlock';
-import EstimateTasksBlock from '../../components/estimates/blocks/EstimateTasksBlock';
+import EstimateTasksBlockUnified from '../../components/estimates/blocks/EstimateTasksBlockUnified';
 
 // Конфигурация блоков
 const BLOCK_CONFIG = [
@@ -106,7 +106,7 @@ const BLOCK_CONFIG = [
     label: 'Задачи сметы',
     icon: <EstimateTasksIcon />,
     description: 'Планирование работ по подготовке сметы',
-    component: EstimateTasksBlock,
+    component: EstimateTasksBlockUnified,
   },
   {
     key: 'services' as BlockKey,

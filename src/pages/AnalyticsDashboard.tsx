@@ -54,7 +54,7 @@ import {
 } from '../api/aiApi';
 import { getProjectsStream, Project } from '../api/projectApi';
 import { getTasksStream, Task } from '../api/taskApi';
-import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryApi';
+import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryUnified';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 // Компонент для отображения метрики
@@ -287,7 +287,6 @@ const AnalyticsDashboard: React.FC = () => {
       // Подписка на TimeEntries
       const unsubTimeEntries = getTimeEntriesStream(
         currentUser.uid,
-        {},
         setTimeEntries
       );
       

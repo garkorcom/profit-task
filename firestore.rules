@@ -1,124 +1,167 @@
 rules_version = '2';
 service cloud.firestore {
   match /databases/{database}/documents {
-    // Функция проверки аутентификации
+    
+    // ================================
+    // КРИТИЧЕСКАЯ БЕЗОПАСНОСТЬ: Финансовые данные
+    // ================================
+    
+    // COGSRecord - ТОЛЬКО ЧТЕНИЕ, создание только через Cloud Functions
+    match /users/{userId}/cogsRecords/{recordId} {
+      allow read: if isOwnerOrHasPermission(userId, 'VIEW_COGS');
+      allow write: if false; // Никого! Только Cloud Functions могут создавать/изменять
+    }
+    
+    // CostSnapshot - ТОЛЬКО ЧТЕНИЕ, создание только через Cloud Functions  
+    match /users/{userId}/costSnapshots/{snapshotId} {
+      allow read: if isOwnerOrHasPermission(userId, 'VIEW_COST_SNAPSHOTS');
+      allow write: if false; // Никого! Только Cloud Functions могут создавать/изменять
+    }
+    
+    // LaborRate - Только Accountant и выше могут изменять
+    match /users/{userId}/laborRates/{rateId} {
+      allow read: if isOwnerOrHasPermission(userId, 'VIEW_LABOR_RATES');
+      allow create, update: if isOwnerOrHasPermission(userId, 'MANAGE_LABOR_RATES');
+      allow delete: if isOwnerOrHasPermission(userId, 'DELETE_LABOR_RATES');
+    }
+    
+    // ================================
+    // TimeEntry - Дифференцированный доступ по ролям
+    // ================================
+    match /users/{userId}/timeEntries/{entryId} {
+      // Чтение: Владелец записи + менеджеры + PM
+      allow read: if isTimeEntryOwner(userId, entryId) || 
+                     isOwnerOrHasPermission(userId, 'VIEW_ALL_TIME_ENTRIES');
+      
+      // Создание: Только владелец может создавать свои записи
+      allow create: if request.auth.uid == resource.data.userId &&
+                       isOwnerOrHasPermission(userId, 'LOG_TIME');
+      
+      // Обновление: Владелец может редактировать только черновики
+      allow update: if isTimeEntryOwner(userId, entryId) && 
+                       resource.data.status == 'draft' &&
+                       request.resource.data.status == 'draft';
+      
+      // Смена статуса: Только менеджеры могут утверждать
+      allow update: if (resource.data.status == 'submitted' && 
+                       request.resource.data.status in ['approved', 'rejected']) &&
+                       isOwnerOrHasPermission(userId, 'APPROVE_TIME_ENTRY');
+      
+      // Удаление: Только черновики и только владелец
+      allow delete: if isTimeEntryOwner(userId, entryId) && 
+                       resource.data.status == 'draft';
+    }
+    
+    // ================================
+    // EstimateTask - Сметчики и выше
+    // ================================
+    match /users/{userId}/estimateTasks/{taskId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwnerOrHasPermission(userId, 'MANAGE_ESTIMATE_TASKS');
+      
+      // КРИТИЧНО: includeMode может изменять только менеджер или выше
+      allow update: if request.resource.data.includeMode != resource.data.includeMode &&
+                       isOwnerOrHasPermission(userId, 'MANAGE_INCLUDE_MODE');
+    }
+    
+    // ================================
+    // Проекты - Базовый доступ
+    // ================================
+    match /users/{userId}/projects/{projectId} {
+      allow read: if isAuthenticated();
+      allow write: if isOwnerOrHasPermission(userId, 'MANAGE_PROJECTS');
+    }
+    
+    // ================================
+    // Пользователи и профили
+    // ================================
+    match /users/{userId} {
+      allow read, write: if request.auth.uid == userId;
+    }
+    
+    match /users/{userId}/profile {
+      allow read: if isAuthenticated();
+      allow write: if request.auth.uid == userId || 
+                      isOwnerOrHasPermission(userId, 'MANAGE_USER_PROFILES');
+    }
+    
+    // ================================
+    // ВСПОМОГАТЕЛЬНЫЕ ФУНКЦИИ
+    // ================================
+    
     function isAuthenticated() {
       return request.auth != null;
     }
     
-    // Функция проверки владельца
     function isOwner(userId) {
-      return isAuthenticated() && request.auth.uid == userId;
+      return request.auth.uid == userId;
     }
     
-    // Правила для профилей пользователей
-    match /users/{userId} {
-      allow read: if isAuthenticated();
-      allow create: if isOwner(userId);
-      allow update: if isOwner(userId);
-      allow delete: if false; // Запрещаем удаление профилей
+    function isTimeEntryOwner(userId, entryId) {
+      return request.auth.uid == resource.data.userId;
+    }
+    
+    // Проверка разрешений пользователя
+    function isOwnerOrHasPermission(userId, permission) {
+      return isOwner(userId) || hasPermission(userId, permission);
+    }
+    
+    // Получение разрешений из профиля пользователя
+    function hasPermission(userId, permission) {
+      let userProfile = get(/databases/$(database)/documents/users/$(userId)/profile).data;
+      let userRole = userProfile.role;
       
-      // Вложенные коллекции пользователя
-      match /{subcollection}/{document=**} {
-        allow read, write: if isOwner(userId);
-      }
+      // Администратор имеет все разрешения
+      return userRole == 'owner' || 
+             permission in getRolePermissions(userRole);
     }
     
-    // Правила для проектов
-    match /projects/{projectId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-      
-      match /{subcollection}/{document=**} {
-        allow read, write: if isAuthenticated();
-      }
+    // Мапинг ролей к разрешениям
+    function getRolePermissions(role) {
+      return role == 'manager' ? [
+        'VIEW_ALL_TIME_ENTRIES',
+        'APPROVE_TIME_ENTRY',
+        'MANAGE_PROJECTS',
+        'MANAGE_ESTIMATE_TASKS',
+        'VIEW_COGS',
+        'VIEW_COST_SNAPSHOTS',
+        'VIEW_LABOR_RATES'
+      ] :
+      role == 'pm' ? [
+        'VIEW_ALL_TIME_ENTRIES',
+        'APPROVE_TIME_ENTRY',
+        'MANAGE_PROJECTS',
+        'VIEW_COGS'
+      ] :
+      role == 'estimator' ? [
+        'MANAGE_ESTIMATE_TASKS',
+        'LOG_TIME'
+      ] :
+      role == 'accountant' ? [
+        'VIEW_ALL_TIME_ENTRIES',
+        'MANAGE_LABOR_RATES',
+        'DELETE_LABOR_RATES',
+        'VIEW_COGS',
+        'VIEW_COST_SNAPSHOTS',
+        'VIEW_LABOR_RATES'
+      ] :
+      role == 'field' ? [
+        'LOG_TIME'
+      ] : [];
     }
     
-    // Правила для задач
-    match /tasks/{taskId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+    // ================================
+    // БЛОКИРОВКА: Запрещаем прямой доступ к системным коллекциям
+    // ================================
+    
+    // Запрещаем любые операции с коллекциями, которые должны управляться только системой
+    match /{path=**}/systemLogs/{logId} {
+      allow read, write: if false; // Никто не может получить доступ
     }
     
-    // Правила для сотрудников
-    match /employees/{employeeId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-    
-    // Правила для подрядчиков
-    match /contractors/{contractorId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-    
-    // Правила для товаров
-    match /products/{productId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-    
-    // Правила для смет
-    match /estimates/{estimateId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-      
-      match /{subcollection}/{document=**} {
-        allow read, write: if isAuthenticated();
-      }
-    }
-    
-    // Правила для табеля
-    match /timesheet/{entryId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-    
-    // Новая модель: все сущности под users/{userId}
-    match /users/{userId} {
-      allow read, write: if isOwner(userId);
-
-      // Склады
-      match /warehouses/{warehouseId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Уровни остатков
-      match /stockLevels/{stockLevelId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Движения по складу
-      match /inventoryTransactions/{txId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Документы склада (приход/расход/корректировка)
-      match /stockDocs/{docId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Отгрузки
-      match /shipments/{shipmentId} {
-        allow read, write: if isOwner(userId);
-      }
-
-      // Шаблоны услуг
-      match /serviceTemplates/{tplId} {
-        allow read, write: if isOwner(userId);
-      }
-    }
-    
-    // Правила для счетов
-    match /invoices/{invoiceId} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
-    }
-    
-    // Общее правило для всех остальных документов
-    match /{document=**} {
-      allow read: if isAuthenticated();
-      allow write: if isAuthenticated();
+    match /{path=**}/auditTrail/{auditId} {
+      allow read: if hasPermission(resource.data.userId, 'VIEW_AUDIT_LOGS');
+      allow write: if false; // Только система может писать аудит логи
     }
   }
 }

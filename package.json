@@ -10,6 +10,8 @@
     "@mui/lab": "^7.0.0-beta.16",
     "@mui/material": "^7.3.1",
     "@mui/system": "^7.3.1",
+    "@mui/x-data-grid": "^8.11.0",
+    "@mui/x-date-pickers": "^8.11.0",
     "@testing-library/dom": "^10.4.1",
     "@testing-library/jest-dom": "^6.7.0",
     "@testing-library/react": "^16.3.0",
@@ -32,6 +34,10 @@
     "start": "react-scripts start",
     "build": "react-scripts build",
     "test": "react-scripts test",
+    "test:e2e": "jest --config jest.e2e.config.js",
+    "test:e2e:watch": "jest --config jest.e2e.config.js --watch",
+    "emulators": "firebase emulators:start",
+    "emulators:exec": "firebase emulators:exec",
     "eject": "react-scripts eject"
   },
   "eslintConfig": {
@@ -54,6 +60,7 @@
   },
   "devDependencies": {
     "@types/lodash": "^4.17.20",
-    "@types/lodash-es": "^4.17.12"
+    "@types/lodash-es": "^4.17.12",
+    "ts-jest": "^29.4.1"
   }
 }
