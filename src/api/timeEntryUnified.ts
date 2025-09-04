@@ -121,7 +121,6 @@ import {
   serverTimestamp,
   getDoc,
   Timestamp,
-  increment,
   writeBatch,
   deleteField,
   collection,
@@ -142,6 +141,143 @@ import {
 } from 'firebase/storage';
 import { db, storage } from '../firebase/firebase';
 import { getUserProfile } from './userApi';
+
+// ==================== УТИЛИТЫ ====================
+
+/**
+ * Безопасная конвертация Firebase Timestamp в Date
+ * Обрабатывает различные форматы данных из Firebase
+ */
+const convertTimestampToDate = (value: any, depth = 0): Date => {
+  // Предотвращаем бесконечную рекурсию
+  if (depth > 3) {
+    console.warn('Max recursion depth reached in convertTimestampToDate');
+    return new Date();
+  }
+  if (!value) return new Date();
+  
+  // Уже Date объект
+  if (value instanceof Date) {
+    return value;
+  }
+  
+  // Firebase Timestamp с методом toDate()
+  if (value && typeof value.toDate === 'function') {
+    try {
+      return value.toDate();
+    } catch (error) {
+      console.error('Error calling toDate():', error, value);
+      return new Date();
+    }
+  }
+  
+  // Строка или число (timestamp)
+  if (typeof value === 'string' || typeof value === 'number') {
+    const date = new Date(value);
+    return isNaN(date.getTime()) ? new Date() : date;
+  }
+  
+  // Объект с seconds (Firestore Timestamp format)
+  if (value && typeof value.seconds === 'number') {
+    return new Date(value.seconds * 1000);
+  }
+  
+  // Объект с nanoseconds тоже (полный Firestore Timestamp format)
+  if (value && typeof value.seconds === 'number' && typeof value.nanoseconds === 'number') {
+    return new Date(value.seconds * 1000 + value.nanoseconds / 1000000);
+  }
+  
+  // Попробуем преобразовать объект к строке и затем к дате
+  if (value && typeof value === 'object') {
+    try {
+      // Попробуем toString()
+      const stringValue = value.toString();
+      if (stringValue && stringValue !== '[object Object]') {
+        const date = new Date(stringValue);
+        if (!isNaN(date.getTime())) {
+          return date;
+        }
+      }
+      
+      // Попробуем valueOf()
+      if (typeof value.valueOf === 'function') {
+        const primitiveValue = value.valueOf();
+        if (typeof primitiveValue === 'number' || typeof primitiveValue === 'string') {
+          const date = new Date(primitiveValue);
+          if (!isNaN(date.getTime())) {
+            return date;
+          }
+        }
+      }
+    } catch (error) {
+      console.error('Error trying to convert object to date:', error, value);
+    }
+  }
+  
+  // Попробуем обработать объект с одним свойством
+  if (value && typeof value === 'object' && Object.keys(value).length === 1) {
+    const key = Object.keys(value)[0];
+    const innerValue = value[key];
+    
+    // Рекурсивно попробуем конвертировать внутреннее значение
+    const converted = convertTimestampToDate(innerValue, depth + 1);
+    if (converted) {
+      return converted;
+    }
+  }
+  
+  // Попробуем обработать вложенные объекты Firestore 
+  if (value && typeof value === 'object') {
+    try {
+      // Попробуем сериализировать и десериализировать объект
+      // Это может помочь с proxy объектами
+      const serialized = JSON.parse(JSON.stringify(value));
+      if (serialized !== value) {
+        const result = convertTimestampToDate(serialized, depth + 1);
+        if (result) return result;
+      }
+      
+      // Ищем timestamp свойства в любом месте объекта
+      const findTimestampValue = (obj: any): any => {
+        if (obj && typeof obj === 'object') {
+          // Проверяем на Firestore Timestamp формат
+          if (typeof obj.seconds === 'number') {
+            return obj;
+          }
+          if (typeof obj.toDate === 'function') {
+            return obj;
+          }
+          // Рекурсивно ищем в свойствах
+          for (const prop of Object.values(obj)) {
+            const result = findTimestampValue(prop);
+            if (result) return result;
+          }
+        }
+        return null;
+      };
+      
+      const timestampValue = findTimestampValue(value);
+      if (timestampValue) {
+        return convertTimestampToDate(timestampValue, depth + 1);
+      }
+    } catch (error) {
+      // Игнорируем ошибки сериализации
+    }
+  }
+  
+  // Только логируем в development mode
+  if (process.env.NODE_ENV === 'development') {
+    console.warn('Unable to convert timestamp:', {
+      value: JSON.stringify(value),
+      type: typeof value,
+      constructor: value?.constructor?.name
+    });
+  }
+  
+  // Возвращаем текущую дату как fallback вместо null
+  // чтобы не ломать приложение
+  return new Date();
+};
 
 // ==================== ТИПЫ ====================
 
@@ -314,15 +450,16 @@ export const createTimeEntry = async (
   userId: string,
   data: Partial<TimeEntry>
 ): Promise<string> => {
-  const now = new Date();
-  
-  const timeEntry: Omit<TimeEntry, 'id'> = {
+  const timeEntry: Omit<TimeEntry, 'id' | 'startTime' | 'createdAt' | 'updatedAt'> & { 
+    startTime: any, 
+    createdAt: any, 
+    updatedAt: any 
+  } = {
     userId,
     taskId: data.taskId || '',
     projectId: data.projectId,
     estimateId: data.estimateId,
     serviceId: data.serviceId,
-    startTime: now,
     status: 'active',
     activeDuration: 0,
     totalDuration: 0,
@@ -330,8 +467,10 @@ export const createTimeEntry = async (
     pauses: [],
     startLocation: data.startLocation,
     startPhotoUrl: data.startPhotoUrl,
-    createdAt: now,
-    updatedAt: now,
+    // Используем serverTimestamp для точности
+    startTime: serverTimestamp(), 
+    createdAt: serverTimestamp(),
+    updatedAt: serverTimestamp(),
     task: data.task,
     project: data.project,
     estimate: data.estimate,
@@ -341,12 +480,7 @@ export const createTimeEntry = async (
 
   const docRef = await addDoc(
     collection(db, `users/${userId}/timeEntries`),
-    {
-      ...timeEntry,
-      startTime: Timestamp.fromDate(timeEntry.startTime),
-      createdAt: Timestamp.fromDate(timeEntry.createdAt),
-      updatedAt: Timestamp.fromDate(timeEntry.updatedAt)
-    }
+    timeEntry
   );
 
   return docRef.id;
@@ -440,21 +574,21 @@ export const resumeTimeEntry = async (
   let updatedPauses = currentData.pauses || [];
   
   if (currentData.currentPauseStart) {
-    const pauseStart = currentData.currentPauseStart.toDate 
-      ? currentData.currentPauseStart.toDate() 
-      : new Date(currentData.currentPauseStart);
+    const pauseStart = convertTimestampToDate(currentData.currentPauseStart);
     
-    pauseDuration = Math.floor((now.getTime() - pauseStart.getTime()) / 60000);
-    
-    // Добавляем запись о паузе
-    const pauseRecord: PauseRecord = {
-      startTime: pauseStart,
-      endTime: now,
-      duration: pauseDuration,
-      reason: currentData.pauseReason || ''
-    };
-    
-    updatedPauses.push(pauseRecord);
+    if (pauseStart) {
+      pauseDuration = Math.floor((now.getTime() - pauseStart.getTime()) / 60000);
+      
+      // Добавляем запись о паузе
+      const pauseRecord: PauseRecord = {
+        startTime: pauseStart,
+        endTime: now,
+        duration: pauseDuration,
+        reason: currentData.pauseReason || ''
+      };
+      
+      updatedPauses.push(pauseRecord);
+    }
   }
   
   // Обновляем общее время пауз
@@ -500,13 +634,27 @@ export const completeTimeEntry = async (
   const now = new Date();
 
   // 1. Рассчитываем длительность
-  const startTime = currentData.startTime.toDate ? currentData.startTime.toDate() : new Date(currentData.startTime);
+  const startTime = convertTimestampToDate(currentData.startTime);
+  if (!startTime) {
+    console.error('Invalid start time in time entry:', {
+      entryId,
+      startTimeValue: currentData.startTime,
+      startTimeType: typeof currentData.startTime,
+      startTimeConstructor: currentData.startTime?.constructor?.name,
+      startTimeHasToDate: typeof currentData.startTime?.toDate === 'function',
+      startTimeKeys: currentData.startTime ? Object.keys(currentData.startTime) : null,
+      startTimeIsTimestamp: currentData.startTime?.seconds !== undefined,
+      allData: currentData
+    });
+    throw new Error(`Invalid start time in time entry ${entryId}. Start time value: ${currentData.startTime}`);
+  }
+  
   const totalDuration = Math.floor((now.getTime() - startTime.getTime()) / 60000);
   const activeDuration = calculateActiveDuration(
     startTime,
     now,
     currentData.pauses || [],
-    currentData.currentPauseStart?.toDate ? currentData.currentPauseStart.toDate() : undefined
+    convertTimestampToDate(currentData.currentPauseStart) || undefined
   );
 
   // 2. Рассчитываем себестоимость
@@ -587,14 +735,14 @@ export const getTimeEntriesByTaskStream = (
       return {
         id: doc.id,
         ...data,
-        startTime: data.startTime?.toDate() || new Date(data.startTime),
-        endTime: data.endTime?.toDate() || null,
-        lastActiveTime: data.lastActiveTime?.toDate() || null,
-        currentPauseStart: data.currentPauseStart?.toDate() || null,
-        completedAt: data.completedAt?.toDate() || null,
-        approvedAt: data.approvedAt?.toDate() || null,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date()
+        startTime: convertTimestampToDate(data.startTime),
+        endTime: convertTimestampToDate(data.endTime),
+        lastActiveTime: convertTimestampToDate(data.lastActiveTime),
+        currentPauseStart: convertTimestampToDate(data.currentPauseStart),
+        completedAt: convertTimestampToDate(data.completedAt),
+        approvedAt: convertTimestampToDate(data.approvedAt),
+        createdAt: convertTimestampToDate(data.createdAt) || new Date(),
+        updatedAt: convertTimestampToDate(data.updatedAt) || new Date()
       } as TimeEntry;
     });
     
@@ -635,17 +783,18 @@ export const getTimeEntriesStream = (
   return onSnapshot(q, (snapshot) => {
     const entries: TimeEntry[] = snapshot.docs.map(doc => {
       const data = doc.data();
+      
       return {
         id: doc.id,
         ...data,
-        startTime: data.startTime?.toDate() || new Date(data.startTime),
-        endTime: data.endTime?.toDate() || null,
-        lastActiveTime: data.lastActiveTime?.toDate() || null,
-        currentPauseStart: data.currentPauseStart?.toDate() || null,
-        completedAt: data.completedAt?.toDate() || null,
-        approvedAt: data.approvedAt?.toDate() || null,
-        createdAt: data.createdAt?.toDate() || new Date(),
-        updatedAt: data.updatedAt?.toDate() || new Date()
+        startTime: convertTimestampToDate(data.startTime),
+        endTime: convertTimestampToDate(data.endTime),
+        lastActiveTime: convertTimestampToDate(data.lastActiveTime),
+        currentPauseStart: convertTimestampToDate(data.currentPauseStart),
+        completedAt: convertTimestampToDate(data.completedAt),
+        approvedAt: convertTimestampToDate(data.approvedAt),
+        createdAt: convertTimestampToDate(data.createdAt),
+        updatedAt: convertTimestampToDate(data.updatedAt)
       } as TimeEntry;
     });
     
@@ -722,8 +871,8 @@ export const getTimeEntryStatistics = async (
   }
   
   const data = entryDoc.data();
-  const startTime = data.startTime.toDate ? data.startTime.toDate() : new Date(data.startTime);
-  const endTime = data.endTime?.toDate ? data.endTime.toDate() : null;
+  const startTime = convertTimestampToDate(data.startTime);
+  const endTime = convertTimestampToDate(data.endTime);
   const now = new Date();
   
   // Рассчитываем времена
@@ -733,14 +882,14 @@ export const getTimeEntryStatistics = async (
     startTime,
     endTime,
     data.pauses || [],
-    data.currentPauseStart?.toDate ? data.currentPauseStart.toDate() : undefined
+    convertTimestampToDate(data.currentPauseStart) || undefined
   );
   
   const efficiency = totalDuration > 0 ? Math.round((activeDuration / totalDuration) * 100) : 100;
   
   return {
     startTime,
-    endTime,
+    endTime: endTime || undefined,
     totalDuration,
     activeDuration,
     pauseDuration,
@@ -797,7 +946,7 @@ export const completeTimeEntryEnhanced = completeTimeEntry;
 // Удаляем конфликтующий alias - уже есть интерфейс EnhancedTimeEntry выше
 
 // Экспорт всех функций
-export default {
+const timeEntryApi = {
   // CRUD
   createTimeEntry,
   updateTimeEntry,
@@ -830,3 +979,5 @@ export default {
   // Административные
   approveTimeEntries
 };
+
+export default timeEntryApi;

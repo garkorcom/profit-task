@@ -37,6 +37,7 @@ import ReportsPage from '../components/reports/ReportsPage';
 import AboutPage from '../pages/AboutPage';
 import OperationalOverviewPage from '../pages/OperationalOverviewPage';
 import { useAuth } from '../auth/AuthContext';
+import StartWorkPage from '../pages/StartWorkPage'; // Импортируем новую страницу
 
 const AppRouter: React.FC = () => {
   const { currentUser } = useAuth();
@@ -70,6 +71,7 @@ const AppRouter: React.FC = () => {
             <Route path="/counterparties/:counterpartyId" element={<CounterpartyDetailsPage />} />
             <Route path="/counterparties/:counterpartyId/edit" element={<CounterpartyEditPage />} />
             <Route path="/time-control" element={<TimeControlPage />} />
+            <Route path="/start-work" element={<StartWorkPage />} /> {/* <-- ДОБАВЛЕННЫЙ МАРШРУТ */}
             <Route path="/time-management" element={<TimeManagementPage />} />
             <Route path="/estimates" element={<EstimatesHub />} />
             <Route path="/estimates/quick-create" element={<QuickEstimateCreate />} />

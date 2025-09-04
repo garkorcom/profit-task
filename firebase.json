@@ -16,9 +16,6 @@
     ],
     "rewrites": [
       { "source": "**", "destination": "/index.html" }
-    ],
-    "predeploy": [
-      "npm run build"
     ]
   },
   "functions": {

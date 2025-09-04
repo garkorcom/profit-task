@@ -56,6 +56,15 @@
         { "fieldPath": "projectId", "order": "ASCENDING" },
         { "fieldPath": "includeMode", "order": "ASCENDING" }
       ]
+    },
+    {
+      "collectionGroup": "timeEntries",
+      "queryScope": "COLLECTION",
+      "fields": [
+        { "fieldPath": "taskId", "order": "ASCENDING" },
+        { "fieldPath": "startTime", "order": "DESCENDING" },
+        { "fieldPath": "__name__", "order": "DESCENDING" }
+      ]
     }
   ],
   "fieldOverrides": []

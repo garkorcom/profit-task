@@ -19,7 +19,7 @@ import {
   resumeTimeEntry,
   completeTimeEntry
 } from '../api/timeEntryUnified';
-import { deleteField, doc, getDoc, serverTimestamp, updateDoc } from 'firebase/firestore';
+import { doc, getDoc } from 'firebase/firestore';
 import { Estimate, EstimateItem } from '../legacy/api/estimateApi';
 import { Project } from '../api/projectApi';
 import { db } from '../firebase/firebase';
@@ -61,6 +61,8 @@ interface TimeTrackingContextType {
   currentSession: TimeEntry | null; // Для обратной совместимости
   currentTask: Task | null;
   elapsedSeconds: number;
+  isStartingWork: boolean; // <-- НОВОЕ СОСТОЯНИЕ
+  timeTrackingError: string | null; // <-- НОВЫЙ STATE ДЛЯ ОШИБОК
   
   // Управление сессиями работы
   startWork: (payload: StartWorkPayload) => Promise<void>;
@@ -73,6 +75,7 @@ interface TimeTrackingContextType {
   
   pauseWork: (reason?: string) => Promise<void>;
   resumeWork: () => Promise<void>;
+  clearTimeTrackingError: () => void; // <-- НОВЫЙ МЕТОД
   
   // НОВОЕ: Глобальное состояние UI
   isModalOpen: boolean;
@@ -118,6 +121,18 @@ export const useTimeTracking = () => {
   return context;
 };
 
+// Утилита для проверки доступности localStorage
+const isLocalStorageAvailable = () => {
+  try {
+    const testKey = '__test__';
+    localStorage.setItem(testKey, testKey);
+    localStorage.removeItem(testKey);
+    return true;
+  } catch (e) {
+    return false;
+  }
+};
+
 export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ children }) => {
   const { currentUser } = useAuth();
   
@@ -127,17 +142,25 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const [currentEntry, setCurrentEntry] = useState<TimeEntry | null>(null);
   const [currentTask, setCurrentTask] = useState<Task | null>(null);
   const [elapsedSeconds, setElapsedSeconds] = useState(0);
+  const [isStartingWork, setIsStartingWork] = useState(false); // <-- НОВОЕ СОСТОЯНИЕ
+  const [timeTrackingError, setTimeTrackingError] = useState<string | null>(null); // <-- НОВЫЙ STATE
   const [taskEntries, setTaskEntries] = useState<Record<string, TimeEntry[]>>({});
   const [allTasks, setAllTasks] = useState<Task[]>([]);
   const [tasksLoaded, setTasksLoaded] = useState(false);
 
-  // НОВОЕ: Глобальное состояние UI
+  // ВОССТАНОВЛЕННЫЕ СОСТОЯНИЯ
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [modalPrefillData, setModalPrefillData] = useState<ModalPrefillData | null>(null);
-  
-  // НОВОЕ: Состояние истории времени
   const [timeEntries, setTimeEntries] = useState<TimeEntry[]>([]);
   const [isLoadingTimeEntries, setIsLoadingTimeEntries] = useState(false);
+
+  // Проверка localStorage при инициализации
+  useEffect(() => {
+    if (!isLocalStorageAvailable()) {
+      console.warn('LocalStorage is not available. Time tracking session will not be restored across page reloads.');
+      setTimeTrackingError('Ваш браузер не поддерживает сохранение сессии. Учет времени не будет восстановлен после перезагрузки страницы.');
+    }
+  }, []);
 
   // Загрузка всех задач пользователя
   useEffect(() => {
@@ -275,19 +298,14 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         const now = new Date();
         const startTime = new Date(currentEntry.startTime);
         
-        // Получаем сохраненное время пауз из localStorage
-        const savedPauseDuration = parseInt(localStorage.getItem('totalPauseDuration') || '0', 10);
+        // Получаем общее время пауз из localStorage, рассчитанное локально
+        const totalPauseSeconds = parseInt(localStorage.getItem('totalPauseDuration') || '0', 10);
         
-        // Если сейчас на паузе, не обновляем счетчик
-        if (currentEntry.status === 'paused') {
-          return;
-        }
+        // Рассчитываем общее время с момента старта
+        const totalElapsedSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
         
-        // Рассчитываем общее время
-        const totalSeconds = Math.floor((now.getTime() - startTime.getTime()) / 1000);
-        
-        // Вычитаем время пауз для получения активного времени
-        const activeSeconds = Math.max(0, totalSeconds - savedPauseDuration);
+        // Активное время = общее время - все паузы
+        const activeSeconds = Math.max(0, totalElapsedSeconds - totalPauseSeconds);
         setElapsedSeconds(activeSeconds);
       }
     }, 1000);
@@ -330,10 +348,11 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const startWork = async (payload: StartWorkPayload) => {
     if (!currentUser) throw new Error('User not authenticated');
     
+    setIsStartingWork(true); // <-- ВКЛЮЧАЕМ ИНДИКАТОР ЗАГРУЗКИ
+
     const { task, estimate, service, project, startPhoto, location } = payload;
 
     // Определяем, что является основной "задачей" для учета времени
-    const isEstimateWork = !task && !!estimate;
     const workTarget = task || service || estimate;
     if (!workTarget) {
       throw new Error('Необходимо указать задачу или смету для начала работы');
@@ -344,8 +363,8 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     const taskName = task?.task || service?.name || estimate?.name || 'Работа';
 
     try {
-      // Создаем новую сессию работы
-      const entry: Partial<TimeEntry> = {
+      // Создаем "черновик" записи без времени
+      const entryDraft: Partial<TimeEntry> = {
         userId: currentUser.uid,
         taskId: taskId,
         taskName: taskName,
@@ -353,7 +372,6 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         projectName: project.name,
         employeeId: currentUser.uid,
         employeeName: currentUser.displayName || currentUser.email || '',
-        startTime: new Date(),
         status: 'active' as TimeEntryStatus,
         ...(estimate && { estimateId: estimate.id, estimateName: estimate.name }),
         ...(service && { serviceId: service.id, serviceName: service.name }),
@@ -367,15 +385,33 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         })
       };
       
-      // Создаем запись в БД
-      const entryId = await createTimeEntry(currentUser.uid, entry);
+      // Шаг 1: Создаем запись в БД, которая вернет ID.
+      // startTime будет установлено на сервере.
+      const entryId = await createTimeEntry(currentUser.uid, entryDraft);
       console.log('✅ Запись времени создана с ID:', entryId);
       
       if (!entryId) {
         throw new Error('Failed to create time entry - no ID returned');
       }
+
+      // Шаг 2: Получаем созданную запись с серверным временем
+      const entryRef = doc(db, `users/${currentUser.uid}/timeEntries`, entryId);
+      const entrySnap = await getDoc(entryRef);
+
+      if (!entrySnap.exists()) {
+        throw new Error('Failed to fetch the newly created time entry.');
+      }
+
+      const serverEntry = {
+        ...entrySnap.data(),
+        id: entrySnap.id,
+        // Безопасно конвертируем серверные Timestamp в Date
+        startTime: entrySnap.data().startTime ? new Date(entrySnap.data().startTime.seconds * 1000) : new Date(),
+        createdAt: entrySnap.data().createdAt ? new Date(entrySnap.data().createdAt.seconds * 1000) : new Date(),
+        updatedAt: entrySnap.data().updatedAt ? new Date(entrySnap.data().updatedAt.seconds * 1000) : new Date(),
+      } as TimeEntry;
       
-      // Загружаем фото, если есть
+      // Шаг 3: Загружаем фото, если есть
       let startPhotoUrl: string | undefined;
       if (startPhoto) {
         try {
@@ -390,6 +426,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
           // Обновляем запись с URL фото
           if (startPhotoUrl && startPhotoUrl !== 'placeholder-photo-url') {
             await updateTimeEntry(currentUser.uid, entryId, { startPhotoUrl });
+            serverEntry.startPhotoUrl = startPhotoUrl; // Обновляем локальный объект
             console.log('✅ Фото успешно загружено');
           }
         } catch (photoError) {
@@ -400,21 +437,12 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         }
       }
       
-      // Обновляем статус задачи (только для реальных задач)
+      // Шаг 4: Обновляем статус задачи (только для реальных задач)
       if (task && task.status !== 'in_progress') {
         await changeTaskStatus(currentUser.uid, task.id, 'in_progress');
       }
       
-      // Обновляем локальное состояние
-      const fullEntry: TimeEntry = {
-        ...entry,
-        id: entryId,
-        startPhotoUrl,
-        createdAt: new Date(),
-        updatedAt: new Date()
-      } as TimeEntry;
-      
-      // Определяем, что будет "текущей задачей" в UI
+      // Шаг 5: Обновляем локальное состояние, используя данные с сервера
       const currentTaskObject = task || {
         id: taskId,
         task: taskName,
@@ -422,14 +450,14 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         projectName: project.name,
       } as Task;
 
-      setCurrentEntry(fullEntry);
+      setCurrentEntry(serverEntry);
       setCurrentTask(currentTaskObject);
       setIsWorking(true);
       setIsPaused(false);
       setElapsedSeconds(0);
       
       // Сохраняем в localStorage
-      localStorage.setItem('currentTimeEntry', JSON.stringify(fullEntry));
+      localStorage.setItem('currentTimeEntry', JSON.stringify(serverEntry));
       localStorage.setItem('currentTaskId', taskId);
       localStorage.setItem('currentEntryId', entryId); // Сохраняем ID записи отдельно
       
@@ -438,19 +466,25 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       console.log('📝 Проверка сохранения ID в localStorage:', { entryId, savedId, match: entryId === savedId });
       
       // Очищаем данные о паузах для новой сессии
-      localStorage.removeItem('totalPauseDuration');
+      localStorage.setItem('totalPauseDuration', '0');
       localStorage.removeItem('pauseStartTime');
-      localStorage.removeItem('activeTimeAtPause');
       
       console.log('🎉 УЧЕТ ВРЕМЕНИ УСПЕШНО НАЧАТ!');
       console.log('🏢 Проект:', project.name);
-      console.log('ktiv:', taskName);
+      console.log('Актив:', taskName);
       if (estimate) console.log('📊 Смета:', estimate.name);
       if (service) console.log('🔧 Услуга:', service.name);
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error starting work:', error);
+      // В случае ошибки сбрасываем состояние
+      setIsWorking(false);
+      setCurrentEntry(null);
+      setCurrentTask(null);
+      setTimeTrackingError(`Не удалось начать работу: ${error.message}`);
       throw error;
+    } finally {
+      setIsStartingWork(false); // <-- ВЫКЛЮЧАЕМ ИНДИКАТОР ЗАГРУЗКИ
     }
   };
 
@@ -570,11 +604,13 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       localStorage.removeItem('currentTaskId');
       localStorage.removeItem('currentEntryId');
       localStorage.removeItem('pauseStartTime');
-      localStorage.removeItem('activeTimeAtPause');
+      // Очищаем totalPauseDuration после завершения работы
       localStorage.removeItem('totalPauseDuration');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error stopping work:', error);
+      // Не сбрасываем состояние, чтобы пользователь мог повторить попытку
+      setTimeTrackingError(`Не удалось остановить работу: ${error.message}`);
       throw error;
     }
   };
@@ -584,12 +620,14 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       throw new Error('No active work session');
     }
     
+    // Оптимистичное обновление UI
+    setIsPaused(true);
+
     try {
-      // Используем улучшенную версию с корректным учетом времени
+      // Вызываем API
       await pauseTimeEntry(currentUser.uid, currentEntry.id, reason);
-      setIsPaused(true);
       
-      // Обновляем запись в localStorage с новым статусом и временем паузы
+      // Фиксируем состояние после успешного ответа
       const now = new Date();
       const updatedEntry = { 
         ...currentEntry, 
@@ -598,15 +636,17 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       };
       setCurrentEntry(updatedEntry);
       localStorage.setItem('currentTimeEntry', JSON.stringify(updatedEntry));
-      localStorage.setItem('pauseStartTime', now.toISOString());
       
-      // Сохраняем текущее активное время на момент паузы
-      localStorage.setItem('activeTimeAtPause', elapsedSeconds.toString());
+      // Фиксируем время начала паузы для локального расчета
+      localStorage.setItem('pauseStartTime', now.toISOString());
       
       console.log('⏸️ Работа поставлена на паузу в', now.toLocaleTimeString());
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error pausing work:', error);
+      // Откатываем UI в случае ошибки
+      setIsPaused(false);
+      setTimeTrackingError(`Не удалось поставить на паузу: ${error.message}`);
       throw error;
     }
   };
@@ -616,11 +656,28 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       throw new Error('No paused work session');
     }
     
+    // Оптимистичное обновление UI
+    setIsPaused(false);
+
     try {
-      // Используем унифицированную функцию
+      // Вызываем API для возобновления на сервере
       await resumeTimeEntry(currentUser.uid, currentEntry.id);
       
-      setIsPaused(false);
+      // Локально рассчитываем и обновляем общее время пауз
+      const pauseStartTime = localStorage.getItem('pauseStartTime');
+      if (pauseStartTime) {
+        const pauseStart = new Date(pauseStartTime);
+        const now = new Date();
+        const currentPauseDuration = Math.floor((now.getTime() - pauseStart.getTime()) / 1000);
+        
+        const totalPauseDuration = parseInt(localStorage.getItem('totalPauseDuration') || '0', 10);
+        const newTotalPauseDuration = totalPauseDuration + currentPauseDuration;
+        
+        localStorage.setItem('totalPauseDuration', newTotalPauseDuration.toString());
+        localStorage.removeItem('pauseStartTime');
+        
+        console.log(`▶️ Пауза завершена. Длительность: ${currentPauseDuration} сек. Общее время пауз: ${newTotalPauseDuration} сек.`);
+      }
       
       // Обновляем локальное состояние
       const updatedEntry = { 
@@ -630,18 +687,24 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       };
       setCurrentEntry(updatedEntry);
       localStorage.setItem('currentTimeEntry', JSON.stringify(updatedEntry));
-      localStorage.removeItem('pauseStartTime');
       
       console.log('▶️ Работа возобновлена');
       
-    } catch (error) {
+    } catch (error: any) {
       console.error('Error resuming work:', error);
+      // Откатываем UI в случае ошибки
+      setIsPaused(true);
+      setTimeTrackingError(`Не удалось возобновить работу: ${error.message}`);
       throw error;
     }
   };
 
   const getTaskTimeEntries = async (taskId: string): Promise<TimeEntry[]> => {
     return taskEntries[taskId] || [];
+  };
+
+  const clearTimeTrackingError = () => {
+    setTimeTrackingError(null);
   };
 
   const getTotalTaskDuration = (taskId: string): number => {
@@ -742,12 +805,15 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     currentSession: currentEntry, // Для обратной совместимости
     currentTask,
     elapsedSeconds,
+    isStartingWork, // <-- EXPORT
+    timeTrackingError, // <-- EXPORT
     
     // Существующие методы работы
     startWork,
     stopWork,
     pauseWork,
     resumeWork,
+    clearTimeTrackingError, // <-- EXPORT
     
     // НОВЫЕ: Глобальное состояние UI
     isModalOpen,
