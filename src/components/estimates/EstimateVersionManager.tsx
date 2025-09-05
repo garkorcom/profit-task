@@ -231,7 +231,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                   const isSelected = selectedVersions.includes(version.id);
                   const isCurrent = version.id === currentVersion.id;
                   return (
-                    <Grid key={version.id} size={{ xs: 12, md: 6 }}>
+                    <Grid key={version.id} xs={12} md={6}>
                       <Card
                         sx={{
                           border: isSelected ? '2px solid #1976d2' : undefined,
@@ -408,7 +408,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                         {version.version} ← {previousVersion.version}
                       </Typography>
                       <Grid container spacing={2}>
-                        <Grid size={4}>
+                        <Grid xs={4}>
                           <Box textAlign="center">
                             <Typography variant="h4" color="success.main">
                               +{changes.added}
@@ -418,7 +418,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                             </Typography>
                           </Box>
                         </Grid>
-                        <Grid size={4}>
+                        <Grid xs={4}>
                           <Box textAlign="center">
                             <Typography variant="h4" color="warning.main">
                               ~{changes.modified}
@@ -428,7 +428,7 @@ export const EstimateVersionManager: React.FC<EstimateVersionManagerProps> = ({
                             </Typography>
                           </Box>
                         </Grid>
-                        <Grid size={4}>
+                        <Grid xs={4}>
                           <Box textAlign="center">
                             <Typography variant="h4" color="error.main">
                               -{changes.removed}

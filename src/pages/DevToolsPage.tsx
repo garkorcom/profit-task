@@ -2,11 +2,13 @@ import React, { useState, useEffect } from 'react';
 import { Box, Typography, Button, Paper, CircularProgress, Alert, Stack, FormControl, InputLabel, Select, MenuItem, AlertTitle } from '@mui/material';
 import { useAuth } from '../auth/AuthContext';
 import { getUserProfile, UserProfile } from '../api/userApi';
-import { addProject, Project } from '../api/projectApi';
-import { addTask, Task } from '../api/taskApi';
-import { getTasksStream } from '../api/taskApi';
-import { getEstimatesStream, Estimate } from '../legacy/api/estimateApi';
-import { getProjectsStream } from '../api/projectApi';
+import { createProject } from '../api/projectV2Api';
+import { addTask, getTasksStream } from '../api/taskApi';
+import { getEstimates } from '../api/estimateV2Api';
+import { subscribeToProjects } from '../api/projectV2Api';
+import { Project } from '../types/project.types';
+import { Task } from '../types/task.types';
+import { Estimate } from '../types/estimate.types';
 import { cleanOldContractors, previewOldContractors } from '../utils/cleanOldContractors';
 import DeleteIcon from '@mui/icons-material/Delete';
 import VisibilityIcon from '@mui/icons-material/Visibility';
@@ -36,8 +38,17 @@ const DevToolsPage: React.FC = () => {
         setLoading(false);
       });
       const unsubTasks = getTasksStream(currentUser.uid, setTasks);
-      const unsubEstimates = getEstimatesStream(currentUser.uid, '', setEstimates); // Загружаем все сметы
-      const unsubProjects = getProjectsStream(currentUser.uid, (projectList) => {
+      // Загружаем все сметы через V2 API
+      const loadEstimates = async () => {
+        try {
+          const loadedEstimates = await getEstimates(currentUser.uid);
+          setEstimates(loadedEstimates);
+        } catch (error) {
+          console.error('Error loading estimates:', error);
+        }
+      };
+      loadEstimates();
+      const unsubProjects = subscribeToProjects(currentUser.uid, (projectList) => {
         setProjects(projectList);
         // Выбираем первый проект по умолчанию
         if (projectList.length > 0 && !selectedProjectId) {
@@ -46,7 +57,6 @@ const DevToolsPage: React.FC = () => {
       });
       return () => {
         unsubTasks();
-        unsubEstimates();
         unsubProjects();
       };
     }
@@ -56,12 +66,20 @@ const DevToolsPage: React.FC = () => {
     if (!currentUser) return;
     setMessage('Создание тестового проекта...');
     try {
-      const newProject: Omit<Project, 'id'> = {
+      const newProject = {
         name: `Тестовый проект ${new Date().toLocaleTimeString()}`,
-        status: 'active',
-        createdAt: new Date(),
+        type: 'residential_new' as const,
+        description: 'Автоматически созданный тестовый проект',
+        location: {
+          address: 'Тестовый адрес',
+          city: 'Москва',
+          country: 'Россия'
+        },
+        financials: {
+          currency: 'RUB'
+        }
       };
-      await addProject(currentUser.uid, newProject);
+      await createProject(currentUser.uid, newProject as any);
       setMessage('Тестовый проект успешно создан!');
     } catch (error: any) {
       setMessage(`Ошибка при создании проекта: ${error.message}`);

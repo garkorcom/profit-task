@@ -27,7 +27,7 @@ import {
   useTheme,
   alpha
 } from '@mui/material';
-import { GridLegacy as Grid } from '@mui/material';
+import { Grid } from '@mui/material';
 import {
   FileDownload as ExportIcon,
   Print as PrintIcon,
@@ -39,10 +39,14 @@ import {
   Warning as WarningIcon
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
-import { getProjectsStream, Project } from '../api/projectApi';
-import { getTasksStream, Task } from '../api/taskApi';
-import { getTimeEntriesStream, TimeEntry } from '../api/timeEntryUnified';
-import { getEstimatesStream, Estimate } from '../legacy/api/estimateApi';
+import { subscribeToProjects } from '../api/projectV2Api';
+import { getTasksStream } from '../api/taskApi';
+import { getTimeEntriesStream } from '../api/timeEntryUnified';
+import { getEstimates } from '../api/estimateV2Api';
+import { Project } from '../types/project.types';
+import { Task } from '../types/task.types';
+import { TimeEntry } from '../api/timeEntryUnified';
+import { Estimate } from '../types/estimate.types';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 interface PlanFactData {
@@ -81,10 +85,19 @@ const PlanFactReportPage: React.FC = () => {
       setLoading(true);
 
       // Загрузка данных
-      const unsubProjects = getProjectsStream(currentUser.uid, setProjects);
+      const unsubProjects = subscribeToProjects(currentUser.uid, setProjects);
       const unsubTasks = getTasksStream(currentUser.uid, setTasks);
       const unsubTimeEntries = getTimeEntriesStream(currentUser.uid, setTimeEntries);
-      const unsubEstimates = getEstimatesStream(currentUser.uid, '', setEstimates);
+      // Загружаем сметы через V2 API
+      const loadEstimates = async () => {
+        try {
+          const loadedEstimates = await getEstimates(currentUser.uid);
+          setEstimates(loadedEstimates);
+        } catch (error) {
+          console.error('Error loading estimates:', error);
+        }
+      };
+      loadEstimates();
 
       setLoading(false);
 
@@ -92,7 +105,6 @@ const PlanFactReportPage: React.FC = () => {
         unsubProjects();
         unsubTasks();
         unsubTimeEntries();
-        unsubEstimates();
       };
     };
 

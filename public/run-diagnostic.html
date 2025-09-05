@@ -1,0 +1,185 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>StartWorkPage Diagnostic Protocol</title>
+    <style>
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+            max-width: 800px;
+            margin: 2rem auto;
+            padding: 2rem;
+            background: #f5f5f5;
+        }
+        .container {
+            background: white;
+            padding: 2rem;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .btn {
+            background: #2e7d32;
+            color: white;
+            border: none;
+            padding: 12px 24px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 8px;
+            display: inline-block;
+            text-decoration: none;
+        }
+        .btn:hover {
+            background: #1b5e20;
+        }
+        .status {
+            padding: 12px;
+            border-radius: 4px;
+            margin: 12px 0;
+        }
+        .status.success { background: #e8f5e8; border-left: 4px solid #4caf50; }
+        .status.error { background: #ffebee; border-left: 4px solid #f44336; }
+        .status.warning { background: #fff3e0; border-left: 4px solid #ff9800; }
+        code { background: #f0f0f0; padding: 2px 6px; border-radius: 3px; }
+        pre { background: #f0f0f0; padding: 16px; border-radius: 6px; overflow-x: auto; }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>🔍 StartWorkPage Diagnostic Protocol</h1>
+        
+        <div class="status warning">
+            <strong>⚠️ Critical Bug Analysis</strong><br>
+            This diagnostic tool will analyze the complete data flow from Firestore → API → State → UI rendering.
+        </div>
+
+        <h2>Quick Actions</h2>
+        <a href="http://localhost:3000/start-work" class="btn" target="_blank">
+            🎯 Open StartWorkPage
+        </a>
+        
+        <button class="btn" onclick="loadDiagnosticTool()">
+            🔧 Load Diagnostic Tool
+        </button>
+        
+        <button class="btn" onclick="runFullDiagnostic()">
+            🚀 Run Full Diagnostic
+        </button>
+
+        <h2>Manual Diagnostic Steps</h2>
+        <div id="diagnostic-results">
+            <ol>
+                <li><strong>Stage 1 - Backend Verification:</strong>
+                    <ul>
+                        <li>Check user authentication status</li>
+                        <li>Verify Firestore security rules</li>
+                        <li>Create/verify test data (Project A, Task A1, Estimate A2)</li>
+                    </ul>
+                </li>
+                <li><strong>Stage 2 - Network Analysis:</strong>
+                    <ul>
+                        <li>Open DevTools → Network tab</li>
+                        <li>Monitor Firestore API calls</li>
+                        <li>Check for 401/403/500 errors</li>
+                    </ul>
+                </li>
+                <li><strong>Stage 3 - State Management:</strong>
+                    <ul>
+                        <li>Open React DevTools → Components</li>
+                        <li>Check TimeTrackingProvider state</li>
+                        <li>Verify StartWorkPage local state</li>
+                    </ul>
+                </li>
+                <li><strong>Stage 4 - UI Rendering:</strong>
+                    <ul>
+                        <li>Check Console for JS errors</li>
+                        <li>Verify filter states</li>
+                        <li>Analyze DOM structure</li>
+                    </ul>
+                </li>
+            </ol>
+        </div>
+
+        <h2>Expected Outcomes</h2>
+        <div class="status success">
+            <strong>✅ Success Criteria:</strong>
+            <ul>
+                <li>Test Project A is visible on StartWorkPage</li>
+                <li>Test Task A1 appears in Priority section (high priority, assigned status)</li>
+                <li>Test Estimate A2 shows in main list with 2 services</li>
+                <li>User can click ▶️ button and start timer</li>
+                <li>Optimistic UI updates work correctly</li>
+            </ul>
+        </div>
+
+        <h2>Console Commands</h2>
+        <pre><code>// Load diagnostic tool
+fetch('/diagnostic-protocol.js').then(r => r.text()).then(code => eval(code));
+
+// Run full diagnostic
+startWorkPageDiagnostic.executeFullDiagnostic();
+
+// Create test data only
+createTestData();</code></pre>
+
+        <div id="console-output" style="margin-top: 2rem;">
+            <h3>Console Output</h3>
+            <div id="console-content" style="background: #000; color: #0f0; padding: 1rem; border-radius: 4px; font-family: monospace; min-height: 200px;">
+                Waiting for diagnostic results...
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let diagnosticTool = null;
+
+        async function loadDiagnosticTool() {
+            try {
+                const response = await fetch('/diagnostic-protocol.js');
+                const code = await response.text();
+                eval(code);
+                diagnosticTool = window.startWorkPageDiagnostic;
+                updateConsole('✅ Diagnostic tool loaded successfully');
+            } catch (error) {
+                updateConsole('❌ Failed to load diagnostic tool: ' + error.message);
+            }
+        }
+
+        async function runFullDiagnostic() {
+            if (!diagnosticTool) {
+                await loadDiagnosticTool();
+            }
+            
+            if (diagnosticTool) {
+                updateConsole('🚀 Running full diagnostic protocol...');
+                try {
+                    const results = await diagnosticTool.executeFullDiagnostic();
+                    updateConsole('✅ Diagnostic completed. Check browser console for detailed results.');
+                } catch (error) {
+                    updateConsole('❌ Diagnostic failed: ' + error.message);
+                }
+            }
+        }
+
+        function updateConsole(message) {
+            const consoleContent = document.getElementById('console-content');
+            consoleContent.innerHTML += '<div>' + new Date().toLocaleTimeString() + ' - ' + message + '</div>';
+            consoleContent.scrollTop = consoleContent.scrollHeight;
+        }
+
+        // Capture console logs
+        const originalLog = console.log;
+        console.log = function(...args) {
+            originalLog.apply(console, args);
+            updateConsole(args.join(' '));
+        };
+
+        // Auto-load diagnostic tool
+        window.addEventListener('load', () => {
+            updateConsole('🔧 Diagnostic interface loaded');
+            updateConsole('💡 Click "Load Diagnostic Tool" to begin');
+        });
+    </script>
+</body>
+</html>

@@ -1,16 +1,19 @@
 import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Dialog, DialogTitle, DialogContent, Stepper, Step, StepLabel,
-  StepContent, List, ListItemButton, ListItemText, Button, Box,
-  Stack, Typography, Checkbox, FormControlLabel, IconButton
+import { 
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Stepper, 
+  Step, StepLabel, StepContent, Box, List, ListItemButton, ListItemText, 
+  Typography, Stack, IconButton, FormControlLabel, Checkbox
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
-import { Project, getProjectsStream } from '../api/projectApi';
-import { Task, getTasksStream } from '../api/taskApi';
-import { Estimate, EstimateItem, getEstimatesStream } from '../legacy/api/estimateApi';
-import { TimeTrackingButton } from './TimeTrackingButton';
+import { subscribeToProjects } from '../api/projectV2Api';
+import { getTasksStream } from '../api/taskApi';
+import { Project } from '../types/project.types';
+import { Task } from '../types/task.types';
+import { Estimate, EstimateItem } from '../types/estimate.types';
+import { getEstimates } from '../api/estimateV2Api';
 import { Contractor } from '../api/contractorApi';
+import { TimeTrackingButton } from './TimeTrackingButton';
 
 interface StartWorkDialogProps {
   open: boolean;
@@ -43,9 +46,9 @@ export const StartWorkFromContractorDialog: React.FC<StartWorkDialogProps> = ({ 
     setSelectedEstimate(null);
     setSelectedService(null);
 
-    const unsubProjects = getProjectsStream(currentUser.uid, allProjects => {
-      // Фильтруем проекты по контрагенту
-      setProjects(allProjects.filter(p => p.contractorId === contractor?.id));
+    const unsubProjects = subscribeToProjects(currentUser.uid, allProjects => {
+      // Фильтруем проекты по контрагенту (используем clientId в V2)
+      setProjects(allProjects.filter(p => (p as any).clientId === contractor?.id || (p as any).contractorId === contractor?.id));
     });
     return () => {
       unsubProjects();
@@ -56,11 +59,18 @@ export const StartWorkFromContractorDialog: React.FC<StartWorkDialogProps> = ({ 
   useEffect(() => {
     if (selectedProject && currentUser) {
       const unsubTasks = getTasksStream(currentUser.uid, setTasks, selectedProject.id);
-      const unsubEstimates = getEstimatesStream(currentUser.uid, selectedProject.id, setEstimates);
+      const loadEstimates = async () => {
+        try {
+          const loadedEstimates = await getEstimates(currentUser.uid, { projectId: selectedProject.id });
+          setEstimates(loadedEstimates);
+        } catch (error) {
+          console.error('Error loading estimates:', error);
+        }
+      };
+      loadEstimates();
       
       return () => {
         unsubTasks();
-        unsubEstimates();
       };
     } else {
       // Если проект не выбран, очищаем списки
@@ -71,7 +81,7 @@ export const StartWorkFromContractorDialog: React.FC<StartWorkDialogProps> = ({ 
 
   // Эффект для автоматического пропуска шага выбора услуги
   useEffect(() => {
-    if (activeStep === 3 && (accountingType !== 'estimate' || !selectedEstimate?.items || selectedEstimate.items.length === 0)) {
+    if (activeStep === 3 && (accountingType !== 'estimate' || !selectedEstimate)) {
       handleNext();
     }
   }, [activeStep, accountingType, selectedEstimate]);
@@ -131,7 +141,7 @@ export const StartWorkFromContractorDialog: React.FC<StartWorkDialogProps> = ({ 
             <List>
               {projectEstimates.map(e => (
                 <ListItemButton key={e.id} onClick={() => setSelectedEstimate(e)} selected={selectedEstimate?.id === e.id}>
-                  <ListItemText primary={e.name} />
+                  <ListItemText primary={e.number} />
                 </ListItemButton>
               ))}
             </List>
@@ -139,15 +149,16 @@ export const StartWorkFromContractorDialog: React.FC<StartWorkDialogProps> = ({ 
         }
         return null;
         case 3: // Выбор услуги (опционально)
-            if (accountingType === 'estimate' && selectedEstimate && selectedEstimate.items && selectedEstimate.items.length > 0) {
+            if (accountingType === 'estimate' && selectedEstimate) {
               return (
                 <>
                   <FormControlLabel
                     control={<Checkbox checked={!selectedService} onChange={() => setSelectedService(null)} />}
-                    label={`Работа по смете в целом: ${selectedEstimate.name}`}
+                    label={`Работа по смете в целом: ${selectedEstimate.number}`}
                   />
                   <List>
-                    {selectedEstimate.items?.map(item => (
+                    {/* TODO: Использовать получение элементов сметы из V2 API */}
+                    {(selectedEstimate as any).items?.map((item: any) => (
                       <ListItemButton key={item.id} onClick={() => setSelectedService(item)} selected={selectedService?.id === item.id}>
                         <ListItemText primary={item.name} />
                       </ListItemButton>
@@ -163,7 +174,7 @@ export const StartWorkFromContractorDialog: React.FC<StartWorkDialogProps> = ({ 
           <Box textAlign="center">
             <Typography>Проект: {selectedProject?.name}</Typography>
             {selectedTask && <Typography>Задача: {selectedTask?.task}</Typography>}
-            {selectedEstimate && <Typography>Смета: {selectedEstimate?.name}</Typography>}
+            {selectedEstimate && <Typography>Смета: {selectedEstimate?.number}</Typography>}
             {selectedService && <Typography>Услуга: {selectedService?.name}</Typography>}
             <TimeTrackingButton
               project={selectedProject}

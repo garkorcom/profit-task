@@ -1,11 +1,57 @@
+/**
+ * ============================================================================
+ * TIME TRACKING CONTEXT - ЦЕНТРАЛЬНАЯ СИСТЕМА УЧЕТА ВРЕМЕНИ
+ * ============================================================================
+ * 
+ * НАЗНАЧЕНИЕ:
+ * ═══════════
+ * Глобальный контекст для управления состоянием учета времени во всем приложении.
+ * Обеспечивает единую точку управления таймерами, записями времени и состоянием работы.
+ * 
+ * КЛЮЧЕВЫЕ ВОЗМОЖНОСТИ:
+ * ═══════════════════════
+ * 
+ * 🎯 УПРАВЛЕНИЕ ТАЙМЕРАМИ:
+ * ├─ startWork() - запуск учета времени по задаче/смете
+ * ├─ stopWork() - остановка и сохранение записи
+ * ├─ pauseWork() - приостановка с сохранением времени
+ * └─ resumeWork() - возобновление после паузы
+ * 
+ * 📊 СОСТОЯНИЕ СИСТЕМЫ:
+ * ├─ isWorking - флаг активного учета времени
+ * ├─ isPaused - флаг паузы
+ * ├─ currentEntry - текущая запись времени
+ * ├─ elapsedSeconds - прошедшее время в секундах
+ * └─ timeTrackingError - ошибки системы
+ * 
+ * 🔄 REAL-TIME ОБНОВЛЕНИЯ:
+ * ├─ Автоматическое обновление счетчика времени
+ * ├─ Синхронизация с Firebase в реальном времени
+ * ├─ Восстановление состояния после перезагрузки
+ * └─ Optimistic UI updates
+ * 
+ * 🛡️ БЕЗОПАСНОСТЬ ДАННЫХ:
+ * ├─ Валидация всех входных данных
+ * ├─ Избежание undefined значений для Firestore
+ * ├─ Graceful обработка ошибок сети
+ * └─ Автоматическое сохранение при сбоях
+ * 
+ * 🎨 V2 АРХИТЕКТУРА:
+ * ├─ Использование типов из src/types/ (Project, Task, Estimate)
+ * ├─ Интеграция с timeEntryUnified API
+ * ├─ Поддержка estimate.number вместо estimate.name
+ * └─ Совместимость с новой системой смет
+ * 
+ * ПОСЛЕДНЕЕ ОБНОВЛЕНИЕ: 2025 - Исправлены Firestore undefined ошибки
+ * ============================================================================
+ */
+
 import React, { createContext, useContext, useState, useEffect, ReactNode } from 'react';
 import { useAuth } from '../auth/AuthContext';
 import { 
   changeTaskStatus, 
   submitTaskForReview,
-  TaskStatus,
   getTasksStream,
-  Task
 } from '../api/taskApi';
 import { 
   createTimeEntry, 
@@ -20,9 +66,10 @@ import {
   completeTimeEntry
 } from '../api/timeEntryUnified';
 import { doc, getDoc } from 'firebase/firestore';
-import { Estimate, EstimateItem } from '../legacy/api/estimateApi';
-import { Project } from '../api/projectApi';
 import { db } from '../firebase/firebase';
+import { Estimate, EstimateItem } from '../types/estimate.types';
+import { Project } from '../types/project.types';
+import { Task, TaskStatus } from '../types/task.types';
 
 // Типы для глобального управления UI
 export interface ModalPrefillData {
@@ -106,7 +153,7 @@ export interface StartWorkPayload {
   task?: Task;
   estimate?: Estimate;
   service?: EstimateItem;
-  project: Project; // Проект теперь обязателен
+  project: Project;
   startPhoto?: File;
   location?: GeolocationPosition;
 }
@@ -360,10 +407,10 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     // ID для записи в TimeEntry. Для сметы это будет "виртуальный" ID.
     const taskId = task?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
-    const taskName = task?.task || service?.name || estimate?.name || 'Работа';
+    const taskName = task?.task || service?.name || estimate?.number || 'Работа';
 
     try {
-      // Создаем "черновик" записи без времени
+      // Создаем "черновик" записи без времени (только определенные значения)
       const entryDraft: Partial<TimeEntry> = {
         userId: currentUser.uid,
         taskId: taskId,
@@ -372,18 +419,28 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         projectName: project.name,
         employeeId: currentUser.uid,
         employeeName: currentUser.displayName || currentUser.email || '',
-        status: 'active' as TimeEntryStatus,
-        ...(estimate && { estimateId: estimate.id, estimateName: estimate.name }),
-        ...(service && { serviceId: service.id, serviceName: service.name }),
-        ...(location && {
-          startLocation: {
-            latitude: location.coords.latitude,
-            longitude: location.coords.longitude,
-            ...(location.coords.accuracy && { accuracy: location.coords.accuracy }),
-            timestamp: new Date(location.timestamp)
-          }
-        })
+        status: 'active' as TimeEntryStatus
       };
+
+      // Добавляем только определенные значения (избегаем undefined)
+      if (estimate?.id) {
+        entryDraft.estimateId = estimate.id;
+        entryDraft.estimateName = estimate.number;
+      }
+      
+      if (service?.id) {
+        entryDraft.serviceId = service.id;
+        entryDraft.serviceName = service.name;
+      }
+      
+      if (location) {
+        entryDraft.startLocation = {
+          latitude: location.coords.latitude,
+          longitude: location.coords.longitude,
+          ...(location.coords.accuracy && { accuracy: location.coords.accuracy }),
+          timestamp: new Date(location.timestamp)
+        };
+      }
       
       // Шаг 1: Создаем запись в БД, которая вернет ID.
       // startTime будет установлено на сервере.
@@ -472,7 +529,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       console.log('🎉 УЧЕТ ВРЕМЕНИ УСПЕШНО НАЧАТ!');
       console.log('🏢 Проект:', project.name);
       console.log('Актив:', taskName);
-      if (estimate) console.log('📊 Смета:', estimate.name);
+      if (estimate) console.log('📊 Смета:', estimate.number);
       if (service) console.log('🔧 Услуга:', service.name);
       
     } catch (error: any) {

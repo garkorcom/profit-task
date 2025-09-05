@@ -46,9 +46,11 @@ import {
   updateContractor,
   Contractor
 } from '../api/contractorApi';
-import { getTasksStream, Task } from '../api/taskApi';
-import StartWorkFromContractorDialog from '../components/StartWorkFromContractorDialog'; // Импортируем новый компонент
-import { Estimate, getEstimatesStream } from '../legacy/api/estimateApi';
+import { getTasksStream } from '../api/taskApi';
+import StartWorkFromContractorDialog from '../components/StartWorkFromContractorDialog';
+import { Task } from '../types/task.types';
+import { Estimate } from '../types/estimate.types';
+import { getEstimates } from '../api/estimateV2Api';
 
 const ContractorsPage: React.FC = () => {
   const { currentUser } = useAuth();
@@ -105,13 +107,21 @@ const ContractorsPage: React.FC = () => {
     // Загружаем все необходимые данные
     const unsubContractors = getContractorsStream(currentUser.uid, setContractors);
     const unsubTasks = getTasksStream(currentUser.uid, setTasks);
-    const unsubEstimates = getEstimatesStream(currentUser.uid, '', setEstimates);
+    // Загружаем сметы через V2 API
+    const loadEstimates = async () => {
+      try {
+        const loadedEstimates = await getEstimates(currentUser.uid);
+        setEstimates(loadedEstimates);
+      } catch (error) {
+        console.error('Error loading estimates:', error);
+      }
+    };
+    loadEstimates();
     
     setLoading(false);
     return () => {
       unsubContractors();
       unsubTasks();
-      unsubEstimates();
     };
   }, [currentUser]);
 
@@ -207,7 +217,7 @@ const ContractorsPage: React.FC = () => {
 
   const contractorHasLinks = (contractorId: string) => {
     const hasTasks = tasks.some(t => t.contractorId === contractorId);
-    const hasEstimates = estimates.some(e => e.contractorId === contractorId);
+    const hasEstimates = estimates.some(e => e.counterpartyId === contractorId);
     return hasTasks || hasEstimates;
   };
 

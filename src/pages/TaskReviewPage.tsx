@@ -25,7 +25,7 @@ import {
   Badge,
   CircularProgress
 } from '@mui/material';
-import { GridLegacy as Grid } from '@mui/material';
+import { Grid } from '@mui/material';
 import {
   CheckCircle as ApproveIcon,
   Cancel as RejectIcon,

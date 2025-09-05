@@ -1,15 +1,16 @@
-import React, { useState, useEffect, useMemo } from 'react';
-import {
-  Dialog, DialogTitle, DialogContent, Stepper, Step, StepLabel,
-  StepContent, List, ListItemButton, ListItemText, Button, Box,
-  Stack, Typography, Checkbox, FormControlLabel, IconButton
+import React, { useState, useEffect, useMemo, useCallback } from 'react';
+import { 
+  Dialog, DialogTitle, DialogContent, DialogActions, Button, Stepper, 
+  Step, StepLabel, StepContent, Box, List, ListItemButton, ListItemText, 
+  Typography, Stack, IconButton, FormControlLabel, Checkbox
 } from '@mui/material';
 import { Close as CloseIcon } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
-import { Project, getProjectsStream } from '../api/projectApi';
-import { Task, getTasksStream } from '../api/taskApi';
-import { Estimate, EstimateItem, getEstimatesStream } from '../legacy/api/estimateApi';
+import { Project } from '../types/project.types';
+import { Task } from '../types/task.types';
+import { Estimate, EstimateItem } from '../types/estimate.types';
 import { TimeTrackingButton } from './TimeTrackingButton';
+import { useStartWorkData } from '../hooks/useStartWorkData';
 
 interface StartWorkDialogProps {
   open: boolean;
@@ -19,11 +20,6 @@ interface StartWorkDialogProps {
 export const StartWorkDialog: React.FC<StartWorkDialogProps> = ({ open, onClose }) => {
   const { currentUser } = useAuth();
   
-  const [projects, setProjects] = useState<Project[]>([]);
-  const [tasks, setTasks] = useState<Task[]>([]);
-  const [estimates, setEstimates] = useState<Estimate[]>([]);
-  const [allEstimates, setAllEstimates] = useState<Estimate[]>([]); // Все сметы для привязки
-
   const [activeStep, setActiveStep] = useState(0);
   const [selectedProject, setSelectedProject] = useState<Project | null>(null);
   const [accountingType, setAccountingType] = useState<'task' | 'estimate' | null>(null);
@@ -31,81 +27,43 @@ export const StartWorkDialog: React.FC<StartWorkDialogProps> = ({ open, onClose 
   const [selectedEstimate, setSelectedEstimate] = useState<Estimate | null>(null);
   const [selectedService, setSelectedService] = useState<EstimateItem | null>(null);
 
+  // Используем централизованный хук для загрузки данных
+  const {
+    projects,
+    tasks,
+    estimates,
+    allEstimates,
+    isLoadingProjects,
+    isLoadingTasks,
+    isLoadingEstimates,
+    projectsError,
+    tasksError,
+    estimatesError
+  } = useStartWorkData({
+    userId: currentUser?.uid,
+    selectedProjectId: selectedProject?.id,
+    open
+  });
+
+  // Сбрасываем состояние при открытии диалога
   useEffect(() => {
-    console.log('🎬 StartWorkDialog useEffect triggered:', { open, hasCurrentUser: !!currentUser, userId: currentUser?.uid });
-    
-    if (!open || !currentUser) {
-      console.log('❌ StartWorkDialog: Skipping load - open:', open, 'currentUser:', !!currentUser);
-      return;
+    if (open) {
+      setActiveStep(0);
+      setSelectedProject(null);
+      setAccountingType(null);
+      setSelectedTask(null);
+      setSelectedEstimate(null);
+      setSelectedService(null);
     }
-    
-    // Сбрасываем состояние при открытии
-    setActiveStep(0);
-    setSelectedProject(null);
-    setAccountingType(null);
-    setSelectedTask(null);
-    setSelectedEstimate(null);
-    setSelectedService(null);
-
-    console.log('🔄 StartWorkDialog: Loading projects for user:', currentUser.uid);
-    
-    const unsubProjects = getProjectsStream(currentUser.uid, (loadedProjects) => {
-      console.log('📁 StartWorkDialog: Projects loaded:', loadedProjects.length);
-      console.log('📁 StartWorkDialog: Projects data:', loadedProjects);
-      setProjects(loadedProjects);
-    });
-    
-    // Загружаем ВСЕ сметы для возможности привязки
-    const unsubAllEstimates = getEstimatesStream(currentUser.uid, '', (loadedAllEstimates) => {
-      console.log('📊 StartWorkDialog: All estimates loaded:', loadedAllEstimates.length);
-      setAllEstimates(loadedAllEstimates);
-    });
-    
-    // Отписываемся от предыдущих стримов задач и смет
-    const cleanup = () => {
-      unsubProjects();
-      unsubAllEstimates();
-    };
-
-    return cleanup;
-  }, [open, currentUser]);
-
-  // Загружаем задачи и сметы ТОЛЬКО при выборе проекта
-  useEffect(() => {
-    if (selectedProject && currentUser) {
-      console.log('🔄 Loading data for project:', selectedProject.name, selectedProject.id);
-      
-      const unsubTasks = getTasksStream(currentUser.uid, (loadedTasks) => {
-        console.log('📋 Loaded tasks:', loadedTasks.length, 'for project:', selectedProject.id);
-        console.log('📋 Tasks data:', loadedTasks);
-        setTasks(loadedTasks);
-      }, selectedProject.id);
-      
-      const unsubEstimates = getEstimatesStream(currentUser.uid, selectedProject.id, (loadedEstimates) => {
-        console.log('📊 Loaded estimates:', loadedEstimates.length, 'for project:', selectedProject.id);
-        console.log('📊 Estimates data:', loadedEstimates);
-        setEstimates(loadedEstimates);
-      });
-      
-      return () => {
-        unsubTasks();
-        unsubEstimates();
-      };
-    } else {
-      // Если проект не выбран, очищаем списки
-      console.log('🧹 Clearing tasks and estimates - no project selected');
-      setTasks([]);
-      setEstimates([]);
-    }
-  }, [selectedProject, currentUser]);
+  }, [open]);
 
   // Функции навигации
-  const handleNext = () => setActiveStep(prev => prev + 1);
-  const handleBack = () => setActiveStep(prev => prev - 1);
+  const handleNext = useCallback(() => setActiveStep(prev => prev + 1), []);
+  const handleBack = useCallback(() => setActiveStep(prev => prev - 1), []);
 
   // Эффект для автоматического пропуска шага выбора услуги
   useEffect(() => {
-    if (activeStep === 3 && (accountingType !== 'estimate' || !selectedEstimate?.items || selectedEstimate.items.length === 0)) {
+    if (activeStep === 3 && (accountingType !== 'estimate' || !selectedEstimate)) {
       handleNext();
     }
   }, [activeStep, accountingType, selectedEstimate]);
@@ -161,7 +119,7 @@ export const StartWorkDialog: React.FC<StartWorkDialogProps> = ({ open, onClose 
         projectId: selectedProject.id
       });
       
-      console.log('✅ Смета привязана к проекту:', selectedProject.name, estimateToLink.name);
+      console.log('✅ Смета привязана к проекту:', selectedProject.name, estimateToLink.number);
       
     } catch (error) {
       console.error('❌ Ошибка привязки сметы:', error);
@@ -253,7 +211,7 @@ export const StartWorkDialog: React.FC<StartWorkDialogProps> = ({ open, onClose 
             <List>
               {projectEstimates.map(e => (
                 <ListItemButton key={e.id} onClick={() => setSelectedEstimate(e)} selected={selectedEstimate?.id === e.id}>
-                  <ListItemText primary={e.name} />
+                  <ListItemText primary={e.number} />
                 </ListItemButton>
               ))}
             </List>
@@ -261,15 +219,16 @@ export const StartWorkDialog: React.FC<StartWorkDialogProps> = ({ open, onClose 
         }
         return null;
         case 3: // Выбор услуги (опционально)
-            if (accountingType === 'estimate' && selectedEstimate && selectedEstimate.items && selectedEstimate.items.length > 0) {
+            if (accountingType === 'estimate' && selectedEstimate) {
               return (
                 <>
                   <FormControlLabel
                     control={<Checkbox checked={!selectedService} onChange={() => setSelectedService(null)} />}
-                    label={`Работа по смете в целом: ${selectedEstimate.name}`}
+                    label={`Работа по смете в целом: ${selectedEstimate.number}`}
                   />
                   <List>
-                    {selectedEstimate.items?.map(item => (
+                    {/* TODO: Использовать получение элементов сметы из V2 API */}
+                    {(selectedEstimate as any).items?.map((item: any) => (
                       <ListItemButton key={item.id} onClick={() => setSelectedService(item)} selected={selectedService?.id === item.id}>
                         <ListItemText primary={item.name} />
                       </ListItemButton>
@@ -285,7 +244,7 @@ export const StartWorkDialog: React.FC<StartWorkDialogProps> = ({ open, onClose 
           <Box textAlign="center">
             <Typography>Проект: {selectedProject?.name}</Typography>
             {selectedTask && <Typography>Задача: {selectedTask?.task}</Typography>}
-            {selectedEstimate && <Typography>Смета: {selectedEstimate?.name}</Typography>}
+            {selectedEstimate && <Typography>Смета: {selectedEstimate?.number}</Typography>}
             {selectedService && <Typography>Услуга: {selectedService?.name}</Typography>}
             <TimeTrackingButton
               project={selectedProject}

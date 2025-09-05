@@ -400,7 +400,7 @@ export const EstimateTemplates: React.FC<EstimateTemplatesProps> = ({
             {/* Список шаблонов */}
             <Grid container spacing={2}>
               {filteredTemplates.map(template => (
-                <Grid size={{ xs: 12, md: 6 }} key={template.id}>
+                <Grid xs={12} md={6} key={template.id}>
                   <Card>
                     <CardContent>
                       <Box display="flex" justifyContent="space-between" alignItems="start">

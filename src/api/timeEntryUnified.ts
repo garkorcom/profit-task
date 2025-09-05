@@ -450,33 +450,32 @@ export const createTimeEntry = async (
   userId: string,
   data: Partial<TimeEntry>
 ): Promise<string> => {
-  const timeEntry: Omit<TimeEntry, 'id' | 'startTime' | 'createdAt' | 'updatedAt'> & { 
-    startTime: any, 
-    createdAt: any, 
-    updatedAt: any 
-  } = {
+  // Создаем базовую запись только с обязательными полями
+  const timeEntry: any = {
     userId,
     taskId: data.taskId || '',
-    projectId: data.projectId,
-    estimateId: data.estimateId,
-    serviceId: data.serviceId,
     status: 'active',
     activeDuration: 0,
     totalDuration: 0,
     totalPauseDuration: 0,
     pauses: [],
-    startLocation: data.startLocation,
-    startPhotoUrl: data.startPhotoUrl,
     // Используем serverTimestamp для точности
     startTime: serverTimestamp(), 
     createdAt: serverTimestamp(),
-    updatedAt: serverTimestamp(),
-    task: data.task,
-    project: data.project,
-    estimate: data.estimate,
-    description: data.description,
-    comment: data.comment
+    updatedAt: serverTimestamp()
   };
+
+  // Добавляем только определенные значения (избегаем undefined)
+  if (data.projectId) timeEntry.projectId = data.projectId;
+  if (data.estimateId) timeEntry.estimateId = data.estimateId;
+  if (data.serviceId) timeEntry.serviceId = data.serviceId;
+  if (data.startLocation) timeEntry.startLocation = data.startLocation;
+  if (data.startPhotoUrl) timeEntry.startPhotoUrl = data.startPhotoUrl;
+  if (data.task) timeEntry.task = data.task;
+  if (data.project) timeEntry.project = data.project;
+  if (data.estimate) timeEntry.estimate = data.estimate;
+  if (data.description) timeEntry.description = data.description;
+  if (data.comment) timeEntry.comment = data.comment;
 
   const docRef = await addDoc(
     collection(db, `users/${userId}/timeEntries`),

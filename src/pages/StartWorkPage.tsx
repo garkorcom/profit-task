@@ -78,7 +78,7 @@ const StartWorkPage: React.FC = () => {
     return projects
       .filter(p => p.status === 'active')
       .map(project => {
-        const startableTasks = tasks.filter(task => task.projectId === project.id && canStartWork(task));
+        const startableTasks = tasks.filter(task => task.projectId === project.id && canStartWork(task as any));
         const projectEstimates = estimates.filter(estimate => estimate.projectId === project.id);
         return {
           ...project,
@@ -91,7 +91,7 @@ const StartWorkPage: React.FC = () => {
 
 
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
-  const startableTasksForSelectedProject = useMemo(() => tasks.filter(task => task.projectId === selectedProjectId && canStartWork(task)), [tasks, selectedProjectId, canStartWork]);
+  const startableTasksForSelectedProject = useMemo(() => tasks.filter(task => task.projectId === selectedProjectId && canStartWork(task as any)), [tasks, selectedProjectId, canStartWork]);
   const estimatesForSelectedProject = useMemo(() => estimates.filter(estimate => estimate.projectId === selectedProjectId), [estimates, selectedProjectId]);
 
   const handleSelectProject = (projectId: string) => {
@@ -195,10 +195,10 @@ const StartWorkPage: React.FC = () => {
                   </Typography>
                 </Box>
                 <TimeTrackingButton
-                    project={selectedProject || null}
-                    task={selectedTask || null}
-                    estimate={selectedEstimate || null}
-                    service={selectedService || null}
+                    project={selectedProject as any || null}
+                    task={selectedTask as any || null}
+                    estimate={selectedEstimate as any || null}
+                    service={selectedService as any || null}
                     onStart={handleStart}
                 />
               </Stack>

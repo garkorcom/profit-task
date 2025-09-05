@@ -1,18 +1,10 @@
 import React, { useState } from 'react';
-import {
-  Button,
-  Stack,
-  Alert,
-  CircularProgress,
-} from '@mui/material';
+import { Button, Stack, Alert, CircularProgress } from '@mui/material';
 import { PlayArrow as PlayIcon, PhotoCamera as CameraIcon, Stop as StopIcon, Pause as PauseIcon } from '@mui/icons-material';
-import {
-  StartWorkPayload,
-  useTimeTracking
-} from '../contexts/TimeTrackingContext';
-import { Project } from '../api/projectApi';
-import { Task } from '../api/taskApi';
-import { Estimate, EstimateItem } from '../legacy/api/estimateApi';
+import { StartWorkPayload, useTimeTracking } from '../contexts/TimeTrackingContext';
+import { Project } from '../types/project.types';
+import { Task } from '../types/task.types';
+import { Estimate, EstimateItem } from '../types/estimate.types';
 
 interface TimeTrackingButtonProps {
   project: Project | null;
@@ -147,4 +139,4 @@ export const TimeTrackingButton: React.FC<TimeTrackingButtonProps> = ({
   );
 };
 
-export default TimeTrackingButton;
+// NO DEFAULT EXPORT

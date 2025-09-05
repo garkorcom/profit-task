@@ -1,10 +1,10 @@
 import React, { useState, useEffect, useMemo } from 'react';
 import {
-  Box, Typography, Button, Container, Stack, IconButton, Chip,
-  Paper, useTheme, useMediaQuery, Avatar, List, ListItem,
-  ListItemText, ListItemAvatar, Card, CardContent, Fab, 
-  Zoom, Fade, Grow, LinearProgress, Badge, Tooltip
+  Box, Typography, Button, Container, Stack, Paper, useTheme,
+  useMediaQuery, Avatar, List, ListItem, ListItemText, ListItemAvatar,
+  Card, CardContent, Fab, Zoom, Fade, Grow, LinearProgress, Badge, Tooltip, IconButton, Chip
 } from '@mui/material';
+import Grid from '@mui/material/Unstable_Grid2';
 import {
   PlayCircleOutline as StartWorkIcon,
   AddTask as NewTaskIcon,
@@ -28,10 +28,12 @@ import {
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
-import { Project, getProjectsStream } from '../api/projectApi';
-import { Task, getTasksStream } from '../api/taskApi';
+import { subscribeToProjects } from '../api/projectV2Api';
+import { getTasksStream } from '../api/taskApi';
 import { TimeEntry, getTimeEntriesStream } from '../api/timeEntryUnified';
-import StartWorkDialog from '../components/StartWorkDialog';
+import { Project } from '../types/project.types';
+import { Task } from '../types/task.types';
+import { StartWorkDialog } from '../components/StartWorkDialog';
 import LoadingSpinner from '../components/common/LoadingSpinner';
 
 const HomePage: React.FC = () => {
@@ -39,7 +41,7 @@ const HomePage: React.FC = () => {
   const navigate = useNavigate();
   const { currentUser } = useAuth();
   const { isWorking, currentEntry, elapsedSeconds, stopWork } = useTimeTracking();
-  const isMobile = useMediaQuery(theme.breakpoints.down('md')); // 1024px для мобильной версии
+  const isMobile = useMediaQuery(theme.breakpoints.down('md'));
 
   const [projects, setProjects] = useState<Project[]>([]);
   const [tasks, setTasks] = useState<Task[]>([]);
@@ -49,41 +51,32 @@ const HomePage: React.FC = () => {
 
   useEffect(() => {
     if (!currentUser) return;
-    
-    console.log('🚀 Loading HomePage data for user:', currentUser.uid);
-    setLoading(true);
-    
+
     let loadedCount = 0;
     const totalStreams = 3;
-    
     const checkAllLoaded = () => {
       loadedCount++;
       if (loadedCount === totalStreams) {
-        console.log('✅ All HomePage streams loaded');
         setLoading(false);
       }
     };
-    
-    const unsubProjects = getProjectsStream(currentUser.uid, (data) => {
-      console.log('📁 Projects loaded:', data.length);
+
+    const unsubProjects = subscribeToProjects(currentUser.uid, (data) => {
       setProjects(data);
       checkAllLoaded();
     });
     
     const unsubTasks = getTasksStream(currentUser.uid, (data) => {
-      console.log('📋 Tasks loaded:', data.length);
       setTasks(data);
       checkAllLoaded();
     });
     
-    const unsubTime = getTimeEntriesStream(currentUser.uid, (entries) => {
-      console.log('⏰ Time entries loaded:', entries.length);
+    const unsubTime = getTimeEntriesStream(currentUser.uid, (entries: TimeEntry[]) => {
       setTimeEntries(entries);
       checkAllLoaded();
     });
-    
+
     return () => {
-      console.log('🔌 Unsubscribing from HomePage streams');
       unsubProjects();
       unsubTasks();
       unsubTime();

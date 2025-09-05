@@ -13,7 +13,7 @@ import {
   Container,
   Card,
   CardContent,
-  GridLegacy as Grid,
+  Grid,
 } from '@mui/material';
 import {
   Assessment as AssessmentIcon,

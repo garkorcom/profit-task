@@ -26,7 +26,7 @@ import {
   InputAdornment,
   SelectChangeEvent
 } from '@mui/material';
-import { GridLegacy as Grid } from '@mui/material';
+import { Grid } from '@mui/material';
 import {
   Edit as EditIcon,
   Save as SaveIcon,

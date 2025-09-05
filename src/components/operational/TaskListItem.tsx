@@ -32,10 +32,25 @@ const TaskListItem: React.FC<TaskListItemProps> = ({ task }) => {
         
         // Запускаем новый таймер
         await startWork({
-          project: { 
-            id: task.phase === 'execution' ? (task as any).projectId : undefined,
-            name: task.name
-          },
+          project: task.phase === 'execution' ? {
+            id: (task as any).projectId,
+            name: task.name,
+            type: 'residential_new' as any,
+            status: 'active' as any,
+            priority: 'medium' as any,
+            location: { address: '', city: '', country: '' } as any,
+            participants: [] as any,
+            financials: { currency: 'RUB' } as any
+          } as any : {
+            id: 'temp',
+            name: 'Временный проект',
+            type: 'residential_new' as any,
+            status: 'active' as any,
+            priority: 'medium' as any,
+            location: { address: '', city: '', country: '' } as any,
+            participants: [] as any,
+            financials: { currency: 'RUB' } as any
+          } as any,
           task: task.phase === 'execution' ? {
             id: task.id,
             task: task.name,
@@ -45,10 +60,28 @@ const TaskListItem: React.FC<TaskListItemProps> = ({ task }) => {
           estimate: task.phase === 'pre_construction' ? {
             id: (task as any).estimateId || '',
             number: task.name,
-            items: [],
-            subtotal: 0,
-            total: 0
-          } : undefined
+            status: 'draft' as any,
+            revision: 1,
+            currency: 'RUB',
+            totals: {
+              materialsCost: 0,
+              laborCost: 0,
+              equipmentCost: 0,
+              subcontractCost: 0,
+              overheadPct: 0,
+              overheadAmt: 0,
+              discountAmt: 0,
+              shippingAmt: 0,
+              subtotalPrice: 0,
+              taxAmt: 0,
+              grandTotal: 0,
+              grossMarginPct: 0
+            },
+            blocks: [],
+            createdBy: '',
+            createdAt: '',
+            updatedAt: ''
+          } as any : undefined
         });
       } else {
         await stopWork();

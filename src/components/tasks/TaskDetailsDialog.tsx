@@ -25,7 +25,7 @@ import {
   Tab,
   Tabs
 } from '@mui/material';
-import { GridLegacy as Grid } from '@mui/material';
+import { Grid } from '@mui/material';
 import {
   Timeline,
   TimelineItem,

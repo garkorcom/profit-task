@@ -207,7 +207,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
       <DialogContent>
         {/* Заголовок сравнения */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={5}>
+          <Grid xs={5}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -228,13 +228,13 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
             </Card>
           </Grid>
           
-          <Grid size={2}>
+          <Grid xs={2}>
             <Box display="flex" justifyContent="center" alignItems="center" height="100%">
               <CompareIcon fontSize="large" color="action" />
             </Box>
           </Grid>
           
-          <Grid size={5}>
+          <Grid xs={5}>
             <Card>
               <CardContent>
                 <Typography variant="h6" gutterBottom>
@@ -258,7 +258,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
 
         {/* Сводка изменений */}
         <Grid container spacing={2} sx={{ mb: 3 }}>
-          <Grid size={3}>
+          <Grid xs={3}>
             <Card sx={{ bgcolor: 'success.light' }}>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -269,7 +269,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
               </CardContent>
             </Card>
           </Grid>
-          <Grid size={3}>
+          <Grid xs={3}>
             <Card sx={{ bgcolor: 'warning.light' }}>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -280,7 +280,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
               </CardContent>
             </Card>
           </Grid>
-          <Grid size={3}>
+          <Grid xs={3}>
             <Card sx={{ bgcolor: 'error.light' }}>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={1}>
@@ -291,7 +291,7 @@ export const EstimateVersionComparison: React.FC<EstimateVersionComparisonProps>
               </CardContent>
             </Card>
           </Grid>
-          <Grid size={3}>
+          <Grid xs={3}>
             <Card>
               <CardContent>
                 <Box display="flex" alignItems="center" gap={1}>

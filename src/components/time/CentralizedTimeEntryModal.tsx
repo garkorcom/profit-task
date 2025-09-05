@@ -126,7 +126,7 @@ export const CentralizedTimeEntryModal: React.FC<CentralizedTimeEntryModalProps>
 
     // Предзаполнение проекта
     if (prefillData.project) {
-      setSelectedProject(prefillData.project);
+      setSelectedProject(prefillData.project as any);
       setActiveStep(1);
     }
 
@@ -139,7 +139,7 @@ export const CentralizedTimeEntryModal: React.FC<CentralizedTimeEntryModalProps>
 
     // Предзаполнение сметы
     if (prefillData.estimate) {
-      setSelectedEstimate(prefillData.estimate);
+      setSelectedEstimate(prefillData.estimate as any);
       setAccountingType('estimate');
       setActiveStep(2);
     }
@@ -181,10 +181,10 @@ export const CentralizedTimeEntryModal: React.FC<CentralizedTimeEntryModalProps>
 
     try {
       await startWork({
-        project: selectedProject,
+        project: selectedProject as any,
         task: accountingType === 'task' ? selectedTask || undefined : undefined,
-        estimate: accountingType === 'estimate' ? selectedEstimate || undefined : undefined,
-        service: selectedService || undefined
+        estimate: accountingType === 'estimate' ? (selectedEstimate as any) || undefined : undefined,
+        service: (selectedService as any) || undefined
       });
       
       handleClose();
