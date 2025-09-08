@@ -38,6 +38,16 @@ import AboutPage from '../pages/AboutPage';
 import OperationalOverviewPage from '../pages/OperationalOverviewPage';
 import { useAuth } from '../auth/AuthContext';
 import StartWorkPage from '../pages/StartWorkPage'; // Импортируем новую страницу
+import AdminPage from '../pages/admin/AdminPage';
+import RoleManagementPage from '../pages/admin/RoleManagementPage';
+import ConditionalPermissionsTest from '../pages/admin/ConditionalPermissionsTest';
+import { TrajectoryPage } from '../modules/trajectory/TrajectoryPage';
+// import PermissionDebugger from '../components/admin/PermissionDebugger';
+// import AuditLogViewer from '../components/admin/AuditLogViewer';
+// import UserOffboardingManager from '../components/admin/UserOffboardingManager';
+// import MFASetup from '../components/auth/MFASetup';
+// import SessionManager from '../components/security/SessionManager';
+// import UserGroupsPage from '../pages/admin/UserGroupsPage';
 
 const AppRouter: React.FC = () => {
   const { currentUser } = useAuth();
@@ -84,6 +94,21 @@ const AppRouter: React.FC = () => {
             <Route path="/stock-docs" element={<StockDocumentsPage />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/claude-test" element={<ClaudeTest />} />
+            
+            {/* Модуль Траектория */}
+            <Route path="/trajectory" element={<TrajectoryPage />} />
+            
+            {/* Административные маршруты */}
+            <Route path="/admin" element={<AdminPage />} />
+            <Route path="/admin/roles" element={<RoleManagementPage />} />
+            {/* <Route path="/admin/permissions-debugger" element={<PermissionDebugger />} /> */}
+            {/* <Route path="/admin/audit-log" element={<AuditLogViewer />} /> */}
+            {/* <Route path="/admin/offboarding" element={<UserOffboardingManager />} /> */}
+            {/* <Route path="/security/mfa" element={<MFASetup />} /> */}
+            {/* <Route path="/security/sessions" element={<SessionManager />} /> */}
+            {/* <Route path="/admin/user-groups" element={<UserGroupsPage />} /> */}
+            <Route path="/admin/conditional-permissions-test" element={<ConditionalPermissionsTest />} />
+            
             {/* Старая система contractors - перенаправляем на новую */}
             <Route path="/contractors" element={<Navigate to="/counterparties" replace />} />
             <Route path="/contractors/:contractorId/tasks" element={<ContractorTasksPage />} />

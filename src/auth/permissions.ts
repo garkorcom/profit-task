@@ -4,6 +4,8 @@
  * Определяет роли пользователей и их разрешения в системе
  */
 
+import { CustomClaims } from './customClaims';
+
 /**
  * Все возможные разрешения в системе
  */
@@ -94,6 +96,39 @@ export enum Permission {
   VIEW_SETTINGS = 'view_settings',
   MANAGE_SETTINGS = 'manage_settings',
   
+  // RBAC Management - Динамические роли
+  MANAGE_ROLES = 'manage_roles',
+  VIEW_ROLES = 'view_roles',
+  CREATE_ROLES = 'create_roles',
+  DELETE_ROLES = 'delete_roles',
+  
+  // RBAC - Пользователи и роли
+  MANAGE_USERS = 'manage_users',
+  VIEW_USER_ROLES = 'view_user_roles',
+  ASSIGN_ROLES = 'assign_roles',
+  
+  // RBAC - Группы пользователей
+  MANAGE_GROUPS = 'manage_groups',
+  VIEW_GROUPS = 'view_groups',
+  CREATE_GROUPS = 'create_groups',
+  DELETE_GROUPS = 'delete_groups',
+  
+  // RBAC - Временные роли
+  MANAGE_TEMPORARY_ROLES = 'manage_temporary_roles',
+  VIEW_TEMPORARY_ROLES = 'view_temporary_roles',
+  CREATE_TEMPORARY_ROLES = 'create_temporary_roles',
+  
+  // RBAC - Делегирование полномочий
+  MANAGE_DELEGATIONS = 'manage_delegations',
+  VIEW_DELEGATIONS = 'view_delegations',
+  CREATE_DELEGATIONS = 'create_delegations',
+  REVOKE_DELEGATIONS = 'revoke_delegations',
+  
+  // RBAC - Разрешения и аудит
+  VIEW_USER_PERMISSIONS = 'view_user_permissions',
+  VIEW_RBAC_STATS = 'view_rbac_stats',
+  VIEW_AUDIT_LOGS = 'view_audit_logs',
+  
   // Разработка
   ACCESS_DEV_TOOLS = 'access_dev_tools',
   RUN_TESTS = 'run_tests',
@@ -102,7 +137,7 @@ export enum Permission {
 /**
  * Типы ролей в системе
  */
-export type UserRole = 'owner' | 'manager' | 'employee' | 'contractor' | 'estimator' | 'pm' | 'accountant' | 'field';
+export type UserRole = 'owner' | 'manager' | 'employee' | 'contractor' | 'estimator' | 'pm' | 'accountant' | 'field' | 'pending_approval' | 'deactivated';
 
 /**
  * Конфигурация разрешений для каждой роли
@@ -324,6 +359,12 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     // - Управлению проектами
     // - Утверждению времени других
   ],
+
+  // Ожидает одобрения - нет разрешений
+  pending_approval: [],
+
+  // Деактивированный - нет разрешений  
+  deactivated: []
 };
 
 /**
@@ -429,6 +470,13 @@ export function getRolePermissions(role: UserRole): Permission[] {
 }
 
 /**
+ * Получение всех возможных разрешений в системе
+ */
+export function getAllPermissions(): Permission[] {
+  return Object.values(Permission);
+}
+
+/**
  * Описания ролей для UI
  */
 export const roleDescriptions: Record<UserRole, { name: string; description: string; color: string }> = {
@@ -471,6 +519,16 @@ export const roleDescriptions: Record<UserRole, { name: string; description: str
     name: 'Исполнитель (Field)',
     description: 'Работник на объекте, учет времени и задач',
     color: '#8bc34a',
+  },
+  pending_approval: {
+    name: 'Ожидает одобрения',
+    description: 'Новый пользователь, ждет одобрения администратора',
+    color: '#ffa726',
+  },
+  deactivated: {
+    name: 'Деактивирован',
+    description: 'Пользователь деактивирован администратором',
+    color: '#f44336',
   },
 };
 
@@ -552,6 +610,191 @@ export const permissionDescriptions: Record<Permission, string> = {
   [Permission.VIEW_SETTINGS]: 'Просмотр настроек',
   [Permission.MANAGE_SETTINGS]: 'Управление настройками',
   
+  // RBAC описания
+  [Permission.MANAGE_ROLES]: 'Управление ролями RBAC',
+  [Permission.VIEW_ROLES]: 'Просмотр ролей RBAC',
+  [Permission.CREATE_ROLES]: 'Создание ролей RBAC',
+  [Permission.DELETE_ROLES]: 'Удаление ролей RBAC',
+  [Permission.MANAGE_USERS]: 'Управление пользователями RBAC',
+  [Permission.VIEW_USER_ROLES]: 'Просмотр ролей пользователей',
+  [Permission.ASSIGN_ROLES]: 'Назначение ролей пользователям',
+  [Permission.MANAGE_GROUPS]: 'Управление группами пользователей',
+  [Permission.VIEW_GROUPS]: 'Просмотр групп пользователей',
+  [Permission.CREATE_GROUPS]: 'Создание групп пользователей',
+  [Permission.DELETE_GROUPS]: 'Удаление групп пользователей',
+  [Permission.MANAGE_TEMPORARY_ROLES]: 'Управление временными ролями',
+  [Permission.VIEW_TEMPORARY_ROLES]: 'Просмотр временных ролей',
+  [Permission.CREATE_TEMPORARY_ROLES]: 'Создание временных ролей',
+  [Permission.MANAGE_DELEGATIONS]: 'Управление делегированием полномочий',
+  [Permission.VIEW_DELEGATIONS]: 'Просмотр делегированных полномочий',
+  [Permission.CREATE_DELEGATIONS]: 'Создание делегирования полномочий',
+  [Permission.REVOKE_DELEGATIONS]: 'Отзыв делегированных полномочий',
+  [Permission.VIEW_USER_PERMISSIONS]: 'Просмотр разрешений пользователей',
+  [Permission.VIEW_RBAC_STATS]: 'Просмотр статистики RBAC',
+  [Permission.VIEW_AUDIT_LOGS]: 'Просмотр журнала аудита',
+  
   [Permission.ACCESS_DEV_TOOLS]: 'Доступ к инструментам разработки',
   [Permission.RUN_TESTS]: 'Запуск тестов',
 };
+
+/**
+ * ИНТЕГРАЦИЯ С CUSTOM CLAIMS
+ * 
+ * Эти функции обеспечивают совместимость с новой архитектурой Custom Claims
+ * при сохранении обратной совместимости с существующими профилями
+ */
+
+/**
+ * Проверка разрешения с поддержкой Custom Claims
+ * Приоритет: Custom Claims > Profile Role > Fallback
+ */
+export function hasPermissionSecure(
+  customClaims: CustomClaims | null,
+  profileRole: UserRole | null,
+  permission: Permission
+): boolean {
+  // 1. Проверяем Custom Claims (приоритет)
+  if (customClaims?.isActive && customClaims?.permissions) {
+    return customClaims.permissions.includes(permission);
+  }
+  
+  // 2. Фоллбэк на роль из профиля
+  if (profileRole) {
+    return roleHasPermission(profileRole, permission);
+  }
+  
+  // 3. По умолчанию - нет доступа
+  return false;
+}
+
+/**
+ * Проверка роли с поддержкой Custom Claims
+ */
+export function hasRoleSecure(
+  customClaims: CustomClaims | null,
+  profileRole: UserRole | null,
+  requiredRole: UserRole
+): boolean {
+  // 1. Проверяем Custom Claims
+  if (customClaims?.isActive && customClaims?.role) {
+    return customClaims.role === requiredRole;
+  }
+  
+  // 2. Фоллбэк на роль из профиля
+  if (profileRole) {
+    return profileRole === requiredRole;
+  }
+  
+  return false;
+}
+
+/**
+ * Проверка активности пользователя
+ */
+export function isUserActiveSecure(
+  customClaims: CustomClaims | null,
+  profileActive: boolean = true
+): boolean {
+  // Если есть Custom Claims - используем их
+  if (customClaims !== null) {
+    return customClaims.isActive === true;
+  }
+  
+  // Фоллбэк на статус из профиля
+  return profileActive;
+}
+
+/**
+ * Получение эффективной роли пользователя
+ */
+export function getEffectiveRole(
+  customClaims: CustomClaims | null,
+  profileRole: UserRole | null
+): UserRole | null {
+  // Приоритет Custom Claims
+  if (customClaims?.isActive && customClaims?.role) {
+    return customClaims.role as UserRole;
+  }
+  
+  // Фоллбэк на роль из профиля
+  return profileRole;
+}
+
+/**
+ * Получение эффективных разрешений пользователя
+ */
+export function getEffectivePermissions(
+  customClaims: CustomClaims | null,
+  profileRole: UserRole | null
+): Permission[] {
+  // Если есть активные Custom Claims с разрешениями
+  if (customClaims?.isActive && customClaims?.permissions) {
+    return customClaims.permissions.map(p => p as Permission);
+  }
+  
+  // Фоллбэк на разрешения роли из профиля
+  if (profileRole) {
+    return getRolePermissions(profileRole);
+  }
+  
+  return [];
+}
+
+/**
+ * Проверка административных прав (owner/manager)
+ */
+export function hasAdminRightsSecure(
+  customClaims: CustomClaims | null,
+  profileRole: UserRole | null
+): boolean {
+  const effectiveRole = getEffectiveRole(customClaims, profileRole);
+  return effectiveRole === 'owner' || effectiveRole === 'manager';
+}
+
+/**
+ * Проверка финансовых прав (owner/accountant)
+ */
+export function hasFinancialRightsSecure(
+  customClaims: CustomClaims | null,
+  profileRole: UserRole | null
+): boolean {
+  const effectiveRole = getEffectiveRole(customClaims, profileRole);
+  return effectiveRole === 'owner' || effectiveRole === 'accountant';
+}
+
+/**
+ * Hook для использования в React компонентах
+ */
+export function usePermissions(
+  customClaims: CustomClaims | null,
+  profileRole: UserRole | null
+) {
+  return {
+    hasPermission: (permission: Permission) => 
+      hasPermissionSecure(customClaims, profileRole, permission),
+    
+    hasRole: (role: UserRole) => 
+      hasRoleSecure(customClaims, profileRole, role),
+    
+    hasAnyPermission: (permissions: Permission[]) => 
+      permissions.some(p => hasPermissionSecure(customClaims, profileRole, p)),
+    
+    hasAllPermissions: (permissions: Permission[]) => 
+      permissions.every(p => hasPermissionSecure(customClaims, profileRole, p)),
+    
+    isActive: () => 
+      isUserActiveSecure(customClaims, true),
+    
+    isAdmin: () => 
+      hasAdminRightsSecure(customClaims, profileRole),
+    
+    hasFinancialAccess: () => 
+      hasFinancialRightsSecure(customClaims, profileRole),
+    
+    getRole: () => 
+      getEffectiveRole(customClaims, profileRole),
+    
+    getPermissions: () => 
+      getEffectivePermissions(customClaims, profileRole),
+  };
+}

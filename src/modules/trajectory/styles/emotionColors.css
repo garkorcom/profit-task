@@ -1,0 +1,196 @@
+/**
+ * CSS переменные для цветовой схемы эмоций
+ * Модуль "Траектория"
+ */
+
+:root {
+  /* Цвета уровней эмоций */
+  --emotion-1: #FF6B6B;  /* Плохо */
+  --emotion-2: #FFA06B;  /* Неудовлетворительно */
+  --emotion-3: #FFD93D;  /* Нейтрально */
+  --emotion-4: #6BCF7F;  /* Хорошо */
+  --emotion-5: #4ECDC4;  /* Отлично */
+  
+  /* Альфа варианты для фонов */
+  --emotion-1-alpha: rgba(255, 107, 107, 0.1);
+  --emotion-2-alpha: rgba(255, 160, 107, 0.1);
+  --emotion-3-alpha: rgba(255, 217, 61, 0.1);
+  --emotion-4-alpha: rgba(108, 207, 127, 0.1);
+  --emotion-5-alpha: rgba(78, 205, 196, 0.1);
+  
+  /* Цвета слоев календаря */
+  --calendar-personal: #9c27b0;     /* Личные события развития */
+  --calendar-work: #3f51b5;         /* Рабочие задачи и TimeEntries */
+  --calendar-emotions: #ff9800;     /* Эмоциональные логи */
+  --calendar-google: #db4437;       /* Google Calendar события */
+  
+  /* Дополнительные цвета для траектории */
+  --trajectory-primary: #6366f1;    /* Основной цвет модуля */
+  --trajectory-secondary: #8b5cf6;  /* Вторичный цвет */
+  --trajectory-success: #10b981;    /* Успех/рост */
+  --trajectory-warning: #f59e0b;    /* Предупреждения */
+  --trajectory-danger: #ef4444;     /* Опасность/выгорание */
+  
+  /* Градиенты для визуализации */
+  --emotion-gradient-positive: linear-gradient(135deg, var(--emotion-4) 0%, var(--emotion-5) 100%);
+  --emotion-gradient-negative: linear-gradient(135deg, var(--emotion-2) 0%, var(--emotion-1) 100%);
+  --emotion-gradient-neutral: linear-gradient(135deg, var(--emotion-3) 0%, var(--emotion-3) 100%);
+  
+  /* Тени для эмоциональных элементов */
+  --emotion-shadow-light: 0 2px 8px rgba(0, 0, 0, 0.1);
+  --emotion-shadow-medium: 0 4px 16px rgba(0, 0, 0, 0.15);
+  --emotion-shadow-strong: 0 8px 32px rgba(0, 0, 0, 0.2);
+}
+
+/* Темная тема */
+@media (prefers-color-scheme: dark) {
+  :root {
+    /* Адаптированные цвета для темной темы */
+    --emotion-1: #ff7979;
+    --emotion-2: #fdcb6e;
+    --emotion-3: #f1c40f;
+    --emotion-4: #00b894;
+    --emotion-5: #00cec9;
+    
+    /* Более контрастные альфа варианты для темной темы */
+    --emotion-1-alpha: rgba(255, 121, 121, 0.15);
+    --emotion-2-alpha: rgba(253, 203, 110, 0.15);
+    --emotion-3-alpha: rgba(241, 196, 15, 0.15);
+    --emotion-4-alpha: rgba(0, 184, 148, 0.15);
+    --emotion-5-alpha: rgba(0, 206, 201, 0.15);
+  }
+}
+
+/* Утилитарные классы для быстрого применения цветов */
+.emotion-1 { background-color: var(--emotion-1); color: white; }
+.emotion-2 { background-color: var(--emotion-2); color: white; }
+.emotion-3 { background-color: var(--emotion-3); color: black; }
+.emotion-4 { background-color: var(--emotion-4); color: white; }
+.emotion-5 { background-color: var(--emotion-5); color: white; }
+
+.emotion-1-text { color: var(--emotion-1); }
+.emotion-2-text { color: var(--emotion-2); }
+.emotion-3-text { color: var(--emotion-3); }
+.emotion-4-text { color: var(--emotion-4); }
+.emotion-5-text { color: var(--emotion-5); }
+
+.emotion-1-bg { background-color: var(--emotion-1-alpha); }
+.emotion-2-bg { background-color: var(--emotion-2-alpha); }
+.emotion-3-bg { background-color: var(--emotion-3-alpha); }
+.emotion-4-bg { background-color: var(--emotion-4-alpha); }
+.emotion-5-bg { background-color: var(--emotion-5-alpha); }
+
+/* Анимации для эмоциональных элементов */
+@keyframes emotionPulse {
+  0% { transform: scale(1); }
+  50% { transform: scale(1.05); }
+  100% { transform: scale(1); }
+}
+
+@keyframes emotionSlideIn {
+  0% { 
+    opacity: 0; 
+    transform: translateY(20px); 
+  }
+  100% { 
+    opacity: 1; 
+    transform: translateY(0); 
+  }
+}
+
+.emotion-pulse {
+  animation: emotionPulse 2s ease-in-out infinite;
+}
+
+.emotion-slide-in {
+  animation: emotionSlideIn 0.3s ease-out;
+}
+
+/* Стили для компонентов траектории */
+.trajectory-card {
+  background: linear-gradient(135deg, 
+    rgba(99, 102, 241, 0.05) 0%, 
+    rgba(139, 92, 246, 0.05) 100%);
+  border: 1px solid rgba(99, 102, 241, 0.1);
+  border-radius: 12px;
+  transition: all 0.2s ease-in-out;
+}
+
+.trajectory-card:hover {
+  transform: translateY(-2px);
+  box-shadow: var(--emotion-shadow-medium);
+  border-color: rgba(99, 102, 241, 0.2);
+}
+
+/* Стили для календаря FullCalendar */
+.trajectory-calendar-event {
+  border-radius: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease-in-out;
+}
+
+.trajectory-calendar-event:hover {
+  transform: scale(1.02);
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.15);
+  z-index: 10;
+}
+
+/* Кастомизация FullCalendar для темы приложения */
+.fc-theme-standard .fc-scrollgrid {
+  border: 1px solid #e0e0e0;
+}
+
+.fc-theme-standard td,
+.fc-theme-standard th {
+  border-color: #e0e0e0;
+}
+
+.fc-col-header-cell {
+  background-color: #f5f5f5;
+  font-weight: 600;
+}
+
+.fc-daygrid-day-number {
+  color: #333;
+  font-weight: 500;
+}
+
+.fc-day-today {
+  background-color: rgba(99, 102, 241, 0.05) !important;
+}
+
+.fc-day-today .fc-daygrid-day-number {
+  background-color: var(--trajectory-primary);
+  color: white;
+  border-radius: 50%;
+  width: 24px;
+  height: 24px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 0.875rem;
+}
+
+/* Темная тема для календаря */
+@media (prefers-color-scheme: dark) {
+  .fc-theme-standard .fc-scrollgrid {
+    border-color: #424242;
+  }
+  
+  .fc-theme-standard td,
+  .fc-theme-standard th {
+    border-color: #424242;
+  }
+  
+  .fc-col-header-cell {
+    background-color: #333;
+    color: #fff;
+  }
+  
+  .fc-daygrid-day-number {
+    color: #fff;
+  }
+}

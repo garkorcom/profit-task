@@ -25,6 +25,7 @@ import SettingsIcon from '@mui/icons-material/Settings';
 import NotificationsIcon from '@mui/icons-material/Notifications';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
+import TimelineIcon from '@mui/icons-material/Timeline';
 import CriticalStockBell from '../dashboard/CriticalStockBell';
 import { usePermissions } from '../../auth/usePermissions';
 import { Permission } from '../../auth/permissions';
@@ -100,6 +101,14 @@ const allNavItems = [
     icon: <ContactsIcon />,
     permission: Permission.VIEW_ESTIMATES,
     color: '#00bcd4'
+  },
+  { 
+    path: '/trajectory', 
+    label: 'Траектория', 
+    value: 'trajectory', 
+    icon: <TimelineIcon />,
+    permission: null, // Доступно всем авторизованным пользователям
+    color: '#8b5cf6'
   },
   // Проекты теперь доступны в подменю Справочники
 ];
@@ -179,7 +188,8 @@ const MainLayout: React.FC = () => {
       '/units': 'Единицы измерения',
       '/delivery-methods': 'Способы доставки',
       '/bank-accounts': 'Банки и счета',
-      '/profile': 'Профиль'
+      '/profile': 'Профиль',
+      '/trajectory': 'Траектория'
     };
     
     return pathMap[location.pathname] || 'Страница';

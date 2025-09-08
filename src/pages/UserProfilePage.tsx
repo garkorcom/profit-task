@@ -37,10 +37,16 @@ import {
   WhatsApp as WhatsAppIcon,
   Person as PersonIcon,
   Work as WorkIcon,
-  Link as LinkIcon
+  Link as LinkIcon,
+  Security as SecurityIcon,
+  AdminPanelSettings as AdminIcon,
+  Shield as ShieldIcon,
+  Logout as LogoutIcon,
+  VpnKey as MfaIcon
 } from '@mui/icons-material';
 import { useAuth } from '../auth/AuthContext';
 import { updateUserProfile, linkUserToEmployee, linkUserToContractor, UserProfile } from '../api/userApi';
+import { updateUserRoleSecure, updateUserHourlyRateSecure, canChangeUserRoles, canChangeHourlyRates } from '../api/secureUserApi';
 import { getEmployeesStream, Employee } from '../api/employeeApi';
 import { getContractorsStream, Contractor } from '../api/contractorApi';
 import LoadingSpinner from '../components/common/LoadingSpinner';
@@ -49,7 +55,7 @@ const UserProfilePage: React.FC = () => {
   const { currentUser, userProfile } = useAuth();
   const [editing, setEditing] = useState(false);
   const [loading, setLoading] = useState(false);
-  const [message, setMessage] = useState<{ type: 'success' | 'error', text: string } | null>(null);
+  const [message, setMessage] = useState<{ type: 'success' | 'error' | 'warning', text: string } | null>(null);
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [contractors, setContractors] = useState<Contractor[]>([]);
   
@@ -138,13 +144,55 @@ const UserProfilePage: React.FC = () => {
     
     setLoading(true);
     try {
-      const dataToSave = { 
-        ...formData,
-        hourlyRate: Number(formData.hourlyRate || 0) // Гарантируем число
-      };
-
-      await updateUserProfile(userProfile.id, dataToSave);
-      setMessage({ type: 'success', text: 'Профиль успешно обновлен!' });
+      // Разделяем данные на безопасные и чувствительные поля
+      const { role, hourlyRate, ...safeData } = formData;
+      
+      // 1. Обновляем безопасные поля через обычный API
+      if (Object.keys(safeData).length > 0) {
+        await updateUserProfile(userProfile.id, safeData);
+      }
+      
+      let hasUpdates = Object.keys(safeData).length > 0;
+      
+      // 2. Обновляем роль через защищенное API (если изменилась и есть права)
+      if (role && role !== userProfile.role && canChangeUserRoles(userProfile.role || '')) {
+        try {
+          await updateUserRoleSecure({
+            targetUserId: userProfile.id,
+            newRole: role,
+            reason: 'Profile update by user'
+          });
+          hasUpdates = true;
+          setMessage({ type: 'success', text: 'Роль успешно обновлена! Изменения вступят в силу после перезахода.' });
+        } catch (roleError) {
+          console.error('Error updating role:', roleError);
+          setMessage({ type: 'warning', text: 'Профиль обновлен, но роль не удалось изменить. Обратитесь к администратору.' });
+        }
+      }
+      
+      // 3. Обновляем часовую ставку через защищенное API (если изменилась и есть права)
+      if (hourlyRate && Number(hourlyRate) !== userProfile.hourlyRate && canChangeHourlyRates(userProfile.role || '')) {
+        try {
+          await updateUserHourlyRateSecure({
+            targetUserId: userProfile.id,
+            newHourlyRate: Number(hourlyRate),
+            reason: 'Profile update by user'
+          });
+          hasUpdates = true;
+          if (!role || role === userProfile.role) {
+            setMessage({ type: 'success', text: 'Часовая ставка успешно обновлена!' });
+          }
+        } catch (rateError) {
+          console.error('Error updating hourly rate:', rateError);
+          setMessage({ type: 'warning', text: 'Профиль обновлен, но ставку не удалось изменить. Обратитесь к администратору.' });
+        }
+      }
+      
+      // Если изменялись только базовые поля
+      if (hasUpdates && (!role || role === userProfile.role) && (!hourlyRate || Number(hourlyRate) === userProfile.hourlyRate)) {
+        setMessage({ type: 'success', text: 'Профиль успешно обновлен!' });
+      }
+      
       setEditing(false);
     } catch (error) {
       console.error('Error updating profile:', error);
@@ -437,6 +485,50 @@ const UserProfilePage: React.FC = () => {
                   </List>
                 </Box>
               )}
+            </CardContent>
+          </Card>
+
+          <Card sx={{ mb: 2 }}>
+            <CardContent>
+              <Typography variant="h6" gutterBottom>
+                <SecurityIcon sx={{ mr: 1, verticalAlign: 'middle' }} />
+                Безопасность
+              </Typography>
+              
+              <List dense>
+                <ListItem button component="a" href="/security/mfa">
+                  <MfaIcon sx={{ mr: 2, color: 'primary.main' }} />
+                  <ListItemText 
+                    primary="Многофакторная аутентификация" 
+                    secondary="Настройка MFA для повышения безопасности"
+                  />
+                </ListItem>
+                <ListItem button component="a" href="/security/sessions">
+                  <LogoutIcon sx={{ mr: 2, color: 'primary.main' }} />
+                  <ListItemText 
+                    primary="Управление сессиями" 
+                    secondary="Просмотр и завершение активных сессий"
+                  />
+                </ListItem>
+                {(userProfile.role === 'owner' || userProfile.role === 'manager') && (
+                  <>
+                    <ListItem button component="a" href="/admin">
+                      <AdminIcon sx={{ mr: 2, color: 'primary.main' }} />
+                      <ListItemText 
+                        primary="Панель администратора" 
+                        secondary="Управление системой и пользователями"
+                      />
+                    </ListItem>
+                    <ListItem button component="a" href="/admin/audit-log">
+                      <ShieldIcon sx={{ mr: 2, color: 'primary.main' }} />
+                      <ListItemText 
+                        primary="Журнал аудита" 
+                        secondary="Просмотр логов безопасности"
+                      />
+                    </ListItem>
+                  </>
+                )}
+              </List>
             </CardContent>
           </Card>
 
