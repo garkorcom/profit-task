@@ -95,7 +95,7 @@ const GOAL_CATEGORIES = [
   }
 ];
 
-const STATUS_CONFIG: Record<GrowthGoalStatus, { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'; icon: React.ReactNode }> = {
+const STATUS_CONFIG: Record<GrowthGoalStatus, { label: string; color: 'default' | 'primary' | 'secondary' | 'error' | 'info' | 'success' | 'warning'; icon: React.ReactElement }> = {
   'draft': { label: 'Черновик', color: 'default', icon: <EditIcon /> },
   'active': { label: 'Активна', color: 'primary', icon: <PlayArrowIcon /> },
   'paused': { label: 'Пауза', color: 'warning', icon: <PauseIcon /> },
@@ -155,6 +155,7 @@ export const GoalsManager: React.FC = () => {
           status: 'active',
           priority: 'high',
           targetDate: new Date(Date.now() + 60 * 24 * 60 * 60 * 1000).toISOString(),
+          period: { start: Date.now() - 7 * 24 * 60 * 60 * 1000, end: Date.now() + 60 * 24 * 60 * 60 * 1000 },
           milestones: [
             'Пройти курс по типизации',
             'Изучить utility types',
@@ -175,6 +176,7 @@ export const GoalsManager: React.FC = () => {
           status: 'active',
           priority: 'medium',
           targetDate: new Date(Date.now() + 90 * 24 * 60 * 60 * 1000).toISOString(),
+          period: { start: Date.now() - 14 * 24 * 60 * 60 * 1000, end: Date.now() + 90 * 24 * 60 * 60 * 1000 },
           milestones: [
             'Прочитать книгу по ораторскому искусству',
             'Записать тренировочное видео',
@@ -195,6 +197,7 @@ export const GoalsManager: React.FC = () => {
           status: 'completed',
           priority: 'medium',
           targetDate: new Date(Date.now() - 10 * 24 * 60 * 60 * 1000).toISOString(),
+          period: { start: Date.now() - 120 * 24 * 60 * 60 * 1000, end: Date.now() - 10 * 24 * 60 * 60 * 1000 },
           milestones: [
             'Придумать идею проекта',
             'Создать MVP',
