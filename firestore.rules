@@ -527,15 +527,17 @@ service cloud.firestore {
       ];
       
       // Проверяем что изменяются только разрешенные поля
-      let onlyAllowedFields = true;
-      for (let field in newData) {
-        if (!allowedFields.includes(field) && field in currentData) {
-          if (newData[field] != currentData[field]) {
-            onlyAllowedFields = false;
-            break;
-          }
-        }
-      }
+      let onlyAllowedFields = (
+        // Проверка основных полей
+        (!('role' in newData) || newData.role == currentData.role) &&
+        (!('permissions' in newData) || newData.permissions == currentData.permissions) &&
+        (!('isActive' in newData) || newData.isActive == currentData.isActive) &&
+        (!('companyId' in newData) || newData.companyId == currentData.companyId) &&
+        (!('department' in newData) || newData.department == currentData.department) &&
+        (!('hireDate' in newData) || newData.hireDate == currentData.hireDate) &&
+        (!('deactivationReason' in newData) || newData.deactivationReason == currentData.deactivationReason) &&
+        (!('email' in newData) || newData.email == currentData.email)
+      );
       
       return !hasForbiddenChanges && onlyAllowedFields;
     }
