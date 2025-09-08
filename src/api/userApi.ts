@@ -23,8 +23,12 @@ export interface UserProfile {
   role: UserRole;
   department?: string;
   position?: string;
+  location?: string; // Рабочая локация/филиал
+  timezone?: string; // Часовой пояс пользователя
   employeeId?: string; // Связь с таблицей employees
   contractorId?: string; // Связь с таблицей contractors
+  hireDate?: any; // Дата найма/начала сотрудничества
+  groups?: string[]; // Группы пользователя для RBAC
   whatsappPhone?: string;
   telegramUsername?: string;
   telegramUserId?: string;
@@ -47,63 +51,45 @@ const cleanObject = (obj: { [key: string]: any }): { [key: string]: any } => {
   return cleaned;
 };
 
-// Создание или обновление профиля пользователя при входе
+// УСТАРЕЛО: Создание профилей теперь происходит на backend
+// Оставлено для обратной совместимости с миграцией
 export const createOrUpdateUserProfile = async (
   firebaseUser: FirebaseUser,
   additionalData?: Partial<UserProfile>
 ): Promise<UserProfile> => {
-  const userRef = doc(db, 'users', firebaseUser.uid);
-  const userSnap = await getDoc(userRef);
-
-  if (!userSnap.exists()) {
-    // Создаем новый профиль, тщательно отбирая поля
-    const newProfile: UserProfile = {
-      id: firebaseUser.uid,
-      email: firebaseUser.email || '',
-      displayName: firebaseUser.displayName || '',
-      photoURL: firebaseUser.photoURL || '',
-      phoneNumber: firebaseUser.phoneNumber || '',
-      role: additionalData?.role || 'employee',
-      department: additionalData?.department || '',
-      position: additionalData?.position || '',
-      employeeId: additionalData?.employeeId || '',
-      contractorId: additionalData?.contractorId || '',
-      whatsappPhone: additionalData?.whatsappPhone || '',
-      telegramUsername: additionalData?.telegramUsername || '',
-      telegramUserId: additionalData?.telegramUserId || '',
-      preferredNotificationChannel: additionalData?.preferredNotificationChannel || 'email',
-      hourlyRate: additionalData?.hourlyRate || 0,
-      isActive: true,
-      createdAt: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-      lastLogin: serverTimestamp(),
-    };
-    await setDoc(userRef, newProfile);
-    return newProfile;
-  } else {
-    // Обновляем существующий профиль, тщательно отбирая поля
-    const updates: { [key: string]: any } = {
-      lastLogin: serverTimestamp(),
-      updatedAt: serverTimestamp(),
-    };
-    if (firebaseUser.email) updates.email = firebaseUser.email;
-    if (firebaseUser.displayName) updates.displayName = firebaseUser.displayName;
-    if (firebaseUser.photoURL) updates.photoURL = firebaseUser.photoURL;
-    if (firebaseUser.phoneNumber) updates.phoneNumber = firebaseUser.phoneNumber;
+  console.warn('DEPRECATED: createOrUpdateUserProfile() is deprecated. Profile creation now happens on backend via onUserCreate trigger');
+  
+  // Теперь только читаем профиль, создание на backend
+  const profile = await getUserProfile(firebaseUser.uid);
+  
+  if (!profile) {
+    throw new Error('Profile not found. Please wait for backend to create profile or contact administrator.');
+  }
+  
+  // Если есть дополнительные данные для обновления - используем безопасное API
+  if (additionalData) {
+    const { updateSafeProfileFields } = await import('./secureUserApi');
+    const safeUpdates: any = {};
     
-    // Добавляем доп. данные, если они есть
-    if (additionalData) {
-      for (const [key, value] of Object.entries(additionalData)) {
-        if (value !== undefined) {
-          updates[key] = value;
-        }
+    // Фильтруем только безопасные поля
+    const safeFields = ['displayName', 'phoneNumber', 'whatsappPhone', 'telegramUsername', 'preferredNotificationChannel'];
+    for (const [key, value] of Object.entries(additionalData)) {
+      if (safeFields.includes(key) && value !== undefined) {
+        safeUpdates[key] = value;
+      } else if (key === 'role' || key === 'hourlyRate' || key === 'employeeId') {
+        console.warn(`Field ${key} cannot be updated directly. Use secure API or contact administrator.`);
       }
     }
     
-    await updateDoc(userRef, updates);
-    const updatedProfile = await getDoc(userRef);
-    return { ...updatedProfile.data(), id: userRef.id } as UserProfile;
+    if (Object.keys(safeUpdates).length > 0) {
+      await updateSafeProfileFields(firebaseUser.uid, safeUpdates);
+    }
+    
+    // Возвращаем обновленный профиль
+    return (await getUserProfile(firebaseUser.uid))!;
   }
+  
+  return profile;
 };
 
 // Получение профиля пользователя

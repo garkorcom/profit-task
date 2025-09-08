@@ -1,14 +1,26 @@
 /**
- * Firebase Cloud Functions для безопасного расчета COGS
+ * Firebase Cloud Functions для безопасного управления системой
  * 
- * КРИТИЧЕСКИ ВАЖНО: Все финансовые расчеты должны происходить только на бэкенде
- * чтобы предотвратить манипуляции с данными со стороны клиента
+ * КРИТИЧЕСКИ ВАЖНО: Все финансовые расчеты и управление пользователями 
+ * должны происходить только на бэкенде для предотвращения манипуляций
  */
 
 import * as functions from 'firebase-functions';
 import * as admin from 'firebase-admin';
 
 admin.initializeApp();
+
+// Импортируем функции управления пользователями
+export * from './userManagement';
+
+// Импортируем функции динамической системы RBAC
+export * from './rbacFunctions';
+
+// Импортируем функции деактивации пользователей
+export * from './offboardingFunctions';
+
+// Импортируем функции MFA
+export * from './mfaFunctions';
 
 /**
  * Триггер для автоматического расчета COGS при изменении статуса TimeEntry

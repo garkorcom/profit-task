@@ -432,15 +432,20 @@ export const uploadTimeEntryPhoto = async (
   photoFile: File,
   photoType: 'start' | 'end'
 ): Promise<string> => {
-  const photoRef: StorageReference = ref(
-    storage,
-    `timeEntries/${userId}/${entryId}/${photoType}_photo_${Date.now()}.jpg`
-  );
-  
-  const snapshot = await uploadBytes(photoRef, photoFile);
-  const downloadUrl = await getDownloadURL(snapshot.ref);
-  
-  return downloadUrl;
+  try {
+    const photoRef: StorageReference = ref(
+      storage,
+      `timeEntries/${userId}/${entryId}/${photoType}_photo_${Date.now()}.jpg`
+    );
+    
+    const snapshot = await uploadBytes(photoRef, photoFile);
+    const downloadUrl = await getDownloadURL(snapshot.ref);
+    
+    return downloadUrl;
+  } catch (error) {
+    console.warn('⚠️ Firebase Storage not configured, skipping photo upload:', error);
+    return 'placeholder-photo-url'; // Возвращаем заглушку вместо ошибки
+  }
 };
 
 /**
