@@ -26,6 +26,7 @@
     "@types/qrcode.react": "^1.0.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "cmdk": "^1.1.1",
     "date-fns": "^2.30.0",
     "firebase": "^12.1.0",
     "lodash-es": "^4.17.21",
@@ -68,8 +69,10 @@
     ]
   },
   "devDependencies": {
+    "@playwright/test": "^1.55.0",
     "@types/lodash": "^4.17.20",
     "@types/lodash-es": "^4.17.12",
+    "playwright": "^1.55.0",
     "ts-jest": "^29.4.1"
   }
 }
