@@ -131,7 +131,9 @@ import {
   onSnapshot,
   deleteDoc,
   writeBatch as createBatch,
-  getDocs
+  getDocs,
+  runTransaction,
+  limit
 } from 'firebase/firestore';
 import { 
   ref, 
@@ -139,7 +141,7 @@ import {
   getDownloadURL,
   StorageReference 
 } from 'firebase/storage';
-import { db, storage } from '../firebase/firebase';
+import { db, auth, storage } from '../firebase/firebase';
 import { getUserProfile } from './userApi';
 
 // ==================== УТИЛИТЫ ====================
@@ -288,6 +290,13 @@ export type TimeEntryStatus =
   | 'approved' 
   | 'pending_approval';
 
+export type StartMethod =
+  | 'manual'            // Стандартный запуск
+  | 'smart_suggestion'  // Через умные предложения
+  | 'switch'            // Переключение с другой задачи
+  | 'command_palette'   // Через Ctrl+K
+  | 'geofence' | 'nfc' | 'kiosk' | 'restored'; // Автоматизация и восстановление
+
 export interface PauseRecord {
   startTime: Date;
   endTime?: Date;
@@ -318,6 +327,7 @@ export interface TimeEntry {
   
   // Статус и контроль
   status: TimeEntryStatus;
+  startMethod?: StartMethod;
   
   // Локация и фото
   startLocation?: any;
@@ -491,6 +501,55 @@ export const createTimeEntry = async (
 };
 
 /**
+ * Обновление периферийных данных (GPS, фото) асинхронно
+ * Используется в рамках T3 оптимизации для decoupled start
+ */
+export const updatePeripheralData = async (
+  userId: string,
+  entryId: string,
+  data: {
+    startLocation?: any;
+    startPhotoUrl?: string;
+    endLocation?: any;
+    endPhotoUrl?: string;
+  }
+): Promise<void> => {
+  if (Object.keys(data).length === 0) {
+    console.warn('updatePeripheralData called with empty data');
+    return;
+  }
+
+  const entryRef = doc(db, `users/${userId}/timeEntries`, entryId);
+  
+  try {
+    // Защита от гонки состояний: обновляем, только если запись еще активна
+    const docSnap = await getDoc(entryRef);
+    if (!docSnap.exists()) {
+      console.warn(`Entry ${entryId} no longer exists, skipping peripheral update`);
+      return;
+    }
+    
+    const entryData = docSnap.data();
+    if (entryData.status !== 'active' && entryData.status !== 'paused') {
+      console.warn(`Entry ${entryId} is no longer active (${entryData.status}), skipping peripheral update`);
+      return;
+    }
+
+    // Обновляем данные
+    await updateDoc(entryRef, {
+      ...data,
+      updatedAt: serverTimestamp()
+    });
+    
+    console.log('✅ Peripheral data updated:', { entryId, keys: Object.keys(data) });
+    
+  } catch (error) {
+    console.error('Error updating peripheral data:', error);
+    // Не бросаем ошибку - периферийные данные не критичны
+  }
+};
+
+/**
  * Обновление записи времени
  */
 export const updateTimeEntry = async (
@@ -615,6 +674,151 @@ export const resumeTimeEntry = async (
     pauseDuration: `${pauseDuration} мин`,
     totalPauseDuration: `${totalPauseDuration} мин`
   });
+};
+
+/**
+ * Атомарное переключение между задачами (T3 Optimization)
+ * Останавливает текущую задачу и запускает новую в одной транзакции
+ */
+export const switchWork = async (newTaskData: {
+  taskId?: string;
+  taskName?: string;
+  projectId: string;
+  projectName: string;
+  estimateId?: string;
+  estimateName?: string;
+  serviceId?: string;
+  serviceName?: string;
+  startMethod?: StartMethod;
+}): Promise<{ newEntryId: string; switchedFrom?: { taskName: string; duration: number } }> => {
+  
+  const currentUser = auth.currentUser;
+  if (!currentUser) throw new Error('User not authenticated');
+  
+  const userId = currentUser.uid;
+  
+  try {
+    // Сначала находим активную запись вне транзакции
+    const activeEntryQuery = query(
+      collection(db, `users/${userId}/timeEntries`),
+      where('userId', '==', userId),
+      where('status', '==', 'active'),
+      limit(1)
+    );
+    
+    const activeSnapshot = await getDocs(activeEntryQuery);
+    const newEntryRef = doc(collection(db, `users/${userId}/timeEntries`));
+    
+    return await runTransaction(db, async (transaction) => {
+      const switchTimestamp = serverTimestamp();
+      
+      if (activeSnapshot.empty) {
+        // Если нет активной задачи, просто создаем новую
+        const newEntryData = {
+          id: newEntryRef.id,
+          userId,
+          taskId: newTaskData.taskId || '',
+          taskName: newTaskData.taskName || 'Task',
+          projectId: newTaskData.projectId,
+          projectName: newTaskData.projectName,
+          estimateId: newTaskData.estimateId,
+          estimateName: newTaskData.estimateName,
+          serviceId: newTaskData.serviceId,
+          serviceName: newTaskData.serviceName,
+          startMethod: newTaskData.startMethod || 'manual',
+          status: 'active',
+          startTime: switchTimestamp,
+          activeDuration: 0,
+          totalDuration: 0,
+          totalPauseDuration: 0,
+          pauses: [],
+          createdAt: switchTimestamp,
+          updatedAt: switchTimestamp,
+          employeeId: userId,
+        };
+        
+        transaction.set(newEntryRef, newEntryData);
+        console.log('🔄 No active task found, creating new one');
+        return { newEntryId: newEntryRef.id };
+      }
+      
+      // 1. Обработка текущей активной задачи
+      const activeDoc = activeSnapshot.docs[0];
+      const activeData = activeDoc.data();
+      const activeRef = doc(db, `users/${userId}/timeEntries`, activeDoc.id);
+      
+      // Рассчитываем длительность для текущей задачи
+      const now = new Date();
+      const startTime = convertTimestampToDate(activeData.startTime);
+      const activeDuration = calculateActiveDuration(
+        startTime,
+        now,
+        activeData.pauses || [],
+        convertTimestampToDate(activeData.currentPauseStart) || undefined
+      );
+      const totalDuration = Math.floor((now.getTime() - startTime.getTime()) / 60000);
+      
+      // Завершаем текущую задачу
+      transaction.update(activeRef, {
+        status: 'completed',
+        endTime: switchTimestamp,
+        completedAt: switchTimestamp,
+        duration: activeDuration,
+        activeDuration,
+        totalDuration,
+        totalPauseDuration: activeData.totalPauseDuration || 0,
+        // Очищаем паузы при завершении
+        currentPauseStart: deleteField(),
+        pauseReason: deleteField(),
+        updatedAt: switchTimestamp
+      });
+      
+      // 2. Создание новой записи времени
+      const newEntryData = {
+        id: newEntryRef.id,
+        userId,
+        taskId: newTaskData.taskId || '',
+        taskName: newTaskData.taskName || 'Task',
+        projectId: newTaskData.projectId,
+        projectName: newTaskData.projectName,
+        estimateId: newTaskData.estimateId,
+        estimateName: newTaskData.estimateName,
+        serviceId: newTaskData.serviceId,
+        serviceName: newTaskData.serviceName,
+        startMethod: newTaskData.startMethod || 'manual',
+        status: 'active',
+        startTime: switchTimestamp,
+        activeDuration: 0,
+        totalDuration: 0,
+        totalPauseDuration: 0,
+        pauses: [],
+        createdAt: switchTimestamp,
+        updatedAt: switchTimestamp,
+        employeeId: userId,
+      };
+      
+      transaction.set(newEntryRef, newEntryData);
+      
+      console.log('🔄 Switched tasks atomically:', {
+        from: `${activeData.taskName} (${activeDuration} min)`,
+        to: newTaskData.taskName
+      });
+      
+      return {
+        newEntryId: newEntryRef.id,
+        switchedFrom: {
+          id: activeDoc.id,
+          taskName: activeData.taskName,
+          duration: activeDuration
+        }
+      };
+    });
+    
+  } catch (error) {
+    console.error('❌ Failed to switch tasks atomically:', error);
+    const message = error instanceof Error ? error.message : 'Unknown error';
+    throw new Error(`Failed to switch tasks: ${message}`);
+  }
 };
 
 /**
@@ -852,6 +1056,46 @@ export const calculateTaskTotalDuration = async (
 };
 
 /**
+ * Получение недавних записей времени для умных предложений (T3 Optimization)
+ */
+export const getRecentTimeEntries = async (
+  userId: string,
+  hoursBack: number = 72
+): Promise<TimeEntry[]> => {
+  const cutoffTime = new Date();
+  cutoffTime.setHours(cutoffTime.getHours() - hoursBack);
+  
+  const q = query(
+    collection(db, `users/${userId}/timeEntries`),
+    where('status', 'in', ['completed', 'approved']),
+    where('endTime', '>=', Timestamp.fromDate(cutoffTime)),
+    orderBy('endTime', 'desc'),
+    limit(50) // Ограничиваем количество для производительности
+  );
+
+  const snapshot = await getDocs(q);
+  
+  const entries: TimeEntry[] = snapshot.docs.map(doc => {
+    const data = doc.data();
+    return {
+      id: doc.id,
+      ...data,
+      startTime: convertTimestampToDate(data.startTime),
+      endTime: convertTimestampToDate(data.endTime),
+      lastActiveTime: convertTimestampToDate(data.lastActiveTime),
+      currentPauseStart: convertTimestampToDate(data.currentPauseStart),
+      completedAt: convertTimestampToDate(data.completedAt),
+      approvedAt: convertTimestampToDate(data.approvedAt),
+      createdAt: convertTimestampToDate(data.createdAt),
+      updatedAt: convertTimestampToDate(data.updatedAt)
+    } as TimeEntry;
+  });
+  
+  console.log('📊 Recent entries loaded for smart suggestions:', entries.length);
+  return entries;
+};
+
+/**
  * Получение детальной статистики по времени
  */
 export const getTimeEntryStatistics = async (
@@ -954,6 +1198,7 @@ const timeEntryApi = {
   // CRUD
   createTimeEntry,
   updateTimeEntry,
+  updatePeripheralData, // T3 optimization
   deleteTimeEntry,
   uploadTimeEntryPhoto,
   
@@ -961,6 +1206,7 @@ const timeEntryApi = {
   pauseTimeEntry,
   resumeTimeEntry, 
   completeTimeEntry,
+  switchWork, // T3 optimization - seamless switching
   
   // Enhanced функции (aliases)
   pauseTimeEntryEnhanced,
@@ -974,6 +1220,7 @@ const timeEntryApi = {
   // Аналитика
   calculateTaskTotalDuration,
   getTimeEntryStatistics,
+  getRecentTimeEntries, // T3 optimization - smart suggestions
   calculateActiveDuration,
   
   // Утилиты

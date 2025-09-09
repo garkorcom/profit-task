@@ -56,8 +56,11 @@ import {
 import { 
   createTimeEntry, 
   updateTimeEntry, 
+  updatePeripheralData,
+  switchWork as switchWorkApi,
   TimeEntry,
   TimeEntryStatus,
+  StartMethod,
   getTimeEntriesByTaskStream,
   getTimeEntriesStream,
   uploadTimeEntryPhoto,
@@ -113,6 +116,7 @@ interface TimeTrackingContextType {
   
   // Управление сессиями работы
   startWork: (payload: StartWorkPayload) => Promise<void>;
+  switchWork: (newTaskData: any) => Promise<void>; // T3 optimization - бесшовное переключение
   
   stopWork: (
     endPhoto?: File,
@@ -156,6 +160,8 @@ export interface StartWorkPayload {
   project: Project;
   startPhoto?: File;
   location?: GeolocationPosition;
+  startMethod?: StartMethod; // T3 optimization - аналитика методов запуска
+  requireGPS?: boolean; // T3 optimization - опциональное требование GPS
 }
 
 const TimeTrackingContext = createContext<TimeTrackingContextType | undefined>(undefined);
@@ -395,31 +401,68 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const startWork = async (payload: StartWorkPayload) => {
     if (!currentUser) throw new Error('User not authenticated');
     
-    setIsStartingWork(true); // <-- ВКЛЮЧАЕМ ИНДИКАТОР ЗАГРУЗКИ
+    setIsStartingWork(true);
+    setTimeTrackingError(null);
 
-    const { task, estimate, service, project, startPhoto, location } = payload;
+    const { task, estimate, service, project, startPhoto, location, startMethod = 'manual', requireGPS = false } = payload;
 
-    // Определяем, что является основной "задачей" для учета времени
+    // Определяем основную задачу для учета времени
     const workTarget = task || service || estimate;
     if (!workTarget) {
+      setTimeTrackingError('Необходимо указать задачу или смету для начала работы');
+      setIsStartingWork(false);
       throw new Error('Необходимо указать задачу или смету для начала работы');
     }
     
-    // ID для записи в TimeEntry. Для сметы это будет "виртуальный" ID.
     const taskId = task?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
     const taskName = task?.task || service?.name || estimate?.number || 'Работа';
 
+    // --- ФАЗА 1: МГНОВЕННЫЙ СТАРТ (Ядро T3 Optimization) ---
     try {
-      // Создаем "черновик" записи без времени (только определенные значения)
-      const entryDraft: Partial<TimeEntry> = {
+      // Optimistic Update: Обновляем UI немедленно
+      const optimisticEntry = {
+        id: `optimistic-${Date.now()}`,
         userId: currentUser.uid,
-        taskId: taskId,
-        taskName: taskName,
+        taskId,
+        taskName,
         projectId: project.id,
         projectName: project.name,
         employeeId: currentUser.uid,
         employeeName: currentUser.displayName || currentUser.email || '',
-        status: 'active' as TimeEntryStatus
+        status: 'active' as TimeEntryStatus,
+        startTime: new Date(),
+        startMethod,
+        activeDuration: 0,
+        totalDuration: 0,
+        totalPauseDuration: 0,
+        pauses: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+      } as TimeEntry;
+
+      // Мгновенно обновляем UI
+      setCurrentEntry(optimisticEntry);
+      setCurrentTask({
+        id: taskId,
+        task: taskName,
+        projectId: project.id,
+        projectName: project.name,
+      } as Task);
+      setIsWorking(true);
+      setIsPaused(false);
+      setElapsedSeconds(0);
+
+      // Базовая запись для сервера (без периферийных данных)
+      const entryDraft: Partial<TimeEntry> = {
+        userId: currentUser.uid,
+        taskId,
+        taskName,
+        projectId: project.id,
+        projectName: project.name,
+        employeeId: currentUser.uid,
+        employeeName: currentUser.displayName || currentUser.email || '',
+        status: 'active' as TimeEntryStatus,
+        startMethod,
       };
 
       // Добавляем только определенные значения (избегаем undefined)
@@ -427,121 +470,208 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         entryDraft.estimateId = estimate.id;
         entryDraft.estimateName = estimate.number;
       }
-      
       if (service?.id) {
         entryDraft.serviceId = service.id;
         entryDraft.serviceName = service.name;
       }
-      
-      if (location) {
-        entryDraft.startLocation = {
-          latitude: location.coords.latitude,
-          longitude: location.coords.longitude,
-          ...(location.coords.accuracy && { accuracy: location.coords.accuracy }),
-          timestamp: new Date(location.timestamp)
-        };
-      }
-      
-      // Шаг 1: Создаем запись в БД, которая вернет ID.
-      // startTime будет установлено на сервере.
+
+      // Создаем запись в БД без ожидания периферийных данных
       const entryId = await createTimeEntry(currentUser.uid, entryDraft);
-      console.log('✅ Запись времени создана с ID:', entryId);
+      console.log('⚡ Мгновенный старт! Entry ID:', entryId);
       
       if (!entryId) {
         throw new Error('Failed to create time entry - no ID returned');
       }
 
-      // Шаг 2: Получаем созданную запись с серверным временем
-      const entryRef = doc(db, `users/${currentUser.uid}/timeEntries`, entryId);
-      const entrySnap = await getDoc(entryRef);
-
-      if (!entrySnap.exists()) {
-        throw new Error('Failed to fetch the newly created time entry.');
-      }
-
-      const serverEntry = {
-        ...entrySnap.data(),
-        id: entrySnap.id,
-        // Безопасно конвертируем серверные Timestamp в Date
-        startTime: entrySnap.data().startTime ? new Date(entrySnap.data().startTime.seconds * 1000) : new Date(),
-        createdAt: entrySnap.data().createdAt ? new Date(entrySnap.data().createdAt.seconds * 1000) : new Date(),
-        updatedAt: entrySnap.data().updatedAt ? new Date(entrySnap.data().updatedAt.seconds * 1000) : new Date(),
-      } as TimeEntry;
+      // Подтверждаем Optimistic Update с реальным ID
+      const confirmedEntry = { ...optimisticEntry, id: entryId };
+      setCurrentEntry(confirmedEntry);
       
-      // Шаг 3: Загружаем фото, если есть
-      let startPhotoUrl: string | undefined;
-      if (startPhoto) {
-        try {
-          console.log('📸 Пытаемся загрузить фото...');
-          startPhotoUrl = await uploadTimeEntryPhoto(
-            currentUser.uid,
-            entryId,
-            startPhoto,
-            'start'
-          );
-          
-          // Обновляем запись с URL фото
-          if (startPhotoUrl && startPhotoUrl !== 'placeholder-photo-url') {
-            await updateTimeEntry(currentUser.uid, entryId, { startPhotoUrl });
-            serverEntry.startPhotoUrl = startPhotoUrl; // Обновляем локальный объект
-            console.log('✅ Фото успешно загружено');
-          }
-        } catch (photoError) {
-          console.error('Failed to upload start photo:', photoError);
-          console.warn('⚠️ Фото не загружено из-за CORS на localhost, но учет времени продолжается');
-          console.warn('⚠️ Запись времени создана БЕЗ фото, но работа началась!');
-          // Продолжаем без фото - не блокируем начало работы
-        }
-      }
-      
-      // Шаг 4: Обновляем статус задачи (только для реальных задач)
+      // Сохраняем в localStorage
+      localStorage.setItem('currentTimeEntry', JSON.stringify(confirmedEntry));
+      localStorage.setItem('currentTaskId', taskId);
+      localStorage.setItem('currentEntryId', entryId);
+      localStorage.setItem('totalPauseDuration', '0');
+      localStorage.removeItem('pauseStartTime');
+
+      // Обновляем статус задачи
       if (task && task.status !== 'in_progress') {
         await changeTaskStatus(currentUser.uid, task.id, 'in_progress');
       }
-      
-      // Шаг 5: Обновляем локальное состояние, используя данные с сервера
-      const currentTaskObject = task || {
-        id: taskId,
-        task: taskName,
-        projectId: project.id,
-        projectName: project.name,
-      } as Task;
 
-      setCurrentEntry(serverEntry);
-      setCurrentTask(currentTaskObject);
-      setIsWorking(true);
-      setIsPaused(false);
-      setElapsedSeconds(0);
+      console.log('🎉 МОЛНИЕНОСНЫЙ СТАРТ ЗАВЕРШЕН! Время до трекинга: <1s');
       
-      // Сохраняем в localStorage
-      localStorage.setItem('currentTimeEntry', JSON.stringify(serverEntry));
-      localStorage.setItem('currentTaskId', taskId);
-      localStorage.setItem('currentEntryId', entryId); // Сохраняем ID записи отдельно
-      
-      // Проверяем, что сохранилось
-      const savedId = localStorage.getItem('currentEntryId');
-      console.log('📝 Проверка сохранения ID в localStorage:', { entryId, savedId, match: entryId === savedId });
-      
-      // Очищаем данные о паузах для новой сессии
-      localStorage.setItem('totalPauseDuration', '0');
-      localStorage.removeItem('pauseStartTime');
-      
-      console.log('🎉 УЧЕТ ВРЕМЕНИ УСПЕШНО НАЧАТ!');
-      console.log('🏢 Проект:', project.name);
-      console.log('Актив:', taskName);
-      if (estimate) console.log('📊 Смета:', estimate.number);
-      if (service) console.log('🔧 Услуга:', service.name);
+      // --- ФАЗА 2: АСИНХРОННОЕ ПОЛУЧЕНИЕ ДАННЫХ (Фон T3 Optimization) ---
+      // Не блокируем основной поток - выполняем в фоне
+      if (requireGPS || startPhoto) {
+        (async () => {
+          try {
+            const peripheralData: any = {};
+            const promises = [];
+
+            // Параллельное получение GPS и загрузка фото
+            if (requireGPS) {
+              promises.push(
+                new Promise<GeolocationPosition>((resolve, reject) => {
+                  navigator.geolocation.getCurrentPosition(
+                    resolve, 
+                    reject, 
+                    { timeout: 15000, enableHighAccuracy: true }
+                  );
+                }).then(pos => {
+                  peripheralData.startLocation = {
+                    latitude: pos.coords.latitude,
+                    longitude: pos.coords.longitude,
+                    accuracy: pos.coords.accuracy,
+                    timestamp: new Date(pos.timestamp)
+                  };
+                }).catch(err => {
+                  console.warn('⚠️ GPS не получен, но таймер работает:', err.message);
+                })
+              );
+            }
+
+            if (startPhoto) {
+              promises.push(
+                uploadTimeEntryPhoto(currentUser.uid, entryId, startPhoto, 'start')
+                  .then(url => {
+                    if (url && url !== 'placeholder-photo-url') {
+                      peripheralData.startPhotoUrl = url;
+                    }
+                  })
+                  .catch(err => {
+                    console.warn('⚠️ Фото не загружено, но таймер работает:', err.message);
+                  })
+              );
+            }
+
+            // Ждем завершения всех операций
+            await Promise.allSettled(promises);
+
+            // Обновляем запись на сервере с периферийными данными
+            if (Object.keys(peripheralData).length > 0) {
+              await updatePeripheralData(currentUser.uid, entryId, peripheralData);
+              
+              // Обновляем локальное состояние
+              setCurrentEntry(prev => prev ? { ...prev, ...peripheralData } : prev);
+              
+              console.log('📊 Периферийные данные обновлены:', Object.keys(peripheralData));
+            }
+
+          } catch (peripheralError) {
+            console.warn('⚠️ Таймер работает, но периферийные данные не получены:', peripheralError);
+            // Не показываем ошибку пользователю - таймер уже запущен
+          }
+        })();
+      }
       
     } catch (error: any) {
-      console.error('Error starting work:', error);
-      // В случае ошибки сбрасываем состояние
+      console.error('❌ Error starting work:', error);
+      // Откатываем optimistic update
       setIsWorking(false);
       setCurrentEntry(null);
       setCurrentTask(null);
       setTimeTrackingError(`Не удалось начать работу: ${error.message}`);
       throw error;
     } finally {
-      setIsStartingWork(false); // <-- ВЫКЛЮЧАЕМ ИНДИКАТОР ЗАГРУЗКИ
+      setIsStartingWork(false);
+    }
+  };
+
+  // T3 Optimization - Бесшовное переключение задач
+  const switchWork = async (newTaskData: {
+    task?: Task;
+    estimate?: Estimate;
+    service?: EstimateItem;
+    project: Project;
+    startMethod?: StartMethod;
+  }) => {
+    if (!currentUser) throw new Error('User not authenticated');
+    
+    setIsStartingWork(true);
+    setTimeTrackingError(null);
+
+    const { task, estimate, service, project, startMethod = 'switch' } = newTaskData;
+    
+    const workTarget = task || service || estimate;
+    if (!workTarget) {
+      setTimeTrackingError('Необходимо указать задачу для переключения');
+      setIsStartingWork(false);
+      throw new Error('Необходимо указать задачу для переключения');
+    }
+
+    const taskId = task?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
+    const taskName = task?.task || service?.name || estimate?.number || 'Работа';
+
+    try {
+      // Optimistic Update: мгновенно переключаем UI
+      const newOptimisticEntry = {
+        id: `optimistic-switch-${Date.now()}`,
+        userId: currentUser.uid,
+        taskId,
+        taskName,
+        projectId: project.id,
+        projectName: project.name,
+        employeeId: currentUser.uid,
+        employeeName: currentUser.displayName || currentUser.email || '',
+        status: 'active' as TimeEntryStatus,
+        startTime: new Date(),
+        startMethod,
+        activeDuration: 0,
+        totalDuration: 0,
+        totalPauseDuration: 0,
+        pauses: [],
+        createdAt: new Date(),
+        updatedAt: new Date(),
+        ...(estimate?.id && { estimateId: estimate.id, estimateName: estimate.number }),
+        ...(service?.id && { serviceId: service.id, serviceName: service.name }),
+      } as TimeEntry;
+
+      // Мгновенно обновляем UI
+      setCurrentEntry(newOptimisticEntry);
+      setCurrentTask({
+        id: taskId,
+        task: taskName,
+        projectId: project.id,
+        projectName: project.name,
+      } as Task);
+      setElapsedSeconds(0);
+      setIsPaused(false);
+
+      // Атомарное переключение на сервере через API
+      const result = await switchWorkApi({
+        taskId,
+        taskName,
+        projectId: project.id,
+        projectName: project.name,
+        startMethod,
+        ...(estimate?.id && { estimateId: estimate.id, estimateName: estimate.number }),
+        ...(service?.id && { serviceId: service.id, serviceName: service.name }),
+      });
+
+      // Подтверждаем с реальным ID
+      const confirmedEntry = { ...newOptimisticEntry, id: result.newEntryId };
+      setCurrentEntry(confirmedEntry);
+      
+      // Обновляем localStorage
+      localStorage.setItem('currentTimeEntry', JSON.stringify(confirmedEntry));
+      localStorage.setItem('currentTaskId', taskId);
+      localStorage.setItem('currentEntryId', result.newEntryId);
+      localStorage.setItem('totalPauseDuration', '0');
+      localStorage.removeItem('pauseStartTime');
+
+      console.log('🔄 ПЕРЕКЛЮЧЕНИЕ ЗАВЕРШЕНО! Время переключения: <1s');
+      if (result.switchedFrom) {
+        console.log(`📊 Переключено с "${result.switchedFrom.taskName}" (${result.switchedFrom.duration} мин)`);
+      }
+      
+    } catch (error: any) {
+      console.error('❌ Error switching work:', error);
+      // В случае ошибки можем попробовать восстановить предыдущее состояние
+      setTimeTrackingError(`Не удалось переключить задачу: ${error.message}`);
+      throw error;
+    } finally {
+      setIsStartingWork(false);
     }
   };
 
@@ -867,6 +997,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     // Существующие методы работы
     startWork,
+    switchWork, // T3 optimization - seamless switching
     stopWork,
     pauseWork,
     resumeWork,
