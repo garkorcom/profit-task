@@ -4,6 +4,7 @@ import AppRouter from './router/AppRouter';
 import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { TimeTrackingProvider } from './contexts/TimeTrackingContext';
+import { CommandPaletteProvider } from './contexts/CommandPaletteContext';
 import { initializeMobileOptimizations } from './utils/mobileOptimizations';
 import './utils/createTestEstimate'; // Импортируем для доступа из консоли
 import './utils/cleanOldContractors'; // Импортируем для очистки старых контрагентов
@@ -144,7 +145,9 @@ function App() {
       <CssBaseline />
       <AuthProvider>
         <TimeTrackingProvider>
-          <AppRouter />
+          <CommandPaletteProvider>
+            <AppRouter />
+          </CommandPaletteProvider>
         </TimeTrackingProvider>
       </AuthProvider>
     </ThemeProvider>

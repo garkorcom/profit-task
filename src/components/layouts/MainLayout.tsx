@@ -32,6 +32,7 @@ import { Permission } from '../../auth/permissions';
 import { roleDescriptions } from '../../auth/permissions';
 import { useAuth } from '../../auth/AuthContext';
 import GlobalTimeTrackingManager from '../time/GlobalTimeTrackingManager';
+import { useGlobalKeyboard } from '../../hooks/useGlobalKeyboard';
 
 // Базовая конфигурация пунктов меню с требуемыми разрешениями
 const allNavItems = [
@@ -125,6 +126,9 @@ const MainLayout: React.FC = () => {
   
   const [drawerOpen, setDrawerOpen] = useState(!isMobile);
   const [expandedItems, setExpandedItems] = useState<string[]>([]);
+  
+  // Инициализация глобальных горячих клавиш
+  useGlobalKeyboard();
   // Close drawer on mobile when route changes
   useEffect(() => {
     if (isMobile) {

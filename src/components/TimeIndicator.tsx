@@ -25,9 +25,15 @@ import {
   AccessTime as ClockIcon,
   Work as WorkIcon,
   Close as CloseIcon,
+  SwapHoriz as SwitchIcon,
+  TrendingUp as SmartIcon,
+  Menu as MenuIcon,
 } from '@mui/icons-material';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
 import { useNavigate } from 'react-router-dom';
+import { useCommandPalette } from '../contexts/CommandPaletteContext';
+import { useSmartSuggestions } from '../hooks/useSmartSuggestions';
+import { useAuth } from '../auth/AuthContext';
 
 interface TimeIndicatorProps {
   variant?: 'desktop' | 'mobile';
@@ -35,6 +41,8 @@ interface TimeIndicatorProps {
 
 const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) => {
   const navigate = useNavigate();
+  const { currentUser } = useAuth();
+  const { openPalette } = useCommandPalette();
   const { 
     isWorking, 
     currentSession, 
@@ -42,8 +50,17 @@ const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) =>
     isPaused,
     stopWork,
     pauseWork,
-    resumeWork 
+    resumeWork,
+    switchWork,
+    isStartingWork 
   } = useTimeTracking();
+  
+  // Получаем умные предложения для быстрого переключения
+  const { suggestions } = useSmartSuggestions(currentUser?.uid || '', {
+    limit: 3,
+    contextAware: true,
+    minSessions: 1
+  });
   
   const [dialogOpen, setDialogOpen] = useState(false);
   const [showDetails, setShowDetails] = useState(false);
@@ -91,6 +108,44 @@ const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) =>
       resumeWork();
     } else {
       pauseWork();
+    }
+  };
+
+  // Функция быстрого переключения на рекомендуемую задачу
+  const handleQuickSwitch = async () => {
+    if (suggestions.length === 0) {
+      openPalette();
+      return;
+    }
+
+    const topSuggestion = suggestions[0];
+    
+    try {
+      const taskData = {
+        project: {
+          id: topSuggestion.projectId || '',
+          name: topSuggestion.projectName || 'Проект'
+        },
+        startMethod: 'quick_switch' as const
+      };
+
+      // Добавляем задачу, смету или услугу в зависимости от типа
+      if (topSuggestion.type === 'task' && topSuggestion.task) {
+        (taskData as any).task = topSuggestion.task;
+      } else if (topSuggestion.type === 'estimate' && topSuggestion.estimate) {
+        (taskData as any).estimate = topSuggestion.estimate;
+      } else if (topSuggestion.type === 'service' && topSuggestion.service) {
+        (taskData as any).estimate = topSuggestion.estimate;
+        (taskData as any).service = topSuggestion.service;
+      }
+
+      await switchWork(taskData);
+      console.log('🔄 Быстрое переключение через TimeIndicator');
+      
+      // Показываем детали после переключения
+      setShowDetails(true);
+    } catch (error) {
+      console.error('Error switching task:', error);
     }
   };
 
@@ -169,23 +224,57 @@ const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) =>
               </CardContent>
             </Card>
           </DialogContent>
-          <DialogActions sx={{ justifyContent: 'center', pb: 2 }}>
-            <Button
-              variant="outlined"
-              color={isPaused ? "success" : "warning"}
-              startIcon={isPaused ? <PlayIcon /> : <PauseIcon />}
-              onClick={handlePauseResume}
-            >
-              {isPaused ? 'Продолжить' : 'Пауза'}
-            </Button>
-            <Button
-              variant="contained"
-              color="error"
-              startIcon={<StopIcon />}
-              onClick={handleStop}
-            >
-              Завершить
-            </Button>
+          <DialogActions sx={{ flexDirection: 'column', gap: 1, pb: 2, px: 2 }}>
+            {/* Основные кнопки управления */}
+            <Box display="flex" gap={1} width="100%">
+              <Button
+                variant="outlined"
+                color={isPaused ? "success" : "warning"}
+                startIcon={isPaused ? <PlayIcon /> : <PauseIcon />}
+                onClick={handlePauseResume}
+                fullWidth
+              >
+                {isPaused ? 'Продолжить' : 'Пауза'}
+              </Button>
+              <Button
+                variant="contained"
+                color="error"
+                startIcon={<StopIcon />}
+                onClick={handleStop}
+                fullWidth
+              >
+                Завершить
+              </Button>
+            </Box>
+            
+            {/* T3 кнопки быстрого переключения */}
+            <Box display="flex" gap={1} width="100%">
+              <Button
+                variant="outlined"
+                startIcon={isStartingWork ? <TimerIcon /> : suggestions.length > 0 ? <SwitchIcon /> : <SmartIcon />}
+                onClick={handleQuickSwitch}
+                disabled={isStartingWork}
+                fullWidth
+                sx={{ fontSize: '0.875rem' }}
+              >
+                {isStartingWork 
+                  ? 'Переключение...' 
+                  : suggestions.length > 0 
+                    ? `→ ${suggestions[0]?.name?.substring(0, 15)}${suggestions[0]?.name?.length > 15 ? '...' : ''}`
+                    : 'Выбрать задачу'}
+              </Button>
+              <Button
+                variant="outlined"
+                startIcon={<MenuIcon />}
+                onClick={() => {
+                  setDialogOpen(false);
+                  openPalette();
+                }}
+                sx={{ minWidth: 'fit-content', px: 2 }}
+              >
+                ⌘K
+              </Button>
+            </Box>
           </DialogActions>
         </Dialog>
       </>
@@ -325,6 +414,49 @@ const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) =>
                   </IconButton>
                 </Tooltip>
 
+                {/* T3 кнопка быстрого переключения */}
+                <Tooltip title={
+                  suggestions.length > 0 
+                    ? `Переключить на: ${suggestions[0].name}`
+                    : "Выбрать задачу (Ctrl+K)"
+                }>
+                  <IconButton
+                    size="small"
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      handleQuickSwitch();
+                    }}
+                    disabled={isStartingWork}
+                    sx={{
+                      bgcolor: 'rgba(255,255,255,0.2)',
+                      color: 'white',
+                      '&:hover': {
+                        bgcolor: 'rgba(255,255,255,0.3)',
+                      },
+                      position: 'relative'
+                    }}
+                  >
+                    {isStartingWork ? (
+                      <TimerIcon sx={{ animation: 'spin 1s linear infinite' }} />
+                    ) : suggestions.length > 0 ? (
+                      <>
+                        <SwitchIcon />
+                        <SmartIcon 
+                          sx={{ 
+                            position: 'absolute',
+                            top: 2,
+                            right: 2,
+                            fontSize: 10,
+                            color: '#ffc107'
+                          }} 
+                        />
+                      </>
+                    ) : (
+                      <MenuIcon />
+                    )}
+                  </IconButton>
+                </Tooltip>
+
                 <Box flex={1} />
 
                 <Tooltip title="Перейти к учету времени">
@@ -361,9 +493,22 @@ const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) =>
             },
           }}
         >
-          Кликните для сворачивания. Используйте кнопки для управления.
+          {suggestions.length > 0 
+            ? `🚀 T3: Переключение на "${suggestions[0].name}" одним кликом`
+            : "Кликните для сворачивания. Ctrl+K для выбора задач."
+          }
         </Alert>
       )}
+      
+      {/* CSS анимации */}
+      <style>
+        {`
+          @keyframes spin {
+            from { transform: rotate(0deg); }
+            to { transform: rotate(360deg); }
+          }
+        `}
+      </style>
     </Box>
   );
 };
