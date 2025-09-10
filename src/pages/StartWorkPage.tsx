@@ -14,15 +14,27 @@ import ListItemIcon from '@mui/material/ListItemIcon';
 import Chip from '@mui/material/Chip';
 import Tabs from '@mui/material/Tabs';
 import Tab from '@mui/material/Tab';
+import ToggleButton from '@mui/material/ToggleButton';
+import ToggleButtonGroup from '@mui/material/ToggleButtonGroup';
+import TextField from '@mui/material/TextField';
+import FormControl from '@mui/material/FormControl';
+import InputLabel from '@mui/material/InputLabel';
+import Select from '@mui/material/Select';
+import MenuItem from '@mui/material/MenuItem';
+import Collapse from '@mui/material/Collapse';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '../auth/AuthContext';
-import { Project, getProjectsStream } from '../api/projectApi';
+import { subscribeToProjects } from '../api/projectV2Api';
+import { Project } from '../types/project.types';
 import { getTasksStream, Task } from '../api/taskApi';
 import { getEstimatesStream, Estimate, EstimateItem } from '../legacy/api/estimateApi';
 import { TimeTrackingButton } from '../components/TimeTrackingButton';
 import { PageLayout } from '../components/PageLayout';
 import { useTimeTracking } from '../contexts/TimeTrackingContext';
-import { Work as WorkIcon, Assignment as TaskIcon, Description as EstimateIcon, CheckCircle as CheckIcon } from '@mui/icons-material';
+import { Work as WorkIcon, Assignment as TaskIcon, Description as EstimateIcon, CheckCircle as CheckIcon, 
+         FilterList as FilterIcon, ExpandMore as ExpandIcon, ExpandLess as CollapseIcon } from '@mui/icons-material';
+import { evaluateProjectStartability, ProjectStartability } from '../utils/startability';
+import StartabilityIndicator from '../components/startability/StartabilityIndicator';
 
 interface TabPanelProps {
   children?: React.ReactNode;
@@ -61,11 +73,17 @@ const StartWorkPage: React.FC = () => {
   const [selectedService, setSelectedService] = useState<EstimateItem | null>(null);
 
   const [tabValue, setTabValue] = useState(0);
+  
+  // Новые состояния для режима "Все проекты"
+  const [viewMode, setViewMode] = useState<'available' | 'all'>('all');
+  const [searchText, setSearchText] = useState('');
+  const [statusFilter, setStatusFilter] = useState<string>('all');
+  const [expandedProjectId, setExpandedProjectId] = useState<string | null>(null);
 
   useEffect(() => {
     if (currentUser) {
       const unsubscribes = [
-        getProjectsStream(currentUser.uid, setProjects),
+        subscribeToProjects(currentUser.uid, setProjects),
         getTasksStream(currentUser.uid, setTasks),
         getEstimatesStream(currentUser.uid, '', setEstimates),
       ];
@@ -74,20 +92,80 @@ const StartWorkPage: React.FC = () => {
     }
   }, [currentUser]);
 
+  // Оценка стартуемости для всех проектов
+  const startabilityByProject = useMemo(() => {
+    const map = new Map<string, ProjectStartability>();
+    projects.forEach(project => {
+      const startability = evaluateProjectStartability(project, tasks, estimates);
+      map.set(project.id, startability);
+    });
+    return map;
+  }, [projects, tasks, estimates]);
+
+  // Фильтрованные проекты с учетом режима просмотра и фильтров
+  const filteredProjects = useMemo(() => {
+    let filtered = projects;
+
+    // Фильтр по режиму просмотра
+    if (viewMode === 'available') {
+      filtered = filtered.filter(project => {
+        const startability = startabilityByProject.get(project.id);
+        return startability?.startable === true;
+      });
+    }
+
+    // Поиск по названию
+    if (searchText) {
+      const searchLower = searchText.toLowerCase();
+      filtered = filtered.filter(project => 
+        project.name.toLowerCase().includes(searchLower)
+      );
+    }
+
+    // Фильтр по статусу
+    if (statusFilter !== 'all') {
+      filtered = filtered.filter(project => 
+        (project.status || 'idea') === statusFilter
+      );
+    }
+
+    // Сортировка: сначала стартуемые, потом по дате обновления
+    return filtered.sort((a, b) => {
+      const aStartability = startabilityByProject.get(a.id);
+      const bStartability = startabilityByProject.get(b.id);
+      
+      // Сначала по стартуемости
+      if (aStartability?.startable !== bStartability?.startable) {
+        return aStartability?.startable ? -1 : 1;
+      }
+      
+      // Потом по дате (если есть)
+      const aDate = (a as any).updatedAt || (a as any).createdAt;
+      const bDate = (b as any).updatedAt || (b as any).createdAt;
+      if (aDate && bDate) {
+        return new Date(bDate).getTime() - new Date(aDate).getTime();
+      }
+      
+      return a.name.localeCompare(b.name);
+    });
+  }, [projects, startabilityByProject, viewMode, searchText, statusFilter]);
+
+  // Легаси: для совместимости с существующим кодом
   const activeProjects = useMemo(() => {
-    return projects
-      .filter(p => p.status === 'active')
+    return filteredProjects
+      .filter(project => {
+        const startability = startabilityByProject.get(project.id);
+        return startability?.startable === true;
+      })
       .map(project => {
-        const startableTasks = tasks.filter(task => task.projectId === project.id && canStartWork(task as any));
-        const projectEstimates = estimates.filter(estimate => estimate.projectId === project.id);
+        const startability = startabilityByProject.get(project.id)!;
         return {
           ...project,
-          startableTaskCount: startableTasks.length,
-          estimateCount: projectEstimates.length,
+          startableTaskCount: startability.startableTaskCount,
+          estimateCount: startability.estimateCount,
         };
-      })
-      .filter(project => project.startableTaskCount > 0 || project.estimateCount > 0);
-  }, [projects, tasks, estimates, canStartWork]);
+      });
+  }, [filteredProjects, startabilityByProject]);
 
 
   const selectedProject = useMemo(() => projects.find(p => p.id === selectedProjectId), [projects, selectedProjectId]);
@@ -95,11 +173,24 @@ const StartWorkPage: React.FC = () => {
   const estimatesForSelectedProject = useMemo(() => estimates.filter(estimate => estimate.projectId === selectedProjectId), [estimates, selectedProjectId]);
 
   const handleSelectProject = (projectId: string) => {
+    const startability = startabilityByProject.get(projectId);
+    
+    // Если проект не стартуем, показываем детали причин вместо выбора задач
+    if (!startability?.startable) {
+      setExpandedProjectId(expandedProjectId === projectId ? null : projectId);
+      return;
+    }
+    
     setSelectedProjectId(projectId);
     setSelectedTask(null);
     setSelectedEstimate(null);
     setSelectedService(null);
     setTabValue(0);
+    setExpandedProjectId(null);
+  };
+
+  const handleToggleDetails = (projectId: string) => {
+    setExpandedProjectId(expandedProjectId === projectId ? null : projectId);
   };
 
   const handleStart = () => {
@@ -121,34 +212,152 @@ const StartWorkPage: React.FC = () => {
   return (
     <PageLayout title="Начать учет времени">
       <Container maxWidth="lg">
+        {/* Фильтры и режимы просмотра */}
+        <Card sx={{ mb: 3 }}>
+          <CardContent>
+            <Stack spacing={3}>
+              {/* Переключатель режима */}
+              <Stack direction="row" alignItems="center" spacing={2}>
+                <Typography variant="subtitle1">Режим просмотра:</Typography>
+                <ToggleButtonGroup
+                  value={viewMode}
+                  exclusive
+                  onChange={(_, newMode) => newMode && setViewMode(newMode)}
+                  size="small"
+                >
+                  <ToggleButton value="all">Все проекты</ToggleButton>
+                  <ToggleButton value="available">Только доступные</ToggleButton>
+                </ToggleButtonGroup>
+              </Stack>
+              
+              {/* Фильтры */}
+              <Stack direction={{ xs: 'column', sm: 'row' }} spacing={2}>
+                <TextField
+                  label="Поиск по названию"
+                  variant="outlined"
+                  size="small"
+                  value={searchText}
+                  onChange={(e) => setSearchText(e.target.value)}
+                  sx={{ minWidth: 200 }}
+                />
+                <FormControl size="small" sx={{ minWidth: 150 }}>
+                  <InputLabel>Статус</InputLabel>
+                  <Select
+                    value={statusFilter}
+                    label="Статус"
+                    onChange={(e) => setStatusFilter(e.target.value)}
+                  >
+                    <MenuItem value="all">Все статусы</MenuItem>
+                    <MenuItem value="idea">Идея</MenuItem>
+                    <MenuItem value="planning">Планирование</MenuItem>
+                    <MenuItem value="active">Активный</MenuItem>
+                    <MenuItem value="on_hold">На паузе</MenuItem>
+                    <MenuItem value="completed">Завершен</MenuItem>
+                    <MenuItem value="cancelled">Отменен</MenuItem>
+                  </Select>
+                </FormControl>
+                <Typography variant="body2" color="text.secondary" sx={{ alignSelf: 'center' }}>
+                  Найдено: {filteredProjects.length} проектов
+                </Typography>
+              </Stack>
+            </Stack>
+          </CardContent>
+        </Card>
+
         <Grid container spacing={4}>
           <Grid item xs={12} md={5}>
-            <Typography variant="h6" gutterBottom>1. Выберите проект</Typography>
+            <Typography variant="h6" gutterBottom>
+              {viewMode === 'all' ? 'Проекты' : '1. Выберите проект'}
+            </Typography>
             <List component="nav" sx={{ maxHeight: '70vh', overflow: 'auto' }}>
-              {activeProjects.map(project => (
-                <ListItemButton
-                  key={project.id}
-                  selected={selectedProjectId === project.id}
-                  onClick={() => handleSelectProject(project.id)}
-                  sx={{ mb: 1.5, borderRadius: 2, border: 1, borderColor: selectedProjectId === project.id ? 'primary.main' : 'divider' }}
-                >
-                  <ListItemIcon sx={{ minWidth: 40 }}><WorkIcon color={selectedProjectId === project.id ? 'primary' : 'action'} /></ListItemIcon>
-                  <ListItemText
-                    primary={project.name}
-                    secondary={
-                      <Stack direction="row" spacing={1} mt={0.5}>
-                        <Chip label={`Задач: ${project.startableTaskCount}`} size="small" />
-                        <Chip label={`Смет: ${project.estimateCount}`} size="small" />
-                      </Stack>
-                    }
-                  />
-                </ListItemButton>
-              ))}
+              {filteredProjects.map(project => {
+                const startability = startabilityByProject.get(project.id)!;
+                const isExpanded = expandedProjectId === project.id;
+                const isStartable = startability.startable;
+                const isSelected = selectedProjectId === project.id;
+                
+                return (
+                  <Box key={project.id}>
+                    <ListItemButton
+                      selected={isSelected}
+                      onClick={() => handleSelectProject(project.id)}
+                      disabled={viewMode === 'all' && !isStartable}
+                      sx={{ 
+                        mb: 1, 
+                        borderRadius: 2, 
+                        border: 1, 
+                        borderColor: isSelected ? 'primary.main' : 'divider',
+                        opacity: (!isStartable && viewMode === 'all') ? 0.6 : 1
+                      }}
+                    >
+                      <ListItemIcon sx={{ minWidth: 40 }}>
+                        <WorkIcon color={isSelected ? 'primary' : 'action'} />
+                      </ListItemIcon>
+                      <ListItemText
+                        primary={
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <Typography variant="body1">{project.name}</Typography>
+                            <StartabilityIndicator 
+                              startability={startability} 
+                              compact 
+                            />
+                          </Stack>
+                        }
+                        secondary={
+                          <Stack spacing={0.5}>
+                            <Stack direction="row" spacing={1}>
+                              <Chip 
+                                label={`Статус: ${project.status || 'idea'}`} 
+                                size="small" 
+                                variant="outlined" 
+                              />
+                              <Chip 
+                                label={`Задач: ${startability.startableTaskCount}/${startability.totalTaskCount}`} 
+                                size="small" 
+                              />
+                              <Chip 
+                                label={`Смет: ${startability.estimateCount}`} 
+                                size="small" 
+                              />
+                            </Stack>
+                            {!isStartable && startability.reasons.length > 0 && (
+                              <Typography variant="caption" color="error">
+                                {startability.reasons.slice(0, 2).map(r => r.replace('_', ' ')).join(', ')}
+                                {startability.reasons.length > 2 && ` (+${startability.reasons.length - 2})`}
+                              </Typography>
+                            )}
+                          </Stack>
+                        }
+                      />
+                      {!isStartable && (
+                        <ListItemIcon onClick={(e) => {
+                          e.stopPropagation();
+                          handleToggleDetails(project.id);
+                        }}>
+                          {isExpanded ? <CollapseIcon /> : <ExpandIcon />}
+                        </ListItemIcon>
+                      )}
+                    </ListItemButton>
+                    
+                    {/* Детали причин блокировки */}
+                    {!isStartable && (
+                      <Collapse in={isExpanded}>
+                        <Box sx={{ ml: 4, mr: 2, mb: 2 }}>
+                          <StartabilityIndicator 
+                            startability={startability} 
+                            showDetails 
+                          />
+                        </Box>
+                      </Collapse>
+                    )}
+                  </Box>
+                );
+              })}
             </List>
           </Grid>
           
           <Grid item xs={12} md={7}>
-            {selectedProjectId && (
+            {selectedProjectId && startabilityByProject.get(selectedProjectId)?.startable && (
               <>
                 <Typography variant="h6" gutterBottom>2. Выберите задачу или смету</Typography>
                 <Box sx={{ borderBottom: 1, borderColor: 'divider' }}>

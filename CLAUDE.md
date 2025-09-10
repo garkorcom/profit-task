@@ -77,3 +77,69 @@ REACT_APP_FIREBASE_APP_ID=...
 - Estimates system supports versioning, templates, and public sharing
 - Multiple test pages exist in `/src/tests/` for development debugging
 - Dev tools accessible at `/dev-tools` route for data operations
+
+## Project Startability System
+
+### Overview
+Система стартуемости проектов определяет, можно ли начать работу над проектом/задачей, и предоставляет детальные причины блокировки.
+
+### Core Components
+- `utils/startability.ts` - Основная логика анализа стартуемости
+- `components/startability/StartabilityIndicator.tsx` - UI компоненты для отображения
+- `pages/StartWorkPage.tsx` - Интеграция с режимом "Все проекты"
+
+### Startability Semantics
+
+#### Project Status Classification
+**Стартуемые статусы**: `idea`, `planning`, `active`, `on_hold`
+**Заблокированные статусы**: `completed`, `cancelled`, `archived`
+
+#### Task Status Classification  
+**Заблокированные статусы задач**: `blocked`, `done`, `cancelled`, `archived`
+
+#### Reason Codes
+```typescript
+export type StartabilityReasonCode =
+  | 'PROJECT_STATUS_NOT_STARTABLE'      // Статус проекта не допускает старт
+  | 'PROJECT_ON_HOLD'                   // Проект на удержании
+  | 'NO_TASKS'                          // Нет задач в проекте
+  | 'ALL_TASKS_BLOCKED'                 // Все задачи недоступны
+  | 'NO_ESTIMATES'                      // Нет смет
+  | 'MISSING_ASSIGNMENT'                // Нет назначенного исполнителя
+  | 'MISSING_PERMISSIONS'               // Недостаточно прав
+  | 'DEPENDENCIES_NOT_MET'              // Не выполнены зависимости
+  | 'BUDGET_OR_APPROVAL_REQUIRED'       // Требуется бюджет/подтверждение
+  | 'COMPLIANCE_HOLD'                   // Стоп по соответствию
+```
+
+### Key Functions
+- `evaluateProjectStartability()` - Анализ стартуемости проекта
+- `canStartWorkDetailed()` - Детальный анализ задачи
+- `isProjectStatusStartable()` - Проверка статуса проекта
+- `getReasonText()` / `getReasonIcon()` - Утилиты для UI
+
+### UI Features
+- **Режим просмотра**: "Все проекты" / "Только доступные"
+- **Фильтрация**: по статусу, тексту поиска
+- **Сортировка**: стартуемые сначала, потом по дате
+- **Детали**: развернутые причины блокировки
+- **Примеры**: заблокированные задачи (до 3 штук)
+
+### Testing
+Comprehensive test suite в `utils/__tests__/startability.test.ts` покрывает:
+- Утилитные функции
+- Детальный анализ задач  
+- Оценку стартуемости проектов
+- Интеграционные сценарии
+
+### Usage Example
+```typescript
+import { evaluateProjectStartability } from '../utils/startability';
+
+const startability = evaluateProjectStartability(project, tasks, estimates);
+if (startability.startable) {
+  // Можно начинать работу
+} else {
+  // Показать причины: startability.reasons
+}
+```
