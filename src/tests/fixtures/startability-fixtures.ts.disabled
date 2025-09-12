@@ -1,0 +1,485 @@
+/**
+ * ============================================================================
+ * STARTABILITY TEST FIXTURES - Integration Test Support
+ * ============================================================================
+ * 
+ * Mock data and utilities for testing the Startability V2 system.
+ * Provides realistic test data matching the technical requirements.
+ * 
+ * @author Senior Full-Stack Engineer + UX Architect
+ * @version 1.0.0 - Technical Requirements
+ * @feature estimates.startability_v1
+ */
+
+import React from 'react';
+import { ThemeProvider } from '@mui/material/styles';
+import { createTheme } from '@mui/material/styles';
+import { MemoryRouter } from 'react-router-dom';
+import { I18nextProvider } from 'react-i18next';
+import i18n from 'i18next';
+import { initReactI18next } from 'react-i18next';
+
+// Types
+import { 
+  StartabilitySnapshot, 
+  StartabilityReason,
+  ItemStartability,
+  StartabilityCode,
+  StartabilityCategory,
+  StartabilitySeverity 
+} from '../../types/startability.types';
+import { Estimate } from '../../types/estimate.types';
+import { Project } from '../../types/project.types';
+
+// =====================================================
+// I18N SETUP FOR TESTS
+// =====================================================
+
+// Initialize i18n for tests
+i18n
+  .use(initReactI18next)
+  .init({
+    lng: 'ru',
+    fallbackLng: 'ru',
+    resources: {
+      ru: {
+        translation: {
+          startability: {
+            header: {
+              blocked_send_tooltip: 'Нельзя отправить смету пока есть критические проблемы',
+              blocked_convert_tooltip: 'Нельзя преобразовать в договор пока есть критические проблемы',
+              send_estimate: 'Отправить клиенту',
+              convert_contract: 'Преобразовать в договор'
+            }
+          }
+        }
+      }
+    },
+    interpolation: {
+      escapeValue: false
+    }
+  });
+
+// =====================================================
+// MOCK THEME
+// =====================================================
+
+const testTheme = createTheme({
+  palette: {
+    primary: {
+      main: '#2e7d32',
+    },
+    success: {
+      main: '#4caf50',
+    },
+    warning: {
+      main: '#ff9800',
+    },
+    error: {
+      main: '#f44336',
+    },
+  },
+});
+
+// =====================================================
+// TEST WRAPPER COMPONENT
+// =====================================================
+
+interface TestWrapperProps {
+  children: React.ReactNode;
+  initialRoute?: string;
+}
+
+export const TestWrapper: React.FC<TestWrapperProps> = ({ 
+  children, 
+  initialRoute = '/' 
+}) => {
+  return (
+    <MemoryRouter initialEntries={[initialRoute]}>
+      <ThemeProvider theme={testTheme}>
+        <I18nextProvider i18n={i18n}>
+          {children}
+        </I18nextProvider>
+      </ThemeProvider>
+    </MemoryRouter>
+  );
+};
+
+// =====================================================
+// MOCK ESTIMATE DATA
+// =====================================================
+
+export function createMockEstimate(overrides: Partial<Estimate> = {}): Estimate {
+  return {
+    id: 'test-estimate-id',
+    number: 'EST-2024-001',
+    status: 'draft',
+    projectId: 'test-project-id',
+    clientId: 'test-client-id',
+    createdAt: new Date('2024-01-01').toISOString(),
+    updatedAt: new Date('2024-01-02').toISOString(),
+    createdBy: 'test-user-id',
+    updatedBy: 'test-user-id',
+    blocks: [
+      {
+        key: 'services',
+        status: 'complete',
+        dataVersion: 1,
+        updatedAt: new Date().toISOString(),
+        data: {
+          sections: [{ id: 'sec-1', title: 'Основные работы' }],
+          rows: [
+            {
+              id: 'service-1',
+              sectionId: 'sec-1',
+              name: 'Монтаж системы отопления',
+              description: 'Установка радиаторов и трубопроводов',
+              unit: 'ч',
+              rate: 1500,
+              pert: { optimistic: 8, mostLikely: 12, pessimistic: 16 }
+            },
+            {
+              id: 'service-2',
+              sectionId: 'sec-1',
+              name: 'Электромонтажные работы',
+              description: 'Прокладка кабелей и установка розеток',
+              unit: 'ч',
+              rate: 1200,
+              pert: { optimistic: 6, mostLikely: 8, pessimistic: 12 }
+            },
+            {
+              id: 'service-3',
+              sectionId: 'sec-1',
+              name: 'Покраска стен',
+              description: 'Подготовка и покраска поверхностей',
+              unit: 'м2',
+              rate: 300,
+              pert: { optimistic: 4, mostLikely: 6, pessimistic: 8 },
+              assignedTo: 'painter-user-id'
+            }
+          ],
+          hourlyRate: 1200
+        }
+      }
+    ],
+    totals: {
+      materialsCost: 25000,
+      laborCost: 18000,
+      equipmentCost: 5000,
+      subcontractCost: 0,
+      overheadPct: 15,
+      overheadAmt: 7200,
+      profitPct: 20,
+      profitAmt: 11040,
+      discountAmt: 0,
+      shippingAmt: 2000,
+      totalCost: 68240
+    },
+    version: 1,
+    ...overrides
+  };
+}
+
+// =====================================================
+// MOCK PROJECT DATA
+// =====================================================
+
+export function createMockProject(overrides: Partial<Project> = {}): Project {
+  return {
+    id: 'test-project-id',
+    name: 'Ремонт квартиры',
+    description: 'Комплексный ремонт 3-комнатной квартиры',
+    status: 'active',
+    clientId: 'test-client-id',
+    managerId: 'test-manager-id',
+    createdAt: new Date('2024-01-01').toISOString(),
+    updatedAt: new Date('2024-01-02').toISOString(),
+    createdBy: 'test-user-id',
+    budget: 100000,
+    timeline: {
+      startDate: '2024-02-01',
+      endDate: '2024-04-30'
+    },
+    location: {
+      address: 'ул. Пушкина, д. 10, кв. 5',
+      city: 'Москва',
+      coordinates: {
+        lat: 55.7558,
+        lng: 37.6176
+      }
+    },
+    ...overrides
+  };
+}
+
+// =====================================================
+// MOCK STARTABILITY DATA
+// =====================================================
+
+export function createMockStartabilitySnapshot(
+  overrides: Partial<StartabilitySnapshot> = {}
+): StartabilitySnapshot {
+  const defaultReasons: StartabilityReason[] = [
+    {
+      code: 'MISSING_ASSIGNMENT',
+      category: 'PERMISSIONS',
+      message: 'Задача не назначена исполнителю',
+      severity: 'critical',
+      detectedAt: new Date(),
+      autoResolvable: true,
+      cta: 'ASSIGN_USER',
+      meta: {
+        projectId: 'test-project-id',
+        estimateId: 'test-estimate-id',
+        taskId: 'service-1',
+        entityName: 'Монтаж системы отопления',
+        suggestedAssignees: [
+          { id: 'user-1', name: 'Иван Петров', role: 'Слесарь' },
+          { id: 'user-2', name: 'Мария Иванова', role: 'Мастер' }
+        ]
+      }
+    },
+    {
+      code: 'MISSING_COUNTERPARTY_APPROVAL',
+      category: 'BUSINESS',
+      message: 'Ожидается утверждение клиента',
+      severity: 'warning',
+      detectedAt: new Date(),
+      autoResolvable: false,
+      cta: 'REQUEST_APPROVAL',
+      meta: {
+        projectId: 'test-project-id',
+        estimateId: 'test-estimate-id',
+        clientId: 'test-client-id'
+      }
+    }
+  ];
+
+  return {
+    projectId: 'test-project-id',
+    estimateId: 'test-estimate-id',
+    overall: 'blocked',
+    reasons: defaultReasons,
+    sampleBlockedItems: ['Монтаж системы отопления', 'Электромонтажные работы'],
+    stats: {
+      criticalCount: 1,
+      warningCount: 1,
+      infoCount: 0,
+      startableItemCount: 1,
+      totalItemCount: 3
+    },
+    evaluatedAt: new Date(),
+    evaluatedBy: 'test-user-id',
+    ttl: 300,
+    ...overrides
+  };
+}
+
+export function createMockItemStartabilities(): Record<string, ItemStartability> {
+  return {
+    'service-1': {
+      itemId: 'service-1',
+      itemType: 'service',
+      status: 'blocked',
+      icon: '🚫',
+      tooltip: 'Критическая проблема: не назначен исполнитель',
+      reasons: [
+        {
+          code: 'MISSING_ASSIGNMENT',
+          category: 'PERMISSIONS',
+          message: 'Задача не назначена исполнителю',
+          severity: 'critical',
+          detectedAt: new Date(),
+          autoResolvable: true,
+          cta: 'ASSIGN_USER',
+          meta: {
+            taskId: 'service-1',
+            entityName: 'Монтаж системы отопления'
+          }
+        }
+      ]
+    },
+    'service-2': {
+      itemId: 'service-2', 
+      itemType: 'service',
+      status: 'attention',
+      icon: '⚠️',
+      tooltip: 'Предупреждение: ожидается утверждение клиента',
+      reasons: [
+        {
+          code: 'MISSING_COUNTERPARTY_APPROVAL',
+          category: 'BUSINESS',
+          message: 'Ожидается утверждение клиента',
+          severity: 'warning',
+          detectedAt: new Date(),
+          autoResolvable: false,
+          cta: 'REQUEST_APPROVAL',
+          meta: {
+            estimateId: 'test-estimate-id',
+            clientId: 'test-client-id'
+          }
+        }
+      ]
+    },
+    'service-3': {
+      itemId: 'service-3',
+      itemType: 'service', 
+      status: 'ready',
+      icon: '✅',
+      tooltip: 'Готов к выполнению',
+      reasons: []
+    }
+  };
+}
+
+// =====================================================
+// MOCK REASON HELPERS
+// =====================================================
+
+export function createMockReason(
+  code: StartabilityCode,
+  severity: StartabilitySeverity = 'warning',
+  category: StartabilityCategory = 'TASKS',
+  overrides: Partial<StartabilityReason> = {}
+): StartabilityReason {
+  return {
+    code,
+    category,
+    message: `Mock reason for ${code}`,
+    severity,
+    detectedAt: new Date(),
+    autoResolvable: false,
+    ...overrides
+  };
+}
+
+// =====================================================
+// MOCK API RESPONSES
+// =====================================================
+
+export const mockV2StartabilityResponse = {
+  projectId: 'test-project-id',
+  isProjectStartable: false,
+  itemsStartability: {
+    'service-1': {
+      itemId: 'service-1',
+      summaryStatus: 'BLOCKED' as const,
+      blockers: [
+        {
+          code: 'MISSING_ASSIGNMENT',
+          category: 'Task' as const,
+          description: 'Услуга не назначена исполнителю',
+          severity: 'CRITICAL' as const,
+          resolutionAction: {
+            type: 'ASSIGN_USER' as const,
+            label: 'Назначить исполнителя',
+            apiEndpoint: '/api/v2/tasks/assign',
+            contextData: {
+              taskId: 'service-1',
+              estimateId: 'test-estimate-id',
+              allowedRoles: ['executor', 'contractor']
+            }
+          }
+        }
+      ]
+    },
+    'service-2': {
+      itemId: 'service-2',
+      summaryStatus: 'WARNING' as const,
+      blockers: [
+        {
+          code: 'MISSING_COUNTERPARTY_APPROVAL',
+          category: 'Business' as const,
+          description: 'Ожидается утверждение клиента',
+          severity: 'WARNING' as const,
+          resolutionAction: {
+            type: 'REQUEST_APPROVAL' as const,
+            label: 'Запросить одобрение',
+            apiEndpoint: '/api/v2/approvals/request',
+            contextData: {
+              projectId: 'test-project-id',
+              estimateId: 'test-estimate-id',
+              approvalType: 'estimate'
+            }
+          }
+        }
+      ]
+    },
+    'service-3': {
+      itemId: 'service-3',
+      summaryStatus: 'READY' as const,
+      blockers: []
+    }
+  }
+};
+
+// =====================================================
+// MOCK USER DATA
+// =====================================================
+
+export const mockUsers = [
+  { id: 'user-1', name: 'Иван Петров', role: 'Исполнитель', email: 'ivan@example.com' },
+  { id: 'user-2', name: 'Мария Иванова', role: 'Подрядчик', email: 'maria@example.com' },
+  { id: 'user-3', name: 'Алексей Сидоров', role: 'Мастер', email: 'alexey@example.com' }
+];
+
+export const mockClients = [
+  { id: 'client-1', name: 'ООО "Стройтех"', email: 'info@stroytech.com' },
+  { id: 'client-2', name: 'ИП Смирнов А.В.', email: 'smirnov@gmail.com' }
+];
+
+// =====================================================
+// TEST DATA VALIDATION
+// =====================================================
+
+export function validateTestFixtures(): boolean {
+  try {
+    const estimate = createMockEstimate();
+    const project = createMockProject();
+    const snapshot = createMockStartabilitySnapshot();
+    const itemStartabilities = createMockItemStartabilities();
+
+    // Basic validation
+    if (!estimate.id || !project.id || !snapshot.projectId) {
+      console.error('Test fixtures missing required IDs');
+      return false;
+    }
+
+    if (!estimate.blocks || estimate.blocks.length === 0) {
+      console.error('Mock estimate missing blocks');
+      return false;
+    }
+
+    if (!snapshot.reasons || snapshot.reasons.length === 0) {
+      console.error('Mock snapshot missing reasons');
+      return false;
+    }
+
+    if (Object.keys(itemStartabilities).length === 0) {
+      console.error('Mock item startabilities empty');
+      return false;
+    }
+
+    return true;
+  } catch (error) {
+    console.error('Test fixtures validation failed:', error);
+    return false;
+  }
+}
+
+// =====================================================
+// EXPORTS
+// =====================================================
+
+export default {
+  TestWrapper,
+  createMockEstimate,
+  createMockProject,
+  createMockStartabilitySnapshot,
+  createMockItemStartabilities,
+  createMockReason,
+  mockV2StartabilityResponse,
+  mockUsers,
+  mockClients,
+  validateTestFixtures
+};

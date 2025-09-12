@@ -42,6 +42,7 @@ import AdminPage from '../pages/admin/AdminPage';
 import RoleManagementPage from '../pages/admin/RoleManagementPage';
 import ConditionalPermissionsTest from '../pages/admin/ConditionalPermissionsTest';
 import { TrajectoryPage } from '../modules/trajectory/TrajectoryPage';
+import StartabilityV2TestPage from '../pages/StartabilityV2TestPage';
 // import PermissionDebugger from '../components/admin/PermissionDebugger';
 // import AuditLogViewer from '../components/admin/AuditLogViewer';
 // import UserOffboardingManager from '../components/admin/UserOffboardingManager';
@@ -63,6 +64,7 @@ const AppRouter: React.FC = () => {
           <Route element={<MainLayout />}>
             <Route path="/" element={<HomePage />} />
             <Route path="/dev-tools" element={<DevToolsPage />} />
+            <Route path="/startability-v2-test" element={<StartabilityV2TestPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/review" element={<TaskReviewPage />} />
             <Route path="/analytics" element={<AnalyticsDashboard />} />

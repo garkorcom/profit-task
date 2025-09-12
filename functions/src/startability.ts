@@ -584,6 +584,522 @@ export const clearStartabilityCache = functions
     }
   });
 
+// =====================================================
+// V2 STARTABILITY API - TECHNICAL REQUIREMENTS
+// =====================================================
+
+/**
+ * Enhanced startability analysis for Master-Detail UI integration
+ * Returns StartabilityReport format with actionable ResolutionActions
+ */
+export const analyzeStartabilityV2 = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { projectId, estimateId, includeResolutions = true, forceRefresh = false } = data;
+
+  if (!projectId || !estimateId) {
+    throw new functions.https.HttpsError('invalid-argument', 'projectId and estimateId are required');
+  }
+
+  try {
+    // Check cache first unless force refresh
+    if (!forceRefresh) {
+      const cacheDoc = await db.collection('cache')
+        .doc(`startability_v2_${projectId}_${estimateId}`)
+        .get();
+      
+      if (cacheDoc.exists) {
+        const cacheData = cacheDoc.data();
+        if (cacheData && cacheData.ttl > admin.firestore.Timestamp.now()) {
+          console.log(`Returning cached V2 startability for project ${projectId}`);
+          return { success: true, data: cacheData.data };
+        }
+      }
+    }
+
+    // Fetch project and estimate data
+    const [projectDoc, estimateDoc] = await Promise.all([
+      db.collection('projects').doc(projectId).get(),
+      db.collection('estimates').doc(estimateId).get()
+    ]);
+
+    if (!projectDoc.exists || !estimateDoc.exists) {
+      throw new functions.https.HttpsError('not-found', 'Project or estimate not found');
+    }
+
+    const project = projectDoc.data();
+    const estimate = estimateDoc.data();
+
+    // Analyze estimate items for startability
+    const itemsStartability: Record<string, any> = {};
+    let projectStartable = true;
+
+    if (estimate?.blocks) {
+      for (const [blockKey, block] of Object.entries(estimate.blocks)) {
+        if (block && typeof block === 'object' && 'items' in block) {
+          const blockItems = (block as any).items;
+          
+          for (const [itemId, item] of Object.entries(blockItems || {})) {
+            const analysis = await analyzeEstimateItem(
+              itemId, 
+              item as any, 
+              project, 
+              estimate, 
+              context.auth.uid,
+              includeResolutions
+            );
+            
+            itemsStartability[itemId] = analysis;
+            
+            // If any item is BLOCKED, project is not startable
+            if (analysis.summaryStatus === 'BLOCKED') {
+              projectStartable = false;
+            }
+          }
+        }
+      }
+    }
+
+    const result = {
+      projectId,
+      isProjectStartable: projectStartable,
+      itemsStartability,
+      analyzedAt: admin.firestore.Timestamp.now(),
+      estimateId
+    };
+
+    // Cache result for 5 minutes
+    await db.collection('cache')
+      .doc(`startability_v2_${projectId}_${estimateId}`)
+      .set({
+        data: result,
+        ttl: admin.firestore.Timestamp.fromMillis(Date.now() + 5 * 60 * 1000),
+        createdAt: admin.firestore.Timestamp.now()
+      });
+
+    return { success: true, data: result };
+
+  } catch (error) {
+    console.error('V2 Startability analysis error:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to analyze startability V2',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+});
+
+/**
+ * Analyze individual estimate item for blockers and resolutions
+ */
+async function analyzeEstimateItem(
+  itemId: string,
+  item: any,
+  project: any,
+  estimate: any,
+  userId: string,
+  includeResolutions: boolean
+): Promise<any> {
+  const blockers: any[] = [];
+  let summaryStatus = 'READY';
+
+  // Check project-level blockers
+  if (project.status === 'cancelled' || project.status === 'completed') {
+    blockers.push({
+      code: 'PROJECT_STATUS_NOT_STARTABLE',
+      category: 'Project',
+      description: 'Статус проекта не допускает начало работ',
+      severity: 'CRITICAL',
+      meta: { projectId: project.id, currentStatus: project.status }
+    });
+    summaryStatus = 'BLOCKED';
+  }
+
+  // Check estimate status
+  if (estimate.status === 'cancelled' || estimate.status === 'rejected') {
+    blockers.push({
+      code: 'ESTIMATE_STATUS_BLOCKED',
+      category: 'Business',
+      description: 'Статус сметы блокирует работы',
+      severity: 'CRITICAL',
+      meta: { estimateId: estimate.id, currentStatus: estimate.status }
+    });
+    summaryStatus = 'BLOCKED';
+  }
+
+  // Check item assignment
+  if (!item.assignedTo && item.type === 'service') {
+    blockers.push({
+      code: 'MISSING_ASSIGNMENT',
+      category: 'Task',
+      description: 'Услуга не назначена исполнителю',
+      severity: 'WARNING',
+      meta: { 
+        itemId, 
+        estimateId: estimate.id,
+        taskId: itemId,
+        itemType: item.type 
+      }
+    });
+    if (summaryStatus === 'READY') summaryStatus = 'WARNING';
+  }
+
+  // Check client approval if required
+  if (estimate.requiresApproval && !estimate.approvedAt) {
+    blockers.push({
+      code: 'MISSING_COUNTERPARTY_APPROVAL',
+      category: 'Business',
+      description: 'Ожидается утверждение клиента',
+      severity: 'WARNING',
+      meta: { 
+        estimateId: estimate.id,
+        projectId: project.id,
+        clientId: project.clientId 
+      }
+    });
+    if (summaryStatus === 'READY') summaryStatus = 'WARNING';
+  }
+
+  // Check material availability
+  if (item.type === 'material' && item.quantity && item.availableQuantity < item.quantity) {
+    blockers.push({
+      code: 'MATERIAL_AVAILABILITY_HOLD',
+      category: 'Business',
+      description: 'Недостаточно материалов на складе',
+      severity: 'WARNING',
+      meta: {
+        itemId,
+        materialId: item.materialId,
+        required: item.quantity,
+        available: item.availableQuantity
+      }
+    });
+    if (summaryStatus === 'READY') summaryStatus = 'WARNING';
+  }
+
+  // Add resolution actions if requested
+  if (includeResolutions) {
+    blockers.forEach(blocker => {
+      blocker.resolutionAction = createResolutionActionV2(blocker);
+    });
+  }
+
+  return {
+    itemId,
+    summaryStatus,
+    blockers
+  };
+}
+
+/**
+ * Create resolution action for V2 system
+ */
+function createResolutionActionV2(blocker: any): any {
+  switch (blocker.code) {
+    case 'MISSING_ASSIGNMENT':
+      return {
+        type: 'ASSIGN_USER',
+        label: 'Назначить исполнителя',
+        apiEndpoint: '/api/v2/tasks/assign',
+        contextData: {
+          taskId: blocker.meta?.taskId,
+          estimateId: blocker.meta?.estimateId,
+          itemId: blocker.meta?.itemId,
+          allowedRoles: ['executor', 'contractor']
+        }
+      };
+
+    case 'MISSING_COUNTERPARTY_APPROVAL':
+      return {
+        type: 'REQUEST_APPROVAL',
+        label: 'Запросить одобрение',
+        apiEndpoint: '/api/v2/approvals/request',
+        contextData: {
+          projectId: blocker.meta?.projectId,
+          estimateId: blocker.meta?.estimateId,
+          clientId: blocker.meta?.clientId,
+          approvalType: 'estimate'
+        }
+      };
+
+    case 'PROJECT_STATUS_NOT_STARTABLE':
+      return {
+        type: 'CHANGE_PROJECT_STATUS',
+        label: 'Изменить статус проекта',
+        apiEndpoint: '/api/v2/projects/status',
+        contextData: {
+          projectId: blocker.meta?.projectId,
+          currentStatus: blocker.meta?.currentStatus,
+          suggestedStatus: 'active'
+        }
+      };
+
+    case 'MATERIAL_AVAILABILITY_HOLD':
+      return {
+        type: 'RESOLVE_MATERIALS',
+        label: 'Решить вопрос с материалами',
+        apiEndpoint: '/api/v2/materials/resolve',
+        contextData: {
+          itemId: blocker.meta?.itemId,
+          materialId: blocker.meta?.materialId,
+          required: blocker.meta?.required,
+          available: blocker.meta?.available
+        }
+      };
+
+    default:
+      return {
+        type: 'NAVIGATE',
+        label: 'Подробнее',
+        contextData: {
+          route: `/projects/${blocker.meta?.projectId}`,
+          section: 'issues'
+        }
+      };
+  }
+}
+
+/**
+ * Execute resolution action from V2 UI
+ */
+export const executeResolutionAction = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { actionType, endpoint, contextData, additionalData } = data;
+
+  if (!actionType || !contextData) {
+    throw new functions.https.HttpsError('invalid-argument', 'actionType and contextData are required');
+  }
+
+  try {
+    let result;
+
+    switch (actionType) {
+      case 'ASSIGN_USER':
+        result = await executeAssignUser(contextData, additionalData, context.auth.uid);
+        break;
+        
+      case 'REQUEST_APPROVAL':
+        result = await executeRequestApproval(contextData, additionalData, context.auth.uid);
+        break;
+        
+      case 'CHANGE_PROJECT_STATUS':
+        result = await executeChangeProjectStatus(contextData, additionalData, context.auth.uid);
+        break;
+        
+      case 'RESOLVE_MATERIALS':
+        result = await executeResolveMaterials(contextData, additionalData, context.auth.uid);
+        break;
+        
+      default:
+        // Navigation-only actions don't need server execution
+        result = {
+          success: true,
+          message: 'Navigation action completed',
+          action: 'navigate'
+        };
+    }
+
+    // Clear related cache after successful action
+    if (result.success && contextData.projectId && contextData.estimateId) {
+      await db.collection('cache')
+        .doc(`startability_v2_${contextData.projectId}_${contextData.estimateId}`)
+        .delete();
+    }
+
+    return result;
+
+  } catch (error) {
+    console.error('Resolution action execution error:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to execute resolution action',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+});
+
+/**
+ * Execute ASSIGN_USER resolution action
+ */
+async function executeAssignUser(contextData: any, additionalData: any, userId: string): Promise<any> {
+  const { taskId, estimateId, itemId, assigneeId } = { ...contextData, ...additionalData };
+
+  if (!assigneeId) {
+    throw new functions.https.HttpsError('invalid-argument', 'assigneeId is required');
+  }
+
+  // Update estimate item assignment
+  const estimateRef = db.collection('estimates').doc(estimateId);
+  const estimateDoc = await estimateRef.get();
+  
+  if (!estimateDoc.exists) {
+    throw new functions.https.HttpsError('not-found', 'Estimate not found');
+  }
+
+  const estimate = estimateDoc.data();
+  const updatedBlocks = { ...estimate?.blocks };
+
+  // Find and update the item
+  let itemUpdated = false;
+  for (const [blockKey, block] of Object.entries(updatedBlocks)) {
+    if (block && typeof block === 'object' && 'items' in block) {
+      const blockItems = (block as any).items || {};
+      if (blockItems[itemId]) {
+        blockItems[itemId] = {
+          ...blockItems[itemId],
+          assignedTo: assigneeId,
+          assignedAt: admin.firestore.Timestamp.now(),
+          assignedBy: userId
+        };
+        itemUpdated = true;
+        break;
+      }
+    }
+  }
+
+  if (!itemUpdated) {
+    throw new functions.https.HttpsError('not-found', 'Item not found in estimate');
+  }
+
+  await estimateRef.update({
+    blocks: updatedBlocks,
+    updatedAt: admin.firestore.Timestamp.now(),
+    updatedBy: userId
+  });
+
+  return {
+    success: true,
+    message: 'Задача успешно назначена',
+    updatedItems: [itemId]
+  };
+}
+
+/**
+ * Execute REQUEST_APPROVAL resolution action
+ */
+async function executeRequestApproval(contextData: any, additionalData: any, userId: string): Promise<any> {
+  const { projectId, estimateId, clientId, approvalType, message } = { ...contextData, ...additionalData };
+
+  // Create approval request record
+  await db.collection('approvals').add({
+    type: approvalType || 'estimate',
+    projectId,
+    estimateId,
+    clientId,
+    requestedBy: userId,
+    requestedAt: admin.firestore.Timestamp.now(),
+    status: 'pending',
+    message: message || 'Запрос на утверждение сметы',
+    priority: additionalData?.priority || 'normal'
+  });
+
+  // Update estimate status
+  await db.collection('estimates').doc(estimateId).update({
+    status: 'pending_approval',
+    approvalRequestedAt: admin.firestore.Timestamp.now(),
+    approvalRequestedBy: userId,
+    updatedAt: admin.firestore.Timestamp.now()
+  });
+
+  return {
+    success: true,
+    message: 'Запрос на утверждение отправлен',
+    updatedItems: []
+  };
+}
+
+/**
+ * Execute CHANGE_PROJECT_STATUS resolution action
+ */
+async function executeChangeProjectStatus(contextData: any, additionalData: any, userId: string): Promise<any> {
+  const { projectId, suggestedStatus } = { ...contextData, ...additionalData };
+  const newStatus = additionalData?.newStatus || suggestedStatus || 'active';
+
+  await db.collection('projects').doc(projectId).update({
+    status: newStatus,
+    statusChangedAt: admin.firestore.Timestamp.now(),
+    statusChangedBy: userId,
+    updatedAt: admin.firestore.Timestamp.now()
+  });
+
+  return {
+    success: true,
+    message: `Статус проекта изменен на ${newStatus}`,
+    updatedItems: []
+  };
+}
+
+/**
+ * Execute RESOLVE_MATERIALS resolution action
+ */
+async function executeResolveMaterials(contextData: any, additionalData: any, userId: string): Promise<any> {
+  const { materialId, required, available } = contextData;
+  const { action } = additionalData;
+
+  // This would integrate with inventory management system
+  // For now, just mark as resolved
+  await db.collection('material_requests').add({
+    materialId,
+    requiredQuantity: required,
+    availableQuantity: available,
+    requestedBy: userId,
+    requestedAt: admin.firestore.Timestamp.now(),
+    status: 'pending',
+    action: action || 'request_more',
+    priority: additionalData?.priority || 'normal'
+  });
+
+  return {
+    success: true,
+    message: 'Запрос на материалы создан',
+    updatedItems: []
+  };
+}
+
+/**
+ * Clear V2 startability cache
+ */
+export const clearStartabilityCacheV2 = functions.https.onCall(async (data, context) => {
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Authentication required');
+  }
+
+  const { projectId, estimateId } = data;
+
+  try {
+    if (projectId && estimateId) {
+      // Clear specific cache entry
+      await db.collection('cache')
+        .doc(`startability_v2_${projectId}_${estimateId}`)
+        .delete();
+    } else if (projectId) {
+      // Clear all cache entries for project
+      const cacheQuery = await db.collection('cache')
+        .where('data.projectId', '==', projectId)
+        .get();
+      
+      const batch = db.batch();
+      cacheQuery.docs.forEach(doc => batch.delete(doc.ref));
+      await batch.commit();
+    }
+
+    return { success: true, message: 'Cache cleared successfully' };
+
+  } catch (error) {
+    console.error('V2 Cache clear error:', error);
+    throw new functions.https.HttpsError(
+      'internal',
+      'Failed to clear V2 cache',
+      error instanceof Error ? error.message : 'Unknown error'
+    );
+  }
+});
+
 // Background function to clean up expired cache entries
 export const cleanupStartabilityCache = functions.pubsub
   .schedule('every 5 minutes')

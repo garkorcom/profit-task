@@ -84,6 +84,9 @@ import { StartabilityCell } from '../../components/startability/StartabilityCell
 import { CTAActionFactory } from '../../components/startability/actions/CTAActions';
 import { STARTABILITY_FEATURE_FLAG } from '../../types/startability.types';
 
+// Global Action Blocking System
+import { useGlobalActionBlocking, BlockableAction } from '../../utils/globalActionBlocking';
+
 // Импортируем компоненты блоков
 import CounterpartyBlock from '../../components/estimates/blocks/CounterpartyBlock';
 import ProjectBlock from '../../components/estimates/blocks/ProjectBlock';
@@ -206,6 +209,12 @@ const EstimateConstructor: React.FC = () => {
     executeCTA: async () => false,
     isEnabled: false
   };
+
+  // Global Action Blocking Integration
+  const actionBlocking = useGlobalActionBlocking(
+    startability.snapshot,
+    startability.itemStartabilities
+  );
   
   // Load or create estimate
   useEffect(() => {
@@ -552,15 +561,21 @@ const EstimateConstructor: React.FC = () => {
           onOpenDetails={() => setStartabilitySidebarOpen(true)}
           onRefresh={startability.refresh}
           onSendEstimate={() => {
-            if (startability.snapshot?.overall !== 'blocked') {
+            if (!actionBlocking.isBlocked('SEND_ESTIMATE')) {
               // Send estimate logic
               console.log('Sending estimate to client');
+              // In real implementation, call API to send estimate
+            } else {
+              console.warn('Send estimate blocked:', actionBlocking.getReason('SEND_ESTIMATE'));
             }
           }}
           onConvertToContract={() => {
-            if (startability.snapshot?.overall !== 'blocked') {
+            if (!actionBlocking.isBlocked('CONVERT_TO_CONTRACT')) {
               // Convert to contract logic
               console.log('Converting estimate to contract');
+              // In real implementation, call API to convert to contract
+            } else {
+              console.warn('Convert to contract blocked:', actionBlocking.getReason('CONVERT_TO_CONTRACT'));
             }
           }}
           showActions={!isMobile}
@@ -660,6 +675,14 @@ const EstimateConstructor: React.FC = () => {
                   block={activeBlockData}
                   onSave={(data) => handleBlockSave(activeBlockConfig.key, data)}
                   saving={saving}
+                  // V2 Startability Integration
+                  itemStartabilities={startability.itemStartabilities as any}
+                  onStartabilityClick={(itemId: string) => {
+                    console.log('Startability clicked for item:', itemId);
+                    // Could open startability sidebar or perform other actions
+                    setStartabilitySidebarOpen(true);
+                  }}
+                  globalCriticalIssuesExist={actionBlocking.hasCriticalIssues}
                 />
               )}
             </CardContent>
@@ -916,13 +939,28 @@ const EstimateConstructor: React.FC = () => {
           {estimate.status === 'draft' && completion === 100 && (
             <SpeedDialAction
               icon={<SendIcon />}
-              tooltipTitle="Отправить"
-              onClick={() => handleStatusChange('sent')}
+              tooltipTitle={
+                actionBlocking.isBlocked('SEND_ESTIMATE') 
+                  ? actionBlocking.getTooltip('SEND_ESTIMATE')
+                  : "Отправить клиенту"
+              }
+              onClick={() => {
+                if (!actionBlocking.isBlocked('SEND_ESTIMATE')) {
+                  handleStatusChange('sent');
+                } else {
+                  console.warn('Send estimate blocked:', actionBlocking.getReason('SEND_ESTIMATE'));
+                }
+              }}
               sx={{
                 '& .MuiSpeedDialAction-fab': {
                   width: isVerySmall ? 40 : 48,
                   height: isVerySmall ? 40 : 48,
-                  minHeight: isVerySmall ? 40 : 48
+                  minHeight: isVerySmall ? 40 : 48,
+                  // Disabled styling when blocked
+                  ...(actionBlocking.isBlocked('SEND_ESTIMATE') && {
+                    opacity: 0.5,
+                    pointerEvents: 'none'
+                  })
                 }
               }}
             />

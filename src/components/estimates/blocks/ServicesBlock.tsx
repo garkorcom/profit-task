@@ -1,11 +1,13 @@
 /**
- * Блок "Услуги" для конструктора смет (MVP)
+ * Блок "Услуги" для конструктора смет (V2 with Startability Integration)
  * Возможности:
  * - Секции и строки услуг
  * - PERT-оценки времени (optimistic/mostLikely/pessimistic)
  * - Расчет трудозатрат и стоимости по ставке
  * - Привязка к задаче
  * - Импорт из шаблонов услуг
+ * - Интеграция системы стартуемости (V2)
+ * - Master-Detail паттерн для анализа блокировок
  */
 
 import React, { useEffect, useMemo, useState } from 'react';
@@ -13,7 +15,7 @@ import {
   Box, Typography, Button, Alert, Stack, TextField, IconButton, Divider, Chip,
   MenuItem, Select, InputLabel, FormControl, Card, CardContent, CardActions,
   Dialog, DialogTitle, DialogContent, DialogActions, List, ListItem, ListItemText, ListItemButton,
-  useTheme, useMediaQuery, CircularProgress
+  useTheme, useMediaQuery, CircularProgress, Tooltip, Badge
 } from '@mui/material';
 import { 
   Add as AddIcon, 
@@ -22,18 +24,33 @@ import {
   Save as SaveIcon,
   Psychology as AIIcon,
   AutoAwesome as MagicIcon,
-  SmartToy as BotIcon
+  SmartToy as BotIcon,
+  Warning as WarningIcon,
+  CheckCircle as ReadyIcon,
+  Block as BlockedIcon,
+  Info as InfoIcon
 } from '@mui/icons-material';
 import { Estimate, BlockState } from '../../../types/estimate.types';
 import { useAuth } from '../../../auth/AuthContext';
 import { ServiceTemplate, getServiceTemplatesStream } from '../../../api/serviceTemplateApi';
 import { generateEstimateWithClaude, CLAUDE_MODELS } from '../../../api/anthropicApi';
 
+// Startability V2 Integration
+import { StartabilityCell } from '../../startability/StartabilityCell';
+import { ActionableComponentsFactory } from '../../startability/ActionableComponentsFactory';
+import { ItemStartabilityV2, ItemStartability, ResolutionAction } from '../../../types/startability.types';
+import { useFeatureFlag } from '../../../utils/featureFlags';
+import { STARTABILITY_FEATURE_FLAG } from '../../../types/startability.types';
+
 interface ServicesBlockProps {
   estimate: Estimate;
   block: BlockState;
   onSave: (data: any) => void;
   saving: boolean;
+  // V2 Startability Integration
+  itemStartabilities?: Record<string, ItemStartabilityV2>;
+  onStartabilityClick?: (itemId: string) => void;
+  globalCriticalIssuesExist?: boolean;
 }
 
 type Pert = { optimistic: number; mostLikely: number; pessimistic: number };
@@ -65,7 +82,16 @@ const defaultState: ServicesState = {
   hourlyRate: 1200,
 };
 
-const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, saving }) => {
+const ServicesBlock: React.FC<ServicesBlockProps> = ({ 
+  estimate, 
+  block, 
+  onSave, 
+  saving,
+  // V2 Startability Integration
+  itemStartabilities = {},
+  onStartabilityClick,
+  globalCriticalIssuesExist = false
+}) => {
   const { currentUser } = useAuth();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
@@ -84,6 +110,67 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
   const [aiDialogOpen, setAiDialogOpen] = useState(false);
   const [aiLoading, setAiLoading] = useState(false);
   const [aiDescription, setAiDescription] = useState('');
+
+  // V2 Startability Integration
+  const { enabled: startabilityEnabled } = useFeatureFlag(STARTABILITY_FEATURE_FLAG, {
+    userId: currentUser?.uid,
+    userRole: 'user'
+  });
+
+  const [selectedStartabilityItem, setSelectedStartabilityItem] = useState<string | null>(null);
+  const [startabilityDetailOpen, setStartabilityDetailOpen] = useState(false);
+
+  // Helper: Get startability status for an item (V2 format)
+  const getItemStartabilityV2 = (itemId: string): ItemStartabilityV2 | null => {
+    return startabilityEnabled ? (itemStartabilities[itemId] || null) : null;
+  };
+
+  // Helper: Transform V2 format to legacy format for StartabilityCell
+  const getItemStartability = (itemId: string): ItemStartability | null => {
+    const v2Item = getItemStartabilityV2(itemId);
+    if (!v2Item) return null;
+
+    // Transform V2 to legacy format
+    return {
+      itemId: v2Item.itemId,
+      itemType: 'service', // Default for services block
+      status: v2Item.summaryStatus === 'BLOCKED' ? 'blocked' :
+              v2Item.summaryStatus === 'WARNING' ? 'attention' : 
+              v2Item.summaryStatus === 'DONE' ? 'ready' : 'ready',
+      icon: v2Item.summaryStatus === 'BLOCKED' ? '🚫' :
+            v2Item.summaryStatus === 'WARNING' ? '⚠️' :
+            v2Item.summaryStatus === 'DONE' ? '🏁' : '✅',
+      tooltip: v2Item.blockers.length > 0 ? 
+               `${v2Item.blockers.length} проблем` : 
+               'Готов к выполнению',
+      reasons: v2Item.blockers.map(blocker => ({
+        code: blocker.code as any,
+        category: blocker.category as any,
+        message: blocker.description,
+        severity: blocker.severity.toLowerCase() as any,
+        detectedAt: new Date(),
+        autoResolvable: false
+      }))
+    };
+  };
+
+  // Helper: Handle startability cell click
+  const handleStartabilityClick = (itemId: string) => {
+    setSelectedStartabilityItem(itemId);
+    setStartabilityDetailOpen(true);
+    onStartabilityClick?.(itemId);
+  };
+
+  // Helper: Handle resolution action execution
+  const handleResolutionExecute = async (result: { success: boolean; message: string }) => {
+    if (result.success) {
+      console.log('Resolution executed successfully:', result.message);
+      // Optionally trigger refresh of startability data
+    } else {
+      console.error('Resolution failed:', result.message);
+    }
+    setStartabilityDetailOpen(false);
+  };
 
   useEffect(() => {
     if (!currentUser) return;
@@ -466,6 +553,19 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
                             />
                           </>
                         )}
+
+                        {/* V2 Startability Integration - Master-Detail Pattern */}
+                        {startabilityEnabled && (
+                          <Box sx={{ display: 'flex', alignItems: 'center', minWidth: 60 }}>
+                            <StartabilityCell
+                              itemStartability={getItemStartability(row.id)}
+                              onCellClick={() => handleStartabilityClick(row.id)}
+                              showTooltip={true}
+                              compact={isMobile}
+                            />
+                          </Box>
+                        )}
+
                         {/* Мобильная версия: результат и кнопка удаления в отдельном ряду */}
                         {isMobile ? (
                           <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ width: '100%' }}>
@@ -479,6 +579,7 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
                               onClick={() => removeRow(row.id)}
                               color="error"
                               sx={{ minHeight: 48, minWidth: 48 }}
+                              disabled={globalCriticalIssuesExist}
                             >
                               <DeleteIcon />
                             </IconButton>
@@ -486,7 +587,11 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
                         ) : (
                           <>
                             <Chip label={`${hours.toFixed(1)} ч / $${lineTotal.toFixed(0)}`} color="info" />
-                            <IconButton aria-label="Удалить строку" onClick={() => removeRow(row.id)}>
+                            <IconButton 
+                              aria-label="Удалить строку" 
+                              onClick={() => removeRow(row.id)}
+                              disabled={globalCriticalIssuesExist}
+                            >
                               <DeleteIcon />
                             </IconButton>
                           </>
@@ -613,6 +718,115 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({ estimate, block, onSave, 
           <Button onClick={() => setImportOpen(false)}>Закрыть</Button>
         </DialogActions>
       </Dialog>
+
+      {/* V2 Startability Detail Dialog - Master-Detail Pattern */}
+      {startabilityEnabled && selectedStartabilityItem && (
+        <Dialog 
+          open={startabilityDetailOpen} 
+          onClose={() => setStartabilityDetailOpen(false)}
+          maxWidth="md" 
+          fullWidth
+        >
+          <DialogTitle>
+            <Stack direction="row" alignItems="center" spacing={2}>
+              <Box>
+                {getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus === 'BLOCKED' && <BlockedIcon color="error" />}
+                {getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus === 'WARNING' && <WarningIcon color="warning" />}
+                {getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus === 'READY' && <ReadyIcon color="success" />}
+                {getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus === 'DONE' && <InfoIcon color="info" />}
+              </Box>
+              <Typography variant="h6">
+                Стартуемость позиции
+              </Typography>
+              <Chip 
+                label={getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus || 'Unknown'} 
+                color={
+                  getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus === 'BLOCKED' ? 'error' :
+                  getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus === 'WARNING' ? 'warning' :
+                  getItemStartabilityV2(selectedStartabilityItem)?.summaryStatus === 'READY' ? 'success' : 'info'
+                }
+                size="small"
+              />
+            </Stack>
+          </DialogTitle>
+          
+          <DialogContent>
+            {getItemStartabilityV2(selectedStartabilityItem)?.blockers?.length ? (
+              <Stack spacing={2}>
+                <Typography variant="body2" color="text.secondary">
+                  Обнаружены проблемы, требующие решения:
+                </Typography>
+                
+                {getItemStartabilityV2(selectedStartabilityItem)!.blockers.map((blocker, index) => (
+                  <Card key={index} variant="outlined" sx={{ p: 2 }}>
+                    <Stack spacing={2}>
+                      <Stack direction="row" alignItems="center" spacing={1}>
+                        <Chip 
+                          label={blocker.category}
+                          size="small"
+                          variant="outlined"
+                        />
+                        <Chip 
+                          label={blocker.severity}
+                          size="small"
+                          color={blocker.severity === 'CRITICAL' ? 'error' : 'warning'}
+                        />
+                        <Typography variant="body2" sx={{ flex: 1 }}>
+                          <strong>{blocker.code}</strong>
+                        </Typography>
+                      </Stack>
+                      
+                      <Typography variant="body2">
+                        {blocker.description}
+                      </Typography>
+                      
+                      {blocker.resolutionAction && (
+                        <Box sx={{ mt: 1 }}>
+                          <Typography variant="caption" color="text.secondary" display="block" sx={{ mb: 1 }}>
+                            Рекомендуемое действие:
+                          </Typography>
+                          <ActionableComponentsFactory
+                            resolutionAction={blocker.resolutionAction}
+                            onExecute={handleResolutionExecute}
+                            disabled={globalCriticalIssuesExist && blocker.severity !== 'CRITICAL'}
+                          />
+                        </Box>
+                      )}
+                    </Stack>
+                  </Card>
+                ))}
+              </Stack>
+            ) : (
+              <Stack alignItems="center" spacing={2} sx={{ py: 4 }}>
+                <ReadyIcon color="success" sx={{ fontSize: 48 }} />
+                <Typography variant="h6" color="success.main">
+                  Все в порядке!
+                </Typography>
+                <Typography variant="body2" color="text.secondary" textAlign="center">
+                  Блокирующих проблем не найдено. Эта позиция готова к выполнению.
+                </Typography>
+              </Stack>
+            )}
+          </DialogContent>
+          
+          <DialogActions>
+            <Button onClick={() => setStartabilityDetailOpen(false)}>
+              Закрыть
+            </Button>
+            {getItemStartabilityV2(selectedStartabilityItem)?.blockers?.some(b => b.resolutionAction) && (
+              <Button 
+                variant="outlined" 
+                onClick={() => {
+                  // Optionally trigger refresh of startability analysis
+                  console.log('Refreshing startability analysis...');
+                }}
+              >
+                Обновить анализ
+              </Button>
+            )}
+          </DialogActions>
+        </Dialog>
+      )}
     </Box>
   );
 };

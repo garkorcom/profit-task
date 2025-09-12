@@ -67,20 +67,107 @@ export type StartabilitySeverity =
 
 /**
  * Available CTA (Call-to-Action) types for resolving reasons
+ * Extended to match technical requirements ResolutionAction.type
  */
 export type StartabilityCTA =
-  | 'ASSIGN'                    // Assign task to user
+  | 'ASSIGN_USER'               // Assign task to user (matches TZ)
   | 'REQUEST_APPROVAL'          // Send approval request
-  | 'VIEW_DEPENDENCIES'         // Show dependency tree
-  | 'OPEN_COMPLIANCE'           // Navigate to compliance module
-  | 'OPEN_PERMITS'              // Navigate to permits
+  | 'VIEW_DEPENDENCY'           // Show dependency tree (singular from TZ)
+  | 'VIEW_DEPENDENCIES'         // Show dependency tree (plural for backward compatibility)
+  | 'UPLOAD_DOCUMENT'           // Upload required documents (from TZ)
+  | 'NAVIGATE'                  // Generic navigation action (from TZ)
   | 'COMPLETE_ESTIMATE_BLOCK'   // Complete required estimate block
   | 'APPROVE_ESTIMATE'          // Mark estimate as approved
   | 'RESOLVE_MATERIALS'         // Handle material availability
-  | 'CHANGE_PROJECT_STATUS';    // Update project status
+  | 'CHANGE_PROJECT_STATUS'     // Update project status
+  | 'ASSIGN'                    // Generic assign action (legacy)
+  | 'OPEN_COMPLIANCE'           // Open compliance module
+  | 'OPEN_PERMITS';             // Open permits management
 
 // =====================================================
-// CORE INTERFACES
+// TECHNICAL REQUIREMENTS - NEW INTERFACES
+// =====================================================
+
+/**
+ * Master Grid Status indicators (matches TZ requirements)
+ */
+export type SummaryStatus = 
+  | 'READY'    // ✅ - Ready to start
+  | 'WARNING'  // ⚠️ - Has warnings but can start
+  | 'BLOCKED'  // 🚫 - Cannot start due to critical issues
+  | 'DONE';    // 🏁 - Already completed
+
+/**
+ * ResolutionAction interface (from TZ requirements)
+ * Instructs frontend on how to resolve specific blockers
+ */
+export interface ResolutionAction {
+  /** Type of UI component to render */
+  type: StartabilityCTA;
+  
+  /** Text for button/link */
+  label: string;
+  
+  /** API endpoint for executing the action */
+  apiEndpoint?: string;
+  
+  /** Additional context data (e.g., task IDs, URLs) */
+  contextData?: Record<string, any>;
+}
+
+/**
+ * BlockerReason interface (from TZ requirements)
+ * Individual blocking reason with resolution instructions
+ */
+export interface BlockerReason {
+  /** Reason code for identification */
+  code: string;
+  
+  /** Category for UI grouping */
+  category: 'Project' | 'Task' | 'Permissions' | 'Business';
+  
+  /** Human-readable description */
+  description: string;
+  
+  /** Severity level */
+  severity: 'CRITICAL' | 'WARNING';
+  
+  /** Instructions for resolution (key field) */
+  resolutionAction: ResolutionAction | null;
+}
+
+/**
+ * ItemStartabilityV2 interface (from TZ requirements)
+ * Startability status for individual estimate items in V2 system
+ */
+export interface ItemStartabilityV2 {
+  /** Unique item identifier */
+  itemId: string;
+  
+  /** Aggregated status for Master Grid (🚦) */
+  summaryStatus: SummaryStatus;
+  
+  /** Detailed list of blockers for Detail Sidebar */
+  blockers: BlockerReason[];
+}
+
+/**
+ * StartabilityReport interface (from TZ requirements)
+ * Main API response structure for startability analysis
+ */
+export interface StartabilityReport {
+  /** Project identifier */
+  projectId: string;
+  
+  /** Global project startability status */
+  isProjectStartable: boolean;
+  
+  /** Detailed startability by estimate items */
+  itemsStartability: Record<string, ItemStartabilityV2>; // Key = itemId/taskId
+}
+
+// =====================================================
+// CORE INTERFACES (EXISTING)
 // =====================================================
 
 /**
@@ -362,10 +449,10 @@ export const STARTABILITY_REASON_CONFIG: Record<StartabilityCode, {
   // Task-level
   NO_TASKS: { category: 'TASKS', severity: 'critical', icon: '📝' },
   ALL_TASKS_BLOCKED: { category: 'TASKS', severity: 'critical', icon: '🔒' },
-  DEPENDENCIES_NOT_MET: { category: 'TASKS', severity: 'warning', icon: '🔗', defaultCTA: 'VIEW_DEPENDENCIES' },
+  DEPENDENCIES_NOT_MET: { category: 'TASKS', severity: 'warning', icon: '🔗', defaultCTA: 'VIEW_DEPENDENCY' },
   
   // Assignment/Permissions
-  MISSING_ASSIGNMENT: { category: 'PERMISSIONS', severity: 'warning', icon: '👤', defaultCTA: 'ASSIGN' },
+  MISSING_ASSIGNMENT: { category: 'PERMISSIONS', severity: 'warning', icon: '👤', defaultCTA: 'ASSIGN_USER' },
   MISSING_PERMISSIONS: { category: 'PERMISSIONS', severity: 'critical', icon: '🔐' },
   
   // Business/Financial
@@ -378,7 +465,7 @@ export const STARTABILITY_REASON_CONFIG: Record<StartabilityCode, {
   ESTIMATE_STATUS_BLOCKED: { category: 'ESTIMATE', severity: 'critical', icon: '📄' },
   MISSING_COUNTERPARTY_APPROVAL: { category: 'ESTIMATE', severity: 'warning', icon: '👥', defaultCTA: 'REQUEST_APPROVAL' },
   INCOMPLETE_ESTIMATE_BLOCKS: { category: 'ESTIMATE', severity: 'warning', icon: '📝', defaultCTA: 'COMPLETE_ESTIMATE_BLOCK' },
-  SERVICE_ITEMS_NOT_ASSIGNED: { category: 'ESTIMATE', severity: 'warning', icon: '🔧', defaultCTA: 'ASSIGN' },
+  SERVICE_ITEMS_NOT_ASSIGNED: { category: 'ESTIMATE', severity: 'warning', icon: '🔧', defaultCTA: 'ASSIGN_USER' },
   MATERIAL_AVAILABILITY_HOLD: { category: 'ESTIMATE', severity: 'warning', icon: '📦', defaultCTA: 'RESOLVE_MATERIALS' },
 };
 

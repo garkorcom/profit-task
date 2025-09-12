@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import { Box, Typography, Button, Paper, CircularProgress, Alert, Stack, FormControl, InputLabel, Select, MenuItem, AlertTitle } from '@mui/material';
+import { Box, Typography, Button, Paper, CircularProgress, Alert, Stack, FormControl, InputLabel, Select, MenuItem, AlertTitle, Divider } from '@mui/material';
 import { useAuth } from '../auth/AuthContext';
+import StartabilityV2Test from '../components/startability/StartabilityV2Test';
 import { getUserProfile, UserProfile } from '../api/userApi';
 import { createProject } from '../api/projectV2Api';
 import { addTask, getTasksStream } from '../api/taskApi';
@@ -194,6 +195,10 @@ const DevToolsPage: React.FC = () => {
           <Typography>Сметы не найдены.</Typography>
         )}
       </Paper>
+      
+      {/* Startability V2 Test Section */}
+      <Divider sx={{ my: 3 }}>Startability V2 System Test</Divider>
+      <StartabilityV2Test />
       
       {/* Секция управления старыми контрагентами */}
       <Card sx={{ mt: 3, border: '2px solid', borderColor: 'warning.main' }}>

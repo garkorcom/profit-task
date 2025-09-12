@@ -51,7 +51,7 @@ import {
   StartabilityCTA
 } from '../../../types/startability.types';
 
-import { useTranslation } from 'react-i18next';
+import { t } from '../../../utils/mockTranslations';
 
 // =====================================================
 // COMMON INTERFACES
@@ -90,7 +90,6 @@ export const AssignCTAAction: React.FC<CTAActionProps> = ({
   onExecute,
   isLoading = false
 }) => {
-  const { t } = useTranslation();
   const [selectedAssignee, setSelectedAssignee] = useState<typeof MOCK_ASSIGNEES[0] | null>(null);
   const [notes, setNotes] = useState('');
 
@@ -221,7 +220,6 @@ export const RequestApprovalCTAAction: React.FC<CTAActionProps> = ({
   onExecute,
   isLoading = false
 }) => {
-  const { t } = useTranslation();
   const [approvalType, setApprovalType] = useState<'client' | 'manager' | 'budget'>('client');
   const [message, setMessage] = useState('');
   const [priority, setPriority] = useState<'normal' | 'urgent'>('normal');
@@ -348,7 +346,6 @@ export const ViewDependenciesCTAAction: React.FC<CTAActionProps> = ({
   onExecute,
   isLoading = false
 }) => {
-  const { t } = useTranslation();
 
   const handleMarkResolved = async (dependencyId: string) => {
     await onExecute({
@@ -462,7 +459,6 @@ export const ComplianceCTAAction: React.FC<CTAActionProps> = ({
   onExecute,
   isLoading = false
 }) => {
-  const { t } = useTranslation();
 
   const handleOpenCompliance = () => {
     // Navigate to compliance module
@@ -565,6 +561,7 @@ export const CTAActionFactory: React.FC<{
 }> = ({ cta, reason, open, onClose, onExecute, isLoading }) => {
   switch (cta) {
     case 'ASSIGN':
+    case 'ASSIGN_USER':
       return (
         <AssignCTAAction
           reason={reason}

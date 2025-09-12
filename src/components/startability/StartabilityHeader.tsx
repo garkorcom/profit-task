@@ -49,7 +49,7 @@ import {
   STARTABILITY_REASON_CONFIG
 } from '../../types/startability.types';
 
-import { useTranslation } from 'react-i18next';
+import { t } from '../../utils/mockTranslations';
 
 // =====================================================
 // COMPONENT INTERFACES
@@ -95,7 +95,6 @@ export const StartabilityHeader: React.FC<StartabilityHeaderProps> = ({
   showActions = true,
   compact = false
 }) => {
-  const { t } = useTranslation();
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
 
   // Handle missing snapshot

@@ -69,7 +69,7 @@ import {
   STARTABILITY_REASON_CONFIG
 } from '../../types/startability.types';
 
-import { useTranslation } from 'react-i18next';
+import { t } from '../../utils/mockTranslations';
 
 // =====================================================
 // COMPONENT INTERFACES
@@ -136,7 +136,6 @@ export const StartabilitySidebar: React.FC<StartabilitySidebarProps> = ({
   open = true,
   width = 420
 }) => {
-  const { t } = useTranslation();
   const [activeTab, setActiveTab] = useState(0);
   const [ctaLoading, setCTALoading] = useState<string | null>(null);
   const [expandedCategories, setExpandedCategories] = useState<Set<StartabilityCategory>>(
@@ -334,7 +333,6 @@ const StartabilityOverviewCard: React.FC<StartabilityOverviewCardProps> = ({
   stats,
   onStartWork
 }) => {
-  const { t } = useTranslation();
 
   const getStatusConfig = (status: string) => {
     switch (status) {
@@ -439,7 +437,6 @@ const IssuesTabContent: React.FC<IssuesTabContentProps> = ({
   onCTAExecute,
   ctaLoading
 }) => {
-  const { t } = useTranslation();
 
   if (Object.keys(groupedReasons).length === 0) {
     return (
@@ -492,7 +489,6 @@ const CategoryAccordion: React.FC<CategoryAccordionProps> = ({
   onCTAExecute,
   ctaLoading
 }) => {
-  const { t } = useTranslation();
 
   const criticalCount = reasons.filter(r => r.severity === 'critical').length;
   const warningCount = reasons.filter(r => r.severity === 'warning').length;
@@ -544,7 +540,6 @@ const ReasonListItem: React.FC<ReasonListItemProps> = ({
   onCTAExecute,
   isLoading
 }) => {
-  const { t } = useTranslation();
   const config = STARTABILITY_REASON_CONFIG[reason.code];
 
   const handleCTAClick = () => {
@@ -610,7 +605,6 @@ const ActionsTabContent: React.FC<ActionsTabContentProps> = ({
   onCTAExecute,
   ctaLoading
 }) => {
-  const { t } = useTranslation();
 
   // Get prioritized action items (critical first, then by category)
   const actionableReasons = snapshot.reasons
@@ -672,7 +666,6 @@ const ActionCard: React.FC<ActionCardProps> = ({
   onExecute,
   isLoading
 }) => {
-  const { t } = useTranslation();
 
   if (!reason.cta) return null;
 

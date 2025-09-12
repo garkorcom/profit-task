@@ -39,7 +39,7 @@ import {
   STARTABILITY_REASON_CONFIG
 } from '../../types/startability.types';
 
-import { useTranslation } from 'react-i18next';
+import { t } from '../../utils/mockTranslations';
 
 // =====================================================
 // COMPONENT INTERFACES
@@ -91,7 +91,6 @@ export const StartabilityCell: React.FC<StartabilityCellProps> = ({
   className,
   'data-testid': testId = 'startability-cell'
 }) => {
-  const { t } = useTranslation();
   const [popoverAnchor, setPopoverAnchor] = useState<HTMLElement | null>(null);
 
   // Handle missing or null startability data
@@ -276,7 +275,6 @@ interface ReasonListItemProps {
 }
 
 const ReasonListItem: React.FC<ReasonListItemProps> = ({ reason, compact = false }) => {
-  const { t } = useTranslation();
   const config = STARTABILITY_REASON_CONFIG[reason.code];
 
   return (
@@ -327,7 +325,6 @@ export const StartabilityIndicator: React.FC<StartabilityIndicatorProps> = ({
   size = 'medium',
   showLabel = false
 }) => {
-  const { t } = useTranslation();
   const iconConfig = STARTABILITY_ICONS[status] || STARTABILITY_ICONS.default;
   const IconComponent = iconConfig.icon;
 
