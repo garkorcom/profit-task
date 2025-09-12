@@ -13,6 +13,14 @@ import {
   setDoc,
   runTransaction,
 } from 'firebase/firestore';
+
+// Legacy API exports for compatibility
+export const getEstimate = async (userId: string, estimateId: string): Promise<Estimate | null> => {
+  // Placeholder implementation
+  return null;
+};
+
+// updateEstimate implementation is below
 // Legacy code archived - product API integration disabled
 // Stub functions for removed product API imports
 const reserveForEstimate = async (...args: any[]) => {
@@ -211,7 +219,7 @@ const cleanObject = (obj: { [key: string]: any }): { [key: string]: any } => {
 };
 
 /**
- * Обновление существующей сметы
+ * Обновление существующей сметы (legacy implementation)
  */
 export const updateEstimate = async (
   userId: string,

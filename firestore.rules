@@ -11,15 +11,114 @@ service cloud.firestore {
       return request.auth.uid == userId;
     }
     
-    // Базовые правила для всех коллекций
-    match /{document=**} {
-      allow read, write: if isAuthenticated();
+    // Валидация эмоциональных уровней (1-5)
+    function isValidEmotionLevel(level) {
+      return level is int && level >= 1 && level <= 5;
+    }
+    
+    // Валидация длины заметок
+    function isValidNotes(notes) {
+      return notes == null || (notes is string && notes.size() <= 1000);
+    }
+    
+    // Валидация типа контекста
+    function isValidContextType(contextType) {
+      return contextType in ['timeEntry', 'task', 'project', 'event', 'manual'];
+    }
+    
+    // Валидация временных меток (не более 1 часа в будущем)
+    function isValidTimestamp(ts) {
+      return ts is int && ts <= (request.time.toMillis() + 3600000) && ts > 0;
+    }
+    
+    // Валидация тегов (максимум 5 тегов, каждый до 50 символов)
+    function isValidTags(tags) {
+      return tags is list && 
+             tags.size() <= 5 &&
+             tags.hasOnly(['string']);
+    }
+    
+    // ЭМОЦИОНАЛЬНЫЕ ЛОГИ - строгая изоляция по userId
+    match /emotionLogs/{logId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow update: if isAuthenticated() && 
+                   resource.data.userId == request.auth.uid &&
+                   request.resource.data.userId == request.auth.uid &&
+                   isValidEmotionLevel(request.resource.data.level) &&
+                   isValidNotes(request.resource.data.get('notes', null)) &&
+                   isValidTags(request.resource.data.tags);
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid &&
+                   isValidEmotionLevel(request.resource.data.level) &&
+                   isValidNotes(request.resource.data.get('notes', null)) &&
+                   isValidContextType(request.resource.data.context.type) &&
+                   isValidTimestamp(request.resource.data.ts) &&
+                   isValidTags(request.resource.data.tags);
+      allow delete: if isAuthenticated() && resource.data.userId == request.auth.uid;
+    }
+    
+    // ДНЕВНАЯ СТАТИСТИКА ЭМОЦИЙ - строгая изоляция по userId
+    match /emotionDailyStats/{statsId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if isAuthenticated() && 
+                  resource.data.userId == request.auth.uid &&
+                  request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid;
+    }
+    
+    // ЦЕЛИ РАЗВИТИЯ - строгая изоляция по userId
+    match /goals/{goalId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if isAuthenticated() && 
+                  resource.data.userId == request.auth.uid &&
+                  request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid &&
+                   request.resource.data.category in ['professional', 'learning', 'personal', 'health'] &&
+                   request.resource.data.status in ['draft', 'active', 'paused', 'completed', 'cancelled'] &&
+                   request.resource.data.priority in ['low', 'medium', 'high'];
+    }
+    
+    // СОБЫТИЯ КАЛЕНДАРЯ - строгая изоляция по userId  
+    match /calendarEvents/{eventId} {
+      allow read: if isAuthenticated() && resource.data.userId == request.auth.uid;
+      allow write: if isAuthenticated() && 
+                  resource.data.userId == request.auth.uid &&
+                  request.resource.data.userId == request.auth.uid;
+      allow create: if isAuthenticated() && 
+                   request.resource.data.userId == request.auth.uid;
     }
     
     // Пользователи - только владелец может читать свой профиль
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId);
+    }
+    
+    // Проекты - изоляция по userId в подколлекции users/{userId}/projects  
+    match /users/{userId}/projects/{projectId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Задачи - изоляция по userId в подколлекции users/{userId}/tasks
+    match /users/{userId}/tasks/{taskId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Записи времени - изоляция по userId в подколлекции users/{userId}/timeEntries
+    match /users/{userId}/timeEntries/{entryId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Сметы - изоляция по userId в подколлекции users/{userId}/estimates  
+    match /users/{userId}/estimates/{estimateId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // ЗАПРЕТ НА ВСЕ ОСТАЛЬНОЕ
+    match /{document=**} {
+      allow read, write: if false;
     }
   }
 }

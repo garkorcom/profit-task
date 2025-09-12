@@ -75,6 +75,15 @@ import {
   recalculateEstimateTotals,
 } from '../../api/estimateV2Api';
 
+// Startability System Imports
+import { useStartability } from '../../hooks/useStartability';
+import { useFeatureFlag } from '../../utils/featureFlags';
+import { StartabilityHeader } from '../../components/startability/StartabilityHeader';
+import { StartabilitySidebar } from '../../components/startability/StartabilitySidebar';
+import { StartabilityCell } from '../../components/startability/StartabilityCell';
+import { CTAActionFactory } from '../../components/startability/actions/CTAActions';
+import { STARTABILITY_FEATURE_FLAG } from '../../types/startability.types';
+
 // Импортируем компоненты блоков
 import CounterpartyBlock from '../../components/estimates/blocks/CounterpartyBlock';
 import ProjectBlock from '../../components/estimates/blocks/ProjectBlock';
@@ -165,6 +174,38 @@ const EstimateConstructor: React.FC = () => {
   const [isRecalculating, setIsRecalculating] = useState(false);
   const [skipSubscription, setSkipSubscription] = useState(false);
   const [errors, setErrors] = useState<Record<string, string[]>>({});
+  
+  // Startability System State
+  const [startabilitySidebarOpen, setStartabilitySidebarOpen] = useState(false);
+  const [selectedCtaReason, setSelectedCtaReason] = useState<any>(null);
+  const [ctaDialogOpen, setCTADialogOpen] = useState(false);
+  
+  // Feature Flag Check
+  const { enabled: startabilityEnabled } = useFeatureFlag(STARTABILITY_FEATURE_FLAG, {
+    userId: currentUser?.uid,
+    userRole: 'user' // Default role since currentUser doesn't have role property
+  });
+  
+  // Startability Hook (conditional)
+  const startabilityData = useStartability(
+    projectId || '',
+    estimate?.id || '',
+    {
+      refreshInterval: 30000,
+      includeItems: true,
+      enableRealTime: true
+    }
+  );
+  
+  const startability = startabilityEnabled ? startabilityData : {
+    snapshot: null,
+    itemStartabilities: {},
+    isLoading: false,
+    error: null,
+    refresh: () => {},
+    executeCTA: async () => false,
+    isEnabled: false
+  };
   
   // Load or create estimate
   useEffect(() => {
@@ -429,10 +470,11 @@ const EstimateConstructor: React.FC = () => {
       'sent': ['viewed', 'accepted', 'rejected', 'canceled'],
       'viewed': ['negotiation', 'accepted', 'rejected', 'expired'],
       'negotiation': ['accepted', 'rejected', 'canceled'],
-      'accepted': ['converted'],
+      'accepted': ['converted', 'invoiced'],
       'rejected': ['draft', 'canceled'],
       'expired': ['draft', 'canceled'],
       'converted': [],
+      'invoiced': [],
       'canceled': ['draft'],
     };
     
@@ -501,6 +543,29 @@ const EstimateConstructor: React.FC = () => {
           />
         </Stack>
       </Paper>
+      
+      {/* Startability Header */}
+      {startability.isEnabled && (
+        <StartabilityHeader
+          snapshot={startability.snapshot}
+          isLoading={startability.isLoading}
+          onOpenDetails={() => setStartabilitySidebarOpen(true)}
+          onRefresh={startability.refresh}
+          onSendEstimate={() => {
+            if (startability.snapshot?.overall !== 'blocked') {
+              // Send estimate logic
+              console.log('Sending estimate to client');
+            }
+          }}
+          onConvertToContract={() => {
+            if (startability.snapshot?.overall !== 'blocked') {
+              // Convert to contract logic
+              console.log('Converting estimate to contract');
+            }
+          }}
+          showActions={!isMobile}
+        />
+      )}
       
       {/* Stepper */}
       <Paper elevation={0} sx={{ p: isMobile ? 1 : 2, borderBottom: 1, borderColor: 'divider' }}>
@@ -761,6 +826,7 @@ const EstimateConstructor: React.FC = () => {
                         'negotiation': { label: 'Переговоры', color: 'warning' as const, icon: <EditIcon /> },
                         'expired': { label: 'Истекло', color: 'error' as const, icon: <ErrorIcon /> },
                         'converted': { label: 'В проект', color: 'success' as const, icon: <CheckIcon /> },
+                        'invoiced': { label: 'Выставлен счет', color: 'success' as const, icon: <CheckIcon /> },
                       }[status] || { label: status, color: 'primary' as const, icon: <CheckIcon /> };
                       
                       return (
@@ -895,6 +961,64 @@ const EstimateConstructor: React.FC = () => {
              })}
           </Typography>
         </Paper>
+      )}
+      
+      {/* Startability Sidebar */}
+      {startability.isEnabled && (
+        <StartabilitySidebar
+          snapshot={startability.snapshot}
+          open={startabilitySidebarOpen}
+          onClose={() => setStartabilitySidebarOpen(false)}
+          onCTAExecute={async (cta, reason) => {
+            try {
+              const success = await startability.executeCTA(cta, reason);
+              if (success) {
+                // Optionally refresh estimate data
+                setSkipSubscription(prev => !prev);
+              }
+              return;
+            } catch (error) {
+              console.error('CTA execution failed:', error);
+              throw error;
+            }
+          }}
+          onRefresh={startability.refresh}
+          isLoading={startability.isLoading}
+        />
+      )}
+      
+      {/* CTA Action Dialogs */}
+      {selectedCtaReason && (
+        <CTAActionFactory
+          cta={selectedCtaReason.cta}
+          reason={selectedCtaReason}
+          open={ctaDialogOpen}
+          onClose={() => {
+            setCTADialogOpen(false);
+            setSelectedCtaReason(null);
+          }}
+          onExecute={async (data) => {
+            try {
+              const success = await startability.executeCTA(selectedCtaReason.cta, {
+                ...selectedCtaReason,
+                meta: { ...selectedCtaReason.meta, ...data }
+              });
+              
+              if (success) {
+                setCTADialogOpen(false);
+                setSelectedCtaReason(null);
+                // Refresh estimate data
+                setSkipSubscription(prev => !prev);
+              }
+              
+              return success;
+            } catch (error) {
+              console.error('CTA execution failed:', error);
+              return false;
+            }
+          }}
+          isLoading={startability.isLoading}
+        />
       )}
     </Box>
   );

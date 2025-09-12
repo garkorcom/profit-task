@@ -370,6 +370,7 @@ export interface CreateProjectDto {
   name: string;
   type: ProjectType;
   description?: string;
+  status?: ProjectStatus;
   clientId?: string;
   location: Partial<ProjectLocation>;
   estimatedStartDate?: string;

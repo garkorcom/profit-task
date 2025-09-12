@@ -70,6 +70,7 @@ const DevToolsPage: React.FC = () => {
         name: `Тестовый проект ${new Date().toLocaleTimeString()}`,
         type: 'residential_new' as const,
         description: 'Автоматически созданный тестовый проект',
+        status: 'active' as const,
         location: {
           address: 'Тестовый адрес',
           city: 'Москва',

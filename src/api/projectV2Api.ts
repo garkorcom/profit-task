@@ -76,7 +76,7 @@ export const createProject = async (
     name: data.name,
     type: data.type,
     description: data.description,
-    status: 'idea',
+    status: data.status || 'idea',
     priority: 'medium',
     
     location: {

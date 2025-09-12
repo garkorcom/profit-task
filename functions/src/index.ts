@@ -22,6 +22,9 @@ export * from './offboardingFunctions';
 // Импортируем функции MFA
 export * from './mfaFunctions';
 
+// Импортируем функции стартуемости проектов
+export * from './startability';
+
 /**
  * Триггер для автоматического расчета COGS при изменении статуса TimeEntry
  * Срабатывает при переходе в статус 'approved' или 'posted'

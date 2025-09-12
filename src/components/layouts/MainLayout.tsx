@@ -26,6 +26,7 @@ import NotificationsIcon from '@mui/icons-material/Notifications';
 import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import TimelineIcon from '@mui/icons-material/Timeline';
+import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
 import CriticalStockBell from '../dashboard/CriticalStockBell';
 import { usePermissions } from '../../auth/usePermissions';
 import { Permission } from '../../auth/permissions';
@@ -60,6 +61,14 @@ const allNavItems = [
     icon: <TimerIcon />,
     permission: Permission.TRACK_TIME,
     color: '#2196f3'
+  },
+  { 
+    path: '/start-work', 
+    label: 'Начать работу', 
+    value: 'start-work', 
+    icon: <PlayCircleOutlineIcon />,
+    permission: Permission.TRACK_TIME,
+    color: '#4caf50'
   },
   { 
     path: '/estimates', 

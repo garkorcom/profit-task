@@ -21,16 +21,16 @@ import { db } from '../../../firebase/firebase';
 import { 
   EmotionLogEntry, 
   EmotionCheckInData, 
-  EmotionDailyStats,
-  EmotionLevel 
+  EmotionDailyStats
 } from '../types';
+import { EMOTION_TAGS } from '../types/index';
 import { isValidTimestamp, getDateRange, formatDateYYYYMMDD } from '../utils/dateHelpers';
 
 const EMOTION_LOGS_COLLECTION = 'emotionLogs';
 const EMOTION_STATS_COLLECTION = 'emotionDailyStats';
 
 /**
- * Создание нового эмоционального лога
+ * Создание нового эмоционального лога с полной валидацией
  */
 export const createEmotionLog = async (
   userId: string, 
@@ -39,13 +39,62 @@ export const createEmotionLog = async (
 ): Promise<string> => {
   const timestamp = Date.now();
   
-  // Валидация
-  if (!isValidTimestamp(timestamp)) {
-    throw new Error('Invalid timestamp');
+  // Валидация userId
+  if (!userId || typeof userId !== 'string' || userId.trim().length === 0) {
+    throw new Error('Invalid userId: must be non-empty string');
   }
   
-  if (data.level < 1 || data.level > 5) {
-    throw new Error('Invalid emotion level');
+  // Валидация временной метки
+  if (!isValidTimestamp(timestamp)) {
+    throw new Error('Invalid timestamp: must be within allowed time range');
+  }
+  
+  // Валидация уровня эмоции
+  if (!data.level || data.level < 1 || data.level > 5 || !Number.isInteger(data.level)) {
+    throw new Error('Invalid emotion level: must be integer 1-5');
+  }
+  
+  // Валидация тегов против словаря
+  if (!data.tags || !Array.isArray(data.tags)) {
+    throw new Error('Invalid tags: must be array');
+  }
+  
+  // Проверка максимального количества тегов
+  if (data.tags.length > 5) {
+    throw new Error('Too many tags: maximum 5 allowed');
+  }
+  
+  // Валидация тегов против словаря EMOTION_TAGS
+  const validTagsForLevel = EMOTION_TAGS[data.level as keyof typeof EMOTION_TAGS] || [];
+  const invalidTags = data.tags.filter(tag => !validTagsForLevel.includes(tag));
+  if (invalidTags.length > 0) {
+    throw new Error(`Invalid tags for level ${data.level}: ${invalidTags.join(', ')}. Valid tags: ${validTagsForLevel.join(', ')}`);
+  }
+  
+  // Валидация длины тегов
+  const oversizedTags = data.tags.filter(tag => typeof tag !== 'string' || tag.length > 50);
+  if (oversizedTags.length > 0) {
+    throw new Error('Tag too long: maximum 50 characters per tag');
+  }
+  
+  // Валидация заметок
+  if (data.notes && (typeof data.notes !== 'string' || data.notes.length > 1000)) {
+    throw new Error('Notes too long: maximum 1000 characters');
+  }
+  
+  // Валидация контекста
+  if (!data.context || !data.context.type) {
+    throw new Error('Invalid context: context.type is required');
+  }
+  
+  const validContextTypes = ['timeEntry', 'task', 'project', 'event', 'manual'];
+  if (!validContextTypes.includes(data.context.type)) {
+    throw new Error(`Invalid context.type: must be one of ${validContextTypes.join(', ')}`);
+  }
+  
+  // Валидация context.id если присутствует
+  if (data.context.id && (typeof data.context.id !== 'string' || data.context.id.length > 100)) {
+    throw new Error('Invalid context.id: must be string with max 100 characters');
   }
   
   const emotionLog: Omit<EmotionLogEntry, 'id'> = {

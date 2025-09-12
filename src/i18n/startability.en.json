@@ -1,0 +1,296 @@
+{
+  "startability": {
+    "system": {
+      "title": "Startability System",
+      "description": "Advanced project and task readiness analysis"
+    },
+    
+    "status": {
+      "ready": "Ready",
+      "blocked": "Blocked", 
+      "attention": "Needs Attention",
+      "loading": "Loading...",
+      "evaluating": "Evaluating..."
+    },
+
+    "overall": {
+      "ready": "Ready to Start",
+      "blocked": "Blocked - Cannot Start",
+      "attention": "Needs Attention",
+      "description": "Overall project startability status"
+    },
+
+    "severity": {
+      "critical": "Critical",
+      "warning": "Warning", 
+      "info": "Info"
+    },
+
+    "categories": {
+      "project": "Project Status",
+      "tasks": "Task Management", 
+      "permissions": "Access & Assignments",
+      "business": "Business Requirements",
+      "estimate": "Estimate Requirements"
+    },
+
+    "reasons": {
+      "project_status_not_startable": "Project status does not allow starting work",
+      "project_on_hold": "Project is on hold",
+      "no_tasks": "No tasks defined in project",
+      "all_tasks_blocked": "All tasks are blocked or completed",
+      "no_estimates": "No estimates available for project",
+      "no_startable_items_in_estimates": "No startable items in estimates", 
+      "missing_assignment": "Task is not assigned to anyone",
+      "missing_permissions": "Insufficient permissions to start work",
+      "dependencies_not_met": "Required dependencies are not completed",
+      "budget_or_approval_required": "Budget approval or client confirmation required",
+      "compliance_hold": "Compliance or regulatory hold in place",
+      "estimate_status_blocked": "Estimate status blocks work",
+      "missing_counterparty_approval": "Client approval pending",
+      "incomplete_estimate_blocks": "Required estimate sections are incomplete",
+      "service_items_not_assigned": "Service items need to be assigned",
+      "material_availability_hold": "Materials are not available"
+    },
+
+    "cta": {
+      "assign": "Assign",
+      "assign_title": "Assign Task",
+      "request_approval": "Request Approval", 
+      "request_approval_title": "Request Approval",
+      "view_dependencies": "View Dependencies",
+      "view_dependencies_title": "Task Dependencies",
+      "open_compliance": "Open Compliance",
+      "open_permits": "Open Permits",
+      "complete_estimate_block": "Complete Block",
+      "approve_estimate": "Approve Estimate", 
+      "resolve_materials": "Resolve Materials",
+      "change_project_status": "Change Status",
+      "compliance_title": "Compliance Requirements"
+    },
+
+    "cell": {
+      "loading": "Analyzing...",
+      "details_title": "Startability Details", 
+      "no_issues": "No blocking issues found",
+      "view_details": "View Details",
+      "more_info": "More Information"
+    },
+
+    "sidebar": {
+      "title": "Startability Check",
+      "subtitle": "Project {{projectId}}",
+      "refresh": "Refresh Analysis",
+      "loading": "Analyzing startability..."
+    },
+
+    "tabs": {
+      "issues": "Issues",
+      "actions": "Actions",
+      "overview": "Overview"
+    },
+
+    "no_issues": {
+      "title": "All Clear!",
+      "description": "No blocking issues found. Ready to start work.",
+      "ready_to_go": "Everything looks good to go!"
+    },
+
+    "actions": {
+      "start_work": "Start Work",
+      "priority_actions": "Priority Actions",
+      "no_actions_needed": "No Actions Needed",
+      "all_resolved": "All issues have been resolved"
+    },
+
+    "assign": {
+      "select_assignee": "Select Assignee",
+      "notes": "Notes (Optional)",
+      "notes_placeholder": "Add any special instructions...",
+      "assign_button": "Assign Task",
+      "will_assign_to": "Will assign to {{name}}",
+      "success": "Task assigned successfully",
+      "error": "Failed to assign task"
+    },
+
+    "approval": {
+      "type": "Approval Type",
+      "client": "Client Approval",
+      "manager": "Manager Approval", 
+      "budget": "Budget Approval",
+      "priority": "Priority",
+      "normal": "Normal",
+      "urgent": "Urgent",
+      "message": "Request Message",
+      "message_placeholder": "Explain what needs approval and why...",
+      "preview": "Request Preview",
+      "send_request": "Send Request",
+      "success": "Approval request sent successfully",
+      "error": "Failed to send approval request"
+    },
+
+    "dependencies": {
+      "blocking_tasks": "Blocking Tasks",
+      "status": {
+        "completed": "Completed",
+        "in_progress": "In Progress", 
+        "pending": "Pending",
+        "blocked": "Blocked"
+      },
+      "view": "View Task",
+      "mark_complete": "Mark Complete",
+      "progress": "Progress"
+    },
+
+    "compliance": {
+      "description": "This project has compliance or regulatory requirements that must be resolved before work can begin.",
+      "permits": "Required permits and documentation",
+      "insurance": "Insurance and bonding requirements",
+      "safety": "Safety and regulatory compliance",
+      "open_module": "Open Compliance Module",
+      "mark_resolved": "Mark as Resolved",
+      "success": "Compliance hold removed",
+      "error": "Failed to update compliance status"
+    },
+
+    "header": {
+      "title": "Project Startability",
+      "evaluating": "Evaluating startability...",
+      "refresh": "Refresh Analysis",
+      "details": "View Details", 
+      "send_estimate": "Send to Client",
+      "convert_contract": "Convert to Contract",
+      "view_details": "View Details",
+      "view_all_details": "View All Details",
+      "quick_overview": "Quick Overview",
+      "no_issues": "No issues found",
+      "more_issues": "and {{count}} more...",
+      "blocked_send_tooltip": "Cannot send estimate while critical issues exist",
+      "blocked_convert_tooltip": "Cannot convert to contract while critical issues exist",
+      "critical_alert_title": "Critical Issues Must Be Resolved",
+      "critical_alert_description": "{{count}} critical issues are blocking this project from starting. Resolve these issues before proceeding.",
+      "warning_alert_description": "{{count}} warnings detected. Consider resolving these issues for optimal project execution.",
+      "ready_description": "{{count}} items are ready to start. No blocking issues found."
+    },
+
+    "overview": {
+      "startable_items": "{{startable}} of {{total}} items ready",
+      "total_issues": "{{count}} issues found",
+      "last_updated": "Updated {{time}}",
+      "auto_refresh": "Auto-refresh enabled"
+    },
+
+    "entity": "Item",
+    "project": "Project",
+    "task": "Task", 
+    "estimate": "Estimate",
+    "service": "Service",
+    "material": "Material",
+
+    "time": {
+      "just_now": "just now",
+      "minutes_ago": "{{count}} minutes ago",
+      "hours_ago": "{{count}} hours ago", 
+      "days_ago": "{{count}} days ago"
+    },
+
+    "notifications": {
+      "evaluation_complete": "Startability analysis complete",
+      "issues_found": "{{count}} issues found requiring attention",
+      "all_clear": "All issues resolved - ready to start!",
+      "cta_executed": "Action completed successfully",
+      "cta_failed": "Action failed - please try again",
+      "cache_cleared": "Analysis refreshed",
+      "real_time_update": "Project updated by another user"
+    },
+
+    "tooltips": {
+      "click_for_details": "Click for detailed analysis",
+      "critical_blocking": "Critical issue - blocks all work",
+      "warning_attention": "Warning - needs attention",
+      "info_advisory": "Advisory - nice to resolve",
+      "cta_available": "Click to resolve this issue",
+      "auto_resolvable": "Can be resolved automatically",
+      "manual_resolution": "Requires manual intervention",
+      "feature_disabled": "Startability feature is disabled"
+    },
+
+    "accessibility": {
+      "startability_cell": "Startability indicator for {{item}}",
+      "severity_critical": "Critical severity - immediate attention required",
+      "severity_warning": "Warning severity - should be addressed", 
+      "severity_info": "Informational - optional to address",
+      "cta_button": "Execute {{action}} to resolve {{reason}}",
+      "expand_details": "Expand to show more details",
+      "collapse_details": "Collapse details",
+      "close_dialog": "Close dialog",
+      "refresh_analysis": "Refresh startability analysis"
+    },
+
+    "help": {
+      "what_is_startability": "What is Startability?",
+      "startability_explanation": "The Startability System analyzes your project to determine if work can begin. It checks for missing assignments, required approvals, dependencies, and other potential blockers.",
+      "how_to_resolve": "How to Resolve Issues",
+      "resolution_guide": "Each issue includes specific actions you can take to resolve it. Click the action buttons to assign tasks, request approvals, or address other requirements.",
+      "understanding_severity": "Understanding Severity Levels",
+      "severity_guide": "Critical issues block all work and must be resolved. Warnings should be addressed for optimal execution. Info items are advisory and optional.",
+      "feature_overview": "Feature Overview",
+      "feature_explanation": "This system helps ensure projects are properly prepared before work begins, reducing delays and improving success rates."
+    },
+
+    "errors": {
+      "evaluation_failed": "Failed to analyze project startability",
+      "loading_failed": "Could not load startability data",
+      "cta_execution_failed": "Failed to execute action",
+      "network_error": "Network connection issue",
+      "permission_denied": "Insufficient permissions for this action",
+      "feature_disabled": "Startability feature is currently disabled",
+      "invalid_data": "Invalid project or estimate data",
+      "timeout": "Request timed out - please try again",
+      "unknown_error": "An unexpected error occurred"
+    },
+
+    "success": {
+      "cta_executed": "Action completed successfully",
+      "issue_resolved": "Issue resolved",
+      "analysis_refreshed": "Analysis updated",
+      "assignment_completed": "Task assigned successfully",
+      "approval_requested": "Approval request sent",
+      "status_updated": "Status updated successfully",
+      "all_issues_resolved": "All issues have been resolved!"
+    }
+  },
+
+  "common": {
+    "cancel": "Cancel",
+    "close": "Close",
+    "save": "Save", 
+    "delete": "Delete",
+    "edit": "Edit",
+    "view": "View",
+    "refresh": "Refresh",
+    "loading": "Loading...",
+    "error": "Error",
+    "success": "Success",
+    "warning": "Warning",
+    "info": "Information",
+    "yes": "Yes",
+    "no": "No",
+    "ok": "OK",
+    "continue": "Continue",
+    "back": "Back",
+    "next": "Next",
+    "previous": "Previous",
+    "submit": "Submit",
+    "reset": "Reset",
+    "clear": "Clear",
+    "search": "Search",
+    "filter": "Filter",
+    "sort": "Sort",
+    "export": "Export",
+    "import": "Import",
+    "settings": "Settings",
+    "help": "Help",
+    "about": "About"
+  }
+}

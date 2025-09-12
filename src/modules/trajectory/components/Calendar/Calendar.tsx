@@ -46,7 +46,7 @@ import FullCalendar from '@fullcalendar/react';
 import dayGridPlugin from '@fullcalendar/daygrid';
 import timeGridPlugin from '@fullcalendar/timegrid';
 import interactionPlugin from '@fullcalendar/interaction';
-import ruLocale from '@fullcalendar/core/locales/ru';
+// import ruLocale from '@fullcalendar/core/locales/ru';
 
 import { useAuth } from '../../../../auth/AuthContext';
 import { CalendarEventExtended, EmotionLogEntry } from '../../types';
@@ -374,7 +374,7 @@ export const Calendar: React.FC<CalendarProps> = ({
             right: ''
           }}
           initialView={view}
-          locale={ruLocale}
+          // locale={ruLocale}
           events={calendarEvents}
           editable={false}
           selectable={true}

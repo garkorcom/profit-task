@@ -389,7 +389,9 @@ export const calculateActiveDuration = (
     if (pause.duration) {
       pauseMinutes += pause.duration;
     } else if (pause.startTime && pause.endTime) {
-      pauseMinutes += Math.floor((pause.endTime.getTime() - pause.startTime.getTime()) / 60000);
+      const pauseStartTime = convertTimestampToDate(pause.startTime);
+      const pauseEndTime = convertTimestampToDate(pause.endTime);
+      pauseMinutes += Math.floor((pauseEndTime.getTime() - pauseStartTime.getTime()) / 60000);
     }
   });
   
@@ -680,7 +682,7 @@ export const resumeTimeEntry = async (
  * Атомарное переключение между задачами (T3 Optimization)
  * Останавливает текущую задачу и запускает новую в одной транзакции
  */
-export const switchWork = async (newTaskData: {
+export const switchWork = async (userId: string, newTaskData: {
   taskId?: string;
   taskName?: string;
   projectId: string;
@@ -692,10 +694,9 @@ export const switchWork = async (newTaskData: {
   startMethod?: StartMethod;
 }): Promise<{ newEntryId: string; switchedFrom?: { taskName: string; duration: number } }> => {
   
-  const currentUser = auth.currentUser;
-  if (!currentUser) throw new Error('User not authenticated');
-  
-  const userId = currentUser.uid;
+  if (!newTaskData) {
+    throw new Error('newTaskData is required');
+  }
   
   try {
     // Сначала находим активную запись вне транзакции
@@ -747,16 +748,17 @@ export const switchWork = async (newTaskData: {
       const activeData = activeDoc.data();
       const activeRef = doc(db, `users/${userId}/timeEntries`, activeDoc.id);
       
-      // Рассчитываем длительность для текущей задачи
-      const now = new Date();
+      // Рассчитываем длительность для текущей задачи с единой временной меткой
+      // ВАЖНО: Используем фиксированное время переключения для атомарности
+      const switchTime = new Date(); // Фиксированное время для расчетов в транзакции
       const startTime = convertTimestampToDate(activeData.startTime);
       const activeDuration = calculateActiveDuration(
         startTime,
-        now,
+        switchTime,
         activeData.pauses || [],
         convertTimestampToDate(activeData.currentPauseStart) || undefined
       );
-      const totalDuration = Math.floor((now.getTime() - startTime.getTime()) / 60000);
+      const totalDuration = Math.floor((switchTime.getTime() - startTime.getTime()) / 60000);
       
       // Завершаем текущую задачу
       transaction.update(activeRef, {

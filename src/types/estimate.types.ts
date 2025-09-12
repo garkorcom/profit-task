@@ -15,6 +15,7 @@ export type EstimateStatus =
   | 'rejected'       // Отклонена
   | 'expired'        // Истек срок
   | 'converted'      // Конвертирована в договор
+  | 'invoiced'       // Выставлен счет
   | 'canceled';      // Отменена
 
 export type BlockKey =

@@ -1,0 +1,429 @@
+{
+  "baseEstimate": {
+    "id": "est_2025_001",
+    "number": "EST-2025-00001",
+    "status": "draft",
+    "revision": 1,
+    "parentEstimateId": null,
+    "projectId": "proj_001",
+    "counterpartyId": "cp_001",
+    "currency": "USD",
+    "taxProfileId": "tax_profile_001",
+    "terms": "Net 30 days",
+    "validUntil": "2025-02-10T23:59:59.000Z",
+    "publicShareId": null,
+    "pdfSnapshotUrl": null,
+    "publicSettings": {
+      "allowDownload": false,
+      "showUnitPrices": true,
+      "requireLogin": false
+    },
+    "totals": {
+      "materialsCost": 15000.00,
+      "laborCost": 25000.00,
+      "equipmentCost": 5000.00,
+      "subcontractCost": 10000.00,
+      "overheadPct": 15.0,
+      "overheadAmt": 8250.00,
+      "discountAmt": 0.00,
+      "shippingAmt": 500.00,
+      "subtotalPrice": 55000.00,
+      "taxAmt": 4125.00,
+      "grandTotal": 67375.00,
+      "grossMarginPct": 35.2
+    },
+    "blocks": [],
+    "createdBy": "user_001",
+    "createdAt": "2025-01-11T10:00:00.000Z",
+    "updatedAt": "2025-01-11T10:00:00.000Z",
+    "auditLog": []
+  },
+
+  "completeEstimateBlocks": [
+    {
+      "key": "counterparty",
+      "status": "complete",
+      "dataVersion": 1,
+      "data": {
+        "counterpartyId": "cp_001",
+        "primaryContactId": "contact_001",
+        "billingAddressId": "addr_001",
+        "shippingAddressId": "addr_002",
+        "taxProfileId": "tax_profile_001",
+        "paymentTerms": "Net30",
+        "customFields": {
+          "creditLimit": 100000,
+          "preferredPaymentMethod": "check",
+          "accountManager": "John Smith"
+        }
+      },
+      "lastEditedBy": "user_001",
+      "updatedAt": "2025-01-11T10:15:00.000Z"
+    },
+    {
+      "key": "project",
+      "status": "complete", 
+      "dataVersion": 1,
+      "data": {
+        "projectId": "proj_001",
+        "siteAddressId": "addr_003",
+        "jurisdictionId": "juris_ca_la",
+        "taxRateId": "tax_rate_001",
+        "costCenterId": "cc_construction",
+        "customFields": {
+          "permitNumber": "PERMIT-2025-001",
+          "inspector": "Mike Johnson",
+          "startDate": "2025-02-01"
+        }
+      },
+      "lastEditedBy": "user_001", 
+      "updatedAt": "2025-01-11T10:20:00.000Z"
+    },
+    {
+      "key": "services",
+      "status": "complete",
+      "dataVersion": 2,
+      "data": {
+        "sections": [
+          {
+            "id": "section_001",
+            "title": "Site Preparation",
+            "sortOrder": 1
+          },
+          {
+            "id": "section_002", 
+            "title": "Foundation Work",
+            "sortOrder": 2
+          }
+        ],
+        "items": [
+          {
+            "id": "svc_001",
+            "estimateId": "est_2025_001",
+            "type": "service",
+            "sectionId": "section_001",
+            "name": "Site Excavation",
+            "description": "Excavate building footprint to 4ft depth",
+            "qty": 500,
+            "unit": "cubic yards",
+            "rate": 25.00,
+            "sortOrder": 1,
+            "csiCode": "31 20 00",
+            "phaseId": "phase_001",
+            "taskId": "task_001",
+            "unitCost": 18.00,
+            "marginPct": 38.9,
+            "lineSubtotal": 12500.00,
+            "lineTax": 937.50,
+            "lineTotal": 13437.50
+          },
+          {
+            "id": "svc_002",
+            "estimateId": "est_2025_001", 
+            "type": "service",
+            "sectionId": "section_002",
+            "name": "Concrete Foundation",
+            "description": "Pour concrete foundation with rebar",
+            "qty": 120,
+            "unit": "cubic yards",
+            "rate": 150.00,
+            "sortOrder": 2,
+            "csiCode": "03 30 00",
+            "phaseId": "phase_001", 
+            "taskId": "task_002",
+            "unitCost": 110.00,
+            "marginPct": 36.4,
+            "lineSubtotal": 18000.00,
+            "lineTax": 1350.00,
+            "lineTotal": 19350.00
+          }
+        ]
+      },
+      "lastEditedBy": "user_002",
+      "updatedAt": "2025-01-11T11:30:00.000Z"
+    },
+    {
+      "key": "products",
+      "status": "complete",
+      "dataVersion": 1,
+      "data": {
+        "items": [
+          {
+            "id": "prod_001",
+            "estimateId": "est_2025_001",
+            "type": "material",
+            "name": "Rebar #4 Grade 60",
+            "description": "1/2 inch diameter rebar",
+            "qty": 2000,
+            "unit": "linear feet",
+            "productId": "mat_rebar_001",
+            "sku": "RB-4-60",
+            "unitCost": 1.25,
+            "unitPrice": 1.85,
+            "wastePct": 10.0,
+            "vendorId": "vendor_001",
+            "leadTimeDays": 7,
+            "reserveFromStock": true,
+            "sortOrder": 1,
+            "lineSubtotal": 3700.00,
+            "lineTax": 277.50,
+            "lineTotal": 3977.50
+          },
+          {
+            "id": "prod_002",
+            "estimateId": "est_2025_001",
+            "type": "equipment",
+            "name": "Excavator Rental",
+            "description": "CAT 320 Excavator - Weekly Rental",
+            "qty": 2,
+            "unit": "weeks", 
+            "productId": "eq_excavator_001",
+            "sku": "EQ-EXC-320",
+            "unitCost": 1800.00,
+            "unitPrice": 2500.00,
+            "wastePct": 0.0,
+            "vendorId": "vendor_002",
+            "leadTimeDays": 3,
+            "reserveFromStock": false,
+            "sortOrder": 2,
+            "lineSubtotal": 5000.00,
+            "lineTax": 375.00,
+            "lineTotal": 5375.00
+          }
+        ]
+      },
+      "lastEditedBy": "user_002",
+      "updatedAt": "2025-01-11T10:45:00.000Z"
+    },
+    {
+      "key": "costing",
+      "status": "complete",
+      "dataVersion": 1,
+      "data": {
+        "laborRates": [
+          {
+            "roleId": "role_foreman",
+            "ratePerHour": 35.00
+          },
+          {
+            "roleId": "role_operator",
+            "ratePerHour": 28.00
+          },
+          {
+            "roleId": "role_laborer", 
+            "ratePerHour": 22.00
+          }
+        ],
+        "overheadPct": 15.0,
+        "profitTargetPct": 20.0,
+        "freightPct": 2.5,
+        "discountAmt": 0.00,
+        "shippingAmt": 500.00,
+        "depositPct": 25.0,
+        "retentionPct": 5.0,
+        "roundingRule": "bankers",
+        "scenario": "base"
+      },
+      "lastEditedBy": "user_001",
+      "updatedAt": "2025-01-11T10:50:00.000Z"
+    },
+    {
+      "key": "estimate_tasks",
+      "status": "complete",
+      "dataVersion": 1,
+      "data": {
+        "tasks": [
+          {
+            "id": "task_001",
+            "name": "Site Survey and Marking",
+            "description": "Survey property boundaries and mark utilities",
+            "plannedHours": 8,
+            "actualHours": null,
+            "assignedRole": "role_foreman",
+            "assignedUserId": "user_003",
+            "includeMode": "COGS",
+            "status": "not_started",
+            "priority": "high",
+            "plannedStartDate": "2025-02-01T08:00:00.000Z",
+            "plannedEndDate": "2025-02-01T16:00:00.000Z",
+            "actualStartDate": null,
+            "actualEndDate": null,
+            "tags": ["survey", "preparation"],
+            "notes": "Coordinate with utility companies"
+          },
+          {
+            "id": "task_002",
+            "name": "Equipment Setup and Safety",
+            "description": "Set up construction equipment and safety barriers",
+            "plannedHours": 4,
+            "actualHours": null,
+            "assignedRole": "role_operator",
+            "assignedUserId": "user_004",
+            "includeMode": "OH",
+            "status": "not_started", 
+            "priority": "medium",
+            "plannedStartDate": "2025-02-02T07:00:00.000Z",
+            "plannedEndDate": "2025-02-02T11:00:00.000Z",
+            "actualStartDate": null,
+            "actualEndDate": null,
+            "tags": ["setup", "safety"],
+            "notes": "Check all equipment before use"
+          }
+        ],
+        "defaultIncludeMode": "COGS",
+        "totalPlannedHours": 12,
+        "totalActualHours": 0
+      },
+      "lastEditedBy": "user_001",
+      "updatedAt": "2025-01-11T11:00:00.000Z"
+    },
+    {
+      "key": "communication",
+      "status": "complete",
+      "dataVersion": 1,
+      "data": {
+        "clientPortalEnabled": true,
+        "allowLineItemComments": true,
+        "allowNegotiation": false,
+        "readReceipts": true,
+        "signMethod": "e-sign",
+        "primaryChannel": "email",
+        "messageTemplates": [
+          "estimate_sent_template",
+          "estimate_reminder_template",
+          "estimate_approved_template"
+        ],
+        "paymentLink": "https://stripe.com/payment/est_2025_001",
+        "threadId": "thread_est_2025_001"
+      },
+      "lastEditedBy": "user_001",
+      "updatedAt": "2025-01-11T11:10:00.000Z"
+    },
+    {
+      "key": "statuses",
+      "status": "complete",
+      "dataVersion": 1,
+      "data": {
+        "current": "draft",
+        "checklist": [
+          {
+            "key": "counterparty_complete",
+            "label": "Counterparty Information Complete",
+            "done": true,
+            "required": true
+          },
+          {
+            "key": "services_added",
+            "label": "Services Added to Estimate", 
+            "done": true,
+            "required": true
+          },
+          {
+            "key": "costing_configured",
+            "label": "Costing Parameters Set",
+            "done": true,
+            "required": false
+          },
+          {
+            "key": "communication_setup",
+            "label": "Communication Preferences Set",
+            "done": true,
+            "required": false
+          }
+        ],
+        "transitions": [
+          {
+            "from": "draft",
+            "to": "internal_review",
+            "guard": "all_required_complete",
+            "auto": false
+          },
+          {
+            "from": "internal_review",
+            "to": "sent",
+            "guard": "manager_approval",
+            "auto": false
+          },
+          {
+            "from": "sent",
+            "to": "viewed",
+            "guard": null,
+            "auto": true
+          }
+        ]
+      },
+      "lastEditedBy": "user_001",
+      "updatedAt": "2025-01-11T11:15:00.000Z"
+    }
+  ],
+
+  "errorScenarios": {
+    "invalidCounterparty": {
+      "counterpartyId": "non_existent_cp",
+      "expectedError": "Counterparty not found"
+    },
+    "invalidTaxRate": {
+      "taxRateId": "invalid_tax_rate", 
+      "expectedError": "Tax rate configuration not found"
+    },
+    "negativeQuantity": {
+      "serviceItem": {
+        "qty": -5,
+        "expectedError": "Quantity must be positive"
+      }
+    },
+    "invalidStatusTransition": {
+      "from": "sent",
+      "to": "draft",
+      "expectedError": "Invalid status transition"
+    },
+    "insufficientStock": {
+      "productId": "mat_rebar_001",
+      "requestedQty": 10000,
+      "availableQty": 500,
+      "expectedError": "Insufficient inventory"
+    }
+  },
+
+  "edgeCases": {
+    "zeroQuantityService": {
+      "id": "svc_zero",
+      "qty": 0,
+      "rate": 100.00,
+      "expectedTotal": 0.00
+    },
+    "highPrecisionCalculation": {
+      "qty": 333.333333,
+      "rate": 33.333333,
+      "expectedSubtotal": 11111,
+      "roundingRule": "bankers"
+    },
+    "maximumDiscount": {
+      "subtotal": 10000.00,
+      "discountPct": 100.0,
+      "expectedTotal": 0.00
+    }
+  },
+
+  "legacyCompatibility": {
+    "v1EstimateStructure": {
+      "id": "legacy_est_001",
+      "items": [
+        {
+          "id": "legacy_item_001",
+          "description": "Legacy format item",
+          "quantity": 10,
+          "price": 50.00,
+          "total": 500.00
+        }
+      ],
+      "total": 500.00,
+      "status": "draft"
+    },
+    "v2MigrationMapping": {
+      "v1Field": "description",
+      "v2Field": "name",
+      "transformationRequired": true
+    }
+  }
+}

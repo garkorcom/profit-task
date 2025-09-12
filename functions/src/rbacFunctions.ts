@@ -912,7 +912,7 @@ async function getUserRBACProfile(userId: string): Promise<UserRBACProfile> {
  * Обновление RBAC профиля пользователя
  */
 async function updateUserRBACProfile(userId: string, profile: UserRBACProfile): Promise<void> {
-  await db.collection('user_rbac_profiles').doc(userId).update(profile);
+  await db.collection('user_rbac_profiles').doc(userId).update(profile as any);
 }
 
 /**

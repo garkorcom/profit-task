@@ -6,6 +6,7 @@
     "@anthropic-ai/sdk": "^0.60.0",
     "@emotion/react": "^11.11.4",
     "@emotion/styled": "^11.11.5",
+    "@fullcalendar/core": "^6.1.19",
     "@fullcalendar/daygrid": "^6.1.19",
     "@fullcalendar/interaction": "^6.1.19",
     "@fullcalendar/react": "^6.1.19",
@@ -33,6 +34,7 @@
     "qrcode.react": "^4.2.0",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "react-i18next": "^13.5.0",
     "react-redux": "^9.2.0",
     "react-router-dom": "^6.23.1",
     "react-scripts": "5.0.1",
@@ -56,6 +58,11 @@
       "react-app/jest"
     ]
   },
+  "jest": {
+    "transformIgnorePatterns": [
+      "node_modules/(?!@fullcalendar|@mui)"
+    ]
+  },
   "browserslist": {
     "production": [
       ">0.2%",
@@ -69,6 +76,7 @@
     ]
   },
   "devDependencies": {
+    "@jest/globals": "^30.1.2",
     "@playwright/test": "^1.55.0",
     "@types/lodash": "^4.17.20",
     "@types/lodash-es": "^4.17.12",

@@ -88,6 +88,33 @@ export interface ModalPrefillData {
   service?: EstimateItem;
 }
 
+// Типы для предварительных условий (КРИТИЧЕСКОЕ ОБНОВЛЕНИЕ)
+export interface PreConditionData {
+  location?: GeolocationPosition;
+  startPhotoUrl?: string;
+  endPhotoUrl?: string;
+}
+
+export interface TaskRequirements {
+  requireStartPhoto?: boolean;
+  requireEndPhoto?: boolean;
+  requireStartLocation?: boolean;
+  requireEndLocation?: boolean;
+  requireComment?: boolean;
+}
+
+export class BlockingValidationError extends Error {
+  code: 'PHOTO_REQUIRED' | 'GPS_REQUIRED' | 'USER_DENIED' | 'TIMEOUT';
+  requirements: TaskRequirements;
+  
+  constructor(message: string, code: 'PHOTO_REQUIRED' | 'GPS_REQUIRED' | 'USER_DENIED' | 'TIMEOUT' = 'USER_DENIED', requirements: TaskRequirements = {}) {
+    super(message);
+    this.name = 'BlockingValidationError';
+    this.code = code;
+    this.requirements = requirements;
+  }
+}
+
 export interface ValidationResult {
   isValid: boolean;
   errors: string[];
@@ -162,6 +189,10 @@ export interface StartWorkPayload {
   location?: GeolocationPosition;
   startMethod?: StartMethod; // T3 optimization - аналитика методов запуска
   requireGPS?: boolean; // T3 optimization - опциональное требование GPS
+  
+  // КРИТИЧЕСКОЕ ОБНОВЛЕНИЕ: Требования к предварительным условиям
+  taskRequirements?: TaskRequirements;
+  blockingValidation?: boolean; // Если true, получение данных блокирующее
 }
 
 const TimeTrackingContext = createContext<TimeTrackingContextType | undefined>(undefined);
@@ -398,13 +429,135 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     return task.requirePhoto === true;
   };
 
+  /**
+   * Получение фотографии через камеру
+   */
+  const capturePhoto = async (): Promise<string> => {
+    return new Promise((resolve, reject) => {
+      const video = document.createElement('video');
+      const canvas = document.createElement('canvas');
+      
+      navigator.mediaDevices.getUserMedia({ video: true })
+        .then(stream => {
+          video.srcObject = stream;
+          video.play();
+          
+          video.onloadedmetadata = () => {
+            canvas.width = video.videoWidth;
+            canvas.height = video.videoHeight;
+            
+            setTimeout(() => {
+              const context = canvas.getContext('2d');
+              if (!context) {
+                reject(new Error('Не удалось получить контекст canvas'));
+                return;
+              }
+              
+              context.drawImage(video, 0, 0);
+              const dataURL = canvas.toDataURL('image/jpeg', 0.8);
+              
+              // Останавливаем стрим
+              stream.getTracks().forEach(track => track.stop());
+              
+              resolve(dataURL);
+            }, 1000); // Даем время камере сфокусироваться
+          };
+        })
+        .catch(error => {
+          reject(new Error(`Ошибка доступа к камере: ${error.message}`));
+        });
+    });
+  };
+
+  /**
+   * Получение текущей геолокации
+   */
+  const getCurrentLocation = async (): Promise<GeolocationPosition> => {
+    return new Promise((resolve, reject) => {
+      if (!navigator.geolocation) {
+        reject(new Error('Геолокация не поддерживается'));
+        return;
+      }
+      
+      navigator.geolocation.getCurrentPosition(
+        resolve,
+        error => {
+          let message = 'Неизвестная ошибка геолокации';
+          switch (error.code) {
+            case error.PERMISSION_DENIED:
+              message = 'Доступ к геолокации запрещен';
+              break;
+            case error.POSITION_UNAVAILABLE:
+              message = 'Информация о местоположении недоступна';
+              break;
+            case error.TIMEOUT:
+              message = 'Время ожидания геолокации истекло';
+              break;
+          }
+          reject(new Error(message));
+        },
+        {
+          timeout: 15000,
+          enableHighAccuracy: true,
+          maximumAge: 0
+        }
+      );
+    });
+  };
+
+  /**
+   * Блокирующая валидация предварительных условий
+   * Получает фото и GPS данные ДО начала таймера и вызова Firebase API
+   */
+  const getPreConditionData = async (requirements: TaskRequirements): Promise<PreConditionData> => {
+    const result: PreConditionData = {};
+    
+    // Получение обязательных данных последовательно
+    try {
+      // 1. Стартовое фото (если требуется)
+      if (requirements.requireStartPhoto) {
+        try {
+          const startPhoto = await capturePhoto();
+          if (!startPhoto || startPhoto.trim() === '') {
+            throw new BlockingValidationError('Требуется фото ДО начала работы');
+          }
+          result.startPhotoUrl = startPhoto;
+        } catch (error) {
+          throw new BlockingValidationError(`Не удалось получить стартовое фото: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+        }
+      }
+      
+      // 2. GPS локация (если требуется)
+      if (requirements.requireStartLocation) {
+        try {
+          const location = await getCurrentLocation();
+          if (!location) {
+            throw new BlockingValidationError('Требуется определение местоположения для начала работы');
+          }
+          result.location = location;
+        } catch (error) {
+          throw new BlockingValidationError(`Не удалось получить геолокацию: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+        }
+      }
+      
+      return result;
+      
+    } catch (error) {
+      // Если любое из обязательных условий не выполнено - прерываем процесс
+      if (error instanceof BlockingValidationError) {
+        throw error;
+      }
+      throw new BlockingValidationError(`Ошибка при получении предварительных данных: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+    }
+  };
+
   const startWork = async (payload: StartWorkPayload) => {
     if (!currentUser) throw new Error('User not authenticated');
     
     setIsStartingWork(true);
     setTimeTrackingError(null);
 
-    const { task, estimate, service, project, startPhoto, location, startMethod = 'manual', requireGPS = false } = payload;
+    const { task, estimate, service, project, startPhoto, location, startMethod = 'manual', requireGPS = false, taskRequirements, blockingValidation = false } = payload;
 
     // Определяем основную задачу для учета времени
     const workTarget = task || service || estimate;
@@ -416,6 +569,31 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     const taskId = task?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
     const taskName = task?.task || service?.name || estimate?.number || 'Работа';
+
+    // --- БЛОКИРУЮЩАЯ ВАЛИДАЦИЯ ПРЕДВАРИТЕЛЬНЫХ УСЛОВИЙ ---
+    let preConditionData: PreConditionData = {};
+    
+    if (blockingValidation && taskRequirements) {
+      try {
+        console.log('🔒 Выполняется блокирующая валидация предварительных условий...');
+        preConditionData = await getPreConditionData(taskRequirements);
+        console.log('✅ Предварительные условия успешно выполнены:', preConditionData);
+      } catch (error) {
+        setTimeTrackingError(`Невозможно начать работу: ${error instanceof Error ? error.message : 'Неизвестная ошибка'}`);
+        setIsStartingWork(false);
+        throw error;
+      }
+    }
+
+    // --- СОХРАНЕНИЕ ПРЕДЫДУЩЕГО СОСТОЯНИЯ ДЛЯ ОТКАТА ---
+    const previousState = {
+      currentEntry: currentEntry,
+      currentTask: currentTask,
+      isWorking: isWorking,
+      isPaused: isPaused,
+      elapsedSeconds: elapsedSeconds,
+      timeTrackingError: timeTrackingError
+    };
 
     // --- ФАЗА 1: МГНОВЕННЫЙ СТАРТ (Ядро T3 Optimization) ---
     try {
@@ -438,6 +616,16 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         pauses: [],
         createdAt: new Date(),
         updatedAt: new Date(),
+        // Интегрируем предварительно полученные данные
+        ...(preConditionData.startPhotoUrl && { startPhotoUrl: preConditionData.startPhotoUrl }),
+        ...(preConditionData.location && { 
+          startLocation: {
+            latitude: preConditionData.location.coords.latitude,
+            longitude: preConditionData.location.coords.longitude,
+            accuracy: preConditionData.location.coords.accuracy,
+            timestamp: new Date(preConditionData.location.timestamp)
+          }
+        }),
       } as TimeEntry;
 
       // Мгновенно обновляем UI
@@ -473,6 +661,19 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (service?.id) {
         entryDraft.serviceId = service.id;
         entryDraft.serviceName = service.name;
+      }
+      
+      // Интегрируем предварительно полученные данные в серверную запись
+      if (preConditionData.startPhotoUrl) {
+        entryDraft.startPhotoUrl = preConditionData.startPhotoUrl;
+      }
+      if (preConditionData.location) {
+        entryDraft.startLocation = {
+          latitude: preConditionData.location.coords.latitude,
+          longitude: preConditionData.location.coords.longitude,
+          accuracy: preConditionData.location.coords.accuracy,
+          timestamp: new Date(preConditionData.location.timestamp)
+        };
       }
 
       // Создаем запись в БД без ожидания периферийных данных
@@ -567,11 +768,27 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       
     } catch (error: any) {
       console.error('❌ Error starting work:', error);
-      // Откатываем optimistic update
-      setIsWorking(false);
-      setCurrentEntry(null);
-      setCurrentTask(null);
+      
+      // --- ПОЛНЫЙ ОТКАТ К ПРЕДЫДУЩЕМУ СОСТОЯНИЮ (T3 Rollback Mechanism) ---
+      console.log('🔄 Выполняется откат Optimistic Updates к предыдущему состоянию...');
+      
+      // Восстанавливаем все состояние до optimistic update
+      setCurrentEntry(previousState.currentEntry);
+      setCurrentTask(previousState.currentTask);
+      setIsWorking(previousState.isWorking);
+      setIsPaused(previousState.isPaused);
+      setElapsedSeconds(previousState.elapsedSeconds);
+      
+      // Очищаем неуспешные localStorage записи
+      if (!previousState.currentEntry) {
+        localStorage.removeItem('currentTimeEntry');
+        localStorage.removeItem('currentTaskId');
+        localStorage.removeItem('currentEntryId');
+      }
+      
       setTimeTrackingError(`Не удалось начать работу: ${error.message}`);
+      
+      console.log('✅ Откат выполнен успешно. Состояние восстановлено:', previousState);
       throw error;
     } finally {
       setIsStartingWork(false);
@@ -602,6 +819,16 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
 
     const taskId = task?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
     const taskName = task?.task || service?.name || estimate?.number || 'Работа';
+
+    // --- СОХРАНЕНИЕ ПРЕДЫДУЩЕГО СОСТОЯНИЯ ДЛЯ ОТКАТА SWITCH ---
+    const previousSwitchState = {
+      currentEntry: currentEntry,
+      currentTask: currentTask,
+      isWorking: isWorking,
+      isPaused: isPaused,
+      elapsedSeconds: elapsedSeconds,
+      timeTrackingError: timeTrackingError
+    };
 
     try {
       // Optimistic Update: мгновенно переключаем UI
@@ -639,7 +866,7 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       setIsPaused(false);
 
       // Атомарное переключение на сервере через API
-      const result = await switchWorkApi({
+      const result = await switchWorkApi(currentUser.uid, {
         taskId,
         taskName,
         projectId: project.id,
@@ -667,8 +894,27 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       
     } catch (error: any) {
       console.error('❌ Error switching work:', error);
-      // В случае ошибки можем попробовать восстановить предыдущее состояние
+      
+      // --- ПОЛНЫЙ ОТКАТ К ПРЕДЫДУЩЕМУ СОСТОЯНИЮ (T3 Switch Rollback) ---
+      console.log('🔄 Выполняется откат Switch Optimistic Updates...');
+      
+      // Восстанавливаем все состояние до optimistic switch
+      setCurrentEntry(previousSwitchState.currentEntry);
+      setCurrentTask(previousSwitchState.currentTask);
+      setIsWorking(previousSwitchState.isWorking);
+      setIsPaused(previousSwitchState.isPaused);
+      setElapsedSeconds(previousSwitchState.elapsedSeconds);
+      
+      // Восстанавливаем localStorage к предыдущему состоянию
+      if (previousSwitchState.currentEntry) {
+        localStorage.setItem('currentTimeEntry', JSON.stringify(previousSwitchState.currentEntry));
+        localStorage.setItem('currentTaskId', previousSwitchState.currentTask?.id || '');
+        localStorage.setItem('currentEntryId', previousSwitchState.currentEntry.id || '');
+      }
+      
       setTimeTrackingError(`Не удалось переключить задачу: ${error.message}`);
+      
+      console.log('✅ Switch откат выполнен успешно. Восстановлено к:', previousSwitchState);
       throw error;
     } finally {
       setIsStartingWork(false);
@@ -678,10 +924,21 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   const stopWork = async (
     endPhoto?: File,
     comment?: string,
-    location?: GeolocationPosition
+    location?: GeolocationPosition,
+    intentionalStop: boolean = false // Подтверждение намеренного завершения
   ) => {
     if (!currentUser) {
       throw new Error('No authenticated user');
+    }
+    
+    // --- СТРОГАЯ ВАЛИДАЦИЯ НАМЕРЕННОГО ЗАВЕРШЕНИЯ ---
+    if (!intentionalStop) {
+      throw new Error('Работа не может быть остановлена без подтверждения намерения. Используйте intentionalStop: true для намеренного завершения.');
+    }
+    
+    // Дополнительные проверки для минимизации случайных остановок
+    if (!currentEntry && !localStorage.getItem('currentTimeEntry')) {
+      throw new Error('Нет активной рабочей сессии для остановки.');
     }
     
     // Пытаемся восстановить данные если они отсутствуют
@@ -734,6 +991,21 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     
     if (!workingTask) {
       throw new Error('No active work session - task missing');
+    }
+    
+    // --- ВАЛИДАЦИЯ МИНИМАЛЬНОЙ ПРОДОЛЖИТЕЛЬНОСТИ РАБОТЫ ---
+    if (workingEntry.startTime) {
+      const startTime = workingEntry.startTime instanceof Date ? workingEntry.startTime : new Date(workingEntry.startTime);
+      const currentTime = new Date();
+      const workDurationMinutes = Math.floor((currentTime.getTime() - startTime.getTime()) / 60000);
+      
+      // Предупреждение о очень короткой сессии (менее 1 минуты)
+      if (workDurationMinutes < 1) {
+        console.warn(`⚠️ Очень короткая рабочая сессия: ${workDurationMinutes} минут`);
+        // Можно добавить дополнительное подтверждение для очень коротких сессий
+      }
+      
+      console.log(`📊 Завершение работы после ${workDurationMinutes} минут`);
     }
     
     // Проверяем обязательность фото

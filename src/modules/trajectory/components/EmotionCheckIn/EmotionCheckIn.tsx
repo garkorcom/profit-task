@@ -3,7 +3,7 @@
  * Минималистичный UI с возможностью Undo
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useCallback } from 'react';
 import {
   Box,
   Card,
@@ -34,7 +34,7 @@ import {
   EMOTION_TAGS, 
   EMOTION_COLORS 
 } from '../../types';
-import { createEmotionLog, optimisticEmotionService } from '../../services/emotionService';
+import { optimisticEmotionService } from '../../services/emotionService';
 import { useAuth } from '../../../../auth/AuthContext';
 
 // Иконки для уровней эмоций
@@ -80,28 +80,6 @@ export const EmotionCheckIn: React.FC<EmotionCheckInProps> = ({
   const [showUndo, setShowUndo] = useState(false);
   const [undoFunction, setUndoFunction] = useState<(() => void) | null>(null);
 
-  // Keyboard shortcuts
-  useEffect(() => {
-    const handleKeyPress = (event: KeyboardEvent) => {
-      if (event.target instanceof HTMLInputElement || event.target instanceof HTMLTextAreaElement) {
-        return; // Не перехватываем клавиши в полях ввода
-      }
-      
-      const level = parseInt(event.key) as EmotionLevel;
-      if (level >= 1 && level <= 5) {
-        setSelectedLevel(level);
-        setSelectedTags([]); // Сбрасываем теги при смене уровня
-      }
-      
-      if (event.key === 'Enter' && selectedLevel) {
-        handleSubmit();
-      }
-    };
-
-    window.addEventListener('keydown', handleKeyPress);
-    return () => window.removeEventListener('keydown', handleKeyPress);
-  }, [selectedLevel]);
-
   // Обработчик выбора уровня
   const handleLevelSelect = useCallback((level: EmotionLevel) => {
     setSelectedLevel(level);
@@ -110,15 +88,20 @@ export const EmotionCheckIn: React.FC<EmotionCheckInProps> = ({
 
   // Обработчик выбора тега
   const handleTagToggle = useCallback((tag: string) => {
-    setSelectedTags(prev => 
-      prev.includes(tag) 
-        ? prev.filter(t => t !== tag)
-        : [...prev, tag]
-    );
+    setSelectedTags(prev => {
+      if (prev.includes(tag)) {
+        return prev.filter(t => t !== tag);
+      } else if (prev.length >= 5) {
+        // Максимум 5 тегов - показываем предупреждение
+        return prev;
+      } else {
+        return [...prev, tag];
+      }
+    });
   }, []);
 
   // Отправка данных
-  const handleSubmit = async () => {
+  const handleSubmit = useCallback(async () => {
     if (!currentUser || !selectedLevel) return;
 
     setIsSubmitting(true);
@@ -155,7 +138,7 @@ export const EmotionCheckIn: React.FC<EmotionCheckInProps> = ({
     } finally {
       setIsSubmitting(false);
     }
-  };
+  }, [currentUser, selectedLevel, selectedTags, notes, context, onSuccess, onError]);
 
   // Обработчик отмены
   const handleUndo = () => {
@@ -245,30 +228,41 @@ export const EmotionCheckIn: React.FC<EmotionCheckInProps> = ({
             <Fade in>
               <Box sx={{ mb: 2 }}>
                 <Typography variant="body2" gutterBottom>
-                  Уточните:
+                  Уточните ({selectedTags.length}/5):
                 </Typography>
                 <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1 }}>
-                  {availableTags.map((tag) => (
-                    <Chip
-                      key={tag}
-                      label={tag}
-                      onClick={() => handleTagToggle(tag)}
-                      variant={selectedTags.includes(tag) ? "filled" : "outlined"}
-                      size="small"
-                      sx={{
-                        bgcolor: selectedTags.includes(tag) 
-                          ? EMOTION_COLORS[selectedLevel]
-                          : 'transparent',
-                        borderColor: EMOTION_COLORS[selectedLevel],
-                        color: selectedTags.includes(tag) 
-                          ? 'white' 
-                          : EMOTION_COLORS[selectedLevel],
-                        '&:hover': {
-                          bgcolor: alpha(EMOTION_COLORS[selectedLevel], 0.1)
-                        }
-                      }}
-                    />
-                  ))}
+                  {availableTags.map((tag) => {
+                    const isSelected = selectedTags.includes(tag);
+                    const isLimitReached = selectedTags.length >= 5 && !isSelected;
+                    
+                    return (
+                      <Chip
+                        key={tag}
+                        label={tag}
+                        onClick={() => handleTagToggle(tag)}
+                        variant={isSelected ? "filled" : "outlined"}
+                        size="small"
+                        disabled={isLimitReached}
+                        sx={{
+                          bgcolor: isSelected 
+                            ? EMOTION_COLORS[selectedLevel]
+                            : 'transparent',
+                          borderColor: EMOTION_COLORS[selectedLevel],
+                          color: isSelected 
+                            ? 'white' 
+                            : EMOTION_COLORS[selectedLevel],
+                          '&:hover': {
+                            bgcolor: alpha(EMOTION_COLORS[selectedLevel], 0.1)
+                          },
+                          '&.Mui-disabled': {
+                            opacity: 0.5,
+                            borderColor: alpha(EMOTION_COLORS[selectedLevel], 0.3),
+                            color: alpha(EMOTION_COLORS[selectedLevel], 0.3)
+                          }
+                        }}
+                      />
+                    );
+                  })}
                 </Box>
               </Box>
             </Fade>
@@ -287,6 +281,11 @@ export const EmotionCheckIn: React.FC<EmotionCheckInProps> = ({
                 variant="outlined"
                 size="small"
                 sx={{ mb: 2 }}
+                inputProps={{
+                  maxLength: 1000
+                }}
+                helperText={`${notes.length}/1000 символов`}
+                error={notes.length > 1000}
               />
             </Fade>
           )}
@@ -318,7 +317,7 @@ export const EmotionCheckIn: React.FC<EmotionCheckInProps> = ({
               color="textSecondary" 
               sx={{ mt: 1, display: 'block', textAlign: 'center' }}
             >
-              Используйте клавиши 1-5 для быстрого выбора, Enter для сохранения
+              Выберите уровень настроения от 1 до 5
             </Typography>
           )}
         </CardContent>
