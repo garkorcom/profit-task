@@ -40,7 +40,6 @@ import {
   Flag as DoneIcon,
   Refresh as RefreshIcon
 } from '@mui/icons-material';
-import { t } from '../../utils/mockTranslations';
 
 import { 
   StartabilityReport,

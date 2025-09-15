@@ -345,9 +345,11 @@ const EstimateConstructor: React.FC = () => {
       }
       
       // Move to next incomplete block
-      const nextIncomplete = estimate.blocks.findIndex(
-        (b, i) => i > activeBlock && b.status !== 'complete'
-      );
+      const nextIncomplete = (estimate.blocks && Array.isArray(estimate.blocks)) 
+        ? estimate.blocks.findIndex(
+            (b, i) => i > activeBlock && b.status !== 'complete'
+          )
+        : -1;
       
       if (nextIncomplete !== -1) {
         setActiveBlock(nextIncomplete);
@@ -445,10 +447,10 @@ const EstimateConstructor: React.FC = () => {
   
   // Calculate completion
   const calculateCompletion = (): number => {
-    if (!estimate) return 0;
+    if (!estimate || !estimate.blocks || !Array.isArray(estimate.blocks)) return 0;
     
     const completedBlocks = estimate.blocks.filter(b => b.status === 'complete').length;
-    return (completedBlocks / estimate.blocks.length) * 100;
+    return estimate.blocks.length > 0 ? (completedBlocks / estimate.blocks.length) * 100 : 0;
   };
   
   // Get block status icon
@@ -511,13 +513,21 @@ const EstimateConstructor: React.FC = () => {
   const completion = calculateCompletion();
   const activeBlockConfig = BLOCK_CONFIG[activeBlock];
   const ActiveBlockComponent = activeBlockConfig?.component;
-  const activeBlockData = estimate.blocks.find(b => b.key === activeBlockConfig?.key) || {
-    key: activeBlockConfig?.key as BlockKey,
-    status: 'empty' as const,
-    dataVersion: 1,
-    data: {},
-    updatedAt: new Date().toISOString(),
-  };
+  const activeBlockData = (estimate.blocks && Array.isArray(estimate.blocks)) 
+    ? estimate.blocks.find(b => b.key === activeBlockConfig?.key) || {
+        key: activeBlockConfig?.key as BlockKey,
+        status: 'empty' as const,
+        dataVersion: 1,
+        data: {},
+        updatedAt: new Date().toISOString(),
+      }
+    : {
+        key: activeBlockConfig?.key as BlockKey,
+        status: 'empty' as const,
+        dataVersion: 1,
+        data: {},
+        updatedAt: new Date().toISOString(),
+      };
   
   return (
     <Box sx={{ 
@@ -604,7 +614,9 @@ const EstimateConstructor: React.FC = () => {
           }}
         >
           {BLOCK_CONFIG.map((config, index) => {
-            const block = estimate.blocks.find(b => b.key === config.key);
+            const block = (estimate.blocks && Array.isArray(estimate.blocks)) 
+              ? estimate.blocks.find(b => b.key === config.key)
+              : undefined;
             
             return (
               <Step key={config.key} completed={block?.status === 'complete'}>

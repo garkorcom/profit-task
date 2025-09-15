@@ -1,6 +1,6 @@
 // Temporary mock translation function for development
 // Supports both t(key) and t(key, params) signatures used in components
-export const t = (key: string, paramsOrFallback?: any): string => {
+export const t = (key?: string, paramsOrFallback?: any): string => {
   // Handle cases where key might be undefined or the function is called without args
   if (!key || typeof key !== 'string') return '';
   

@@ -37,7 +37,6 @@ import {
   Warning as WarningIcon,
   Info as InfoIcon
 } from '@mui/icons-material';
-import { t } from '../../utils/mockTranslations';
 
 import { 
   StartabilityReport,
@@ -343,16 +342,14 @@ export const StartabilityGlobalActions: React.FC<StartabilityGlobalActionsProps>
     }
     
     if (!blockingAnalysis.canSendEstimate) {
-      return t('startability.header.blocked_send_tooltip', 
-        'Нельзя отправить смету пока есть критические проблемы'
-      );
+      return 'Нельзя отправить смету пока есть критические проблемы';
     }
     
     if (blockingAnalysis.warningBlockers.length > 0) {
       return `Есть ${blockingAnalysis.warningBlockers.length} предупреждений, но отправка возможна`;
     }
     
-    return t('startability.header.send_estimate', 'Отправить клиенту');
+    return 'Отправить клиенту';
   };
 
   const getContractTooltip = () => {
@@ -361,12 +358,10 @@ export const StartabilityGlobalActions: React.FC<StartabilityGlobalActionsProps>
     }
     
     if (!blockingAnalysis.canConvertContract) {
-      return t('startability.header.blocked_convert_tooltip', 
-        'Нельзя преобразовать в договор пока есть критические проблемы'
-      );
+      return 'Нельзя преобразовать в договор пока есть критические проблемы';
     }
     
-    return t('startability.header.convert_contract', 'Преобразовать в договор');
+    return 'Преобразовать в договор';
   };
 
   const renderStatusSummary = () => {

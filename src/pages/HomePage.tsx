@@ -276,7 +276,7 @@ const HomePage: React.FC = () => {
                       color="error" 
                       size="large"
                       startIcon={<StopIcon />} 
-                      onClick={() => stopWork()}
+                      onClick={() => stopWork(undefined, undefined, undefined, true)}
                       fullWidth
                       sx={{
                         py: 1.5,
@@ -852,7 +852,7 @@ const HomePage: React.FC = () => {
                             variant="contained" 
                             color="error" 
                             startIcon={<StopIcon />} 
-                            onClick={() => stopWork()}
+                            onClick={() => stopWork(undefined, undefined, undefined, true)}
                             size={isMobile ? "medium" : "large"}
                             sx={{ 
                               mt: 2, 

@@ -148,7 +148,8 @@ interface TimeTrackingContextType {
   stopWork: (
     endPhoto?: File,
     comment?: string,
-    location?: GeolocationPosition
+    location?: GeolocationPosition,
+    intentionalStop?: boolean
   ) => Promise<void>;
   
   pauseWork: (reason?: string) => Promise<void>;

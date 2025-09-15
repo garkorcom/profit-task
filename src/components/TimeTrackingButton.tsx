@@ -78,7 +78,7 @@ export const TimeTrackingButton: React.FC<TimeTrackingButtonProps> = ({
 
   const handleStop = async () => {
     try {
-      await stopWork();
+      await stopWork(undefined, undefined, undefined, true);
       if (onStop) onStop();
     } catch (err: any) {
       console.error("Failed to stop work:", err);

@@ -41,7 +41,6 @@ import {
   Settings as SettingsIcon
 } from '@mui/icons-material';
 import { useNavigate } from 'react-router-dom';
-import { t } from '../../../utils/mockTranslations';
 
 import { ResolutionAction, StartabilityCTA } from '../../../types/startability.types';
 import { executeResolutionAction } from '../../../api/startabilityV2Api';

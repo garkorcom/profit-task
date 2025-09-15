@@ -32,7 +32,7 @@ const ActiveWorkSession: React.FC = () => {
   const handleStop = async () => {
     if (window.confirm('Завершить работу и сохранить время в табель?')) {
       try {
-        await stopWork();
+        await stopWork(undefined, undefined, undefined, true);
       } catch (error) {
         console.error('Failed to stop work:', error);
         alert('Ошибка при завершении работы');

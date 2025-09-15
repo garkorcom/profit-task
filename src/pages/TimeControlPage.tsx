@@ -114,7 +114,7 @@ const TimeControlPage: React.FC = () => {
               <Button 
                 variant="contained" 
                 startIcon={<StopIcon />} 
-                onClick={() => stopWork()} 
+                onClick={() => stopWork(undefined, undefined, undefined, true)} 
                 sx={{ bgcolor: 'white', color: 'error.main', minHeight: 44, fontSize: isVerySmall ? '0.8rem' : '0.9rem' }}
                 fullWidth={isVerySmall}
               >
@@ -149,7 +149,7 @@ const TimeControlPage: React.FC = () => {
               ) : (
                 <Button variant="contained" startIcon={<PauseIcon />} onClick={() => pauseWork()} sx={{ bgcolor: 'white', color: 'warning.main' }}>Пауза</Button>
               )}
-              <Button variant="contained" startIcon={<StopIcon />} onClick={() => stopWork()} sx={{ bgcolor: 'white', color: 'error.main' }}>Завершить</Button>
+              <Button variant="contained" startIcon={<StopIcon />} onClick={() => stopWork(undefined, undefined, undefined, true)} sx={{ bgcolor: 'white', color: 'error.main' }}>Завершить</Button>
             </Stack>
           </Stack>
           {currentEntry && <TimeStatistics entryId={currentEntry.id} />}

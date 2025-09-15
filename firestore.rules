@@ -114,6 +114,91 @@ service cloud.firestore {
     // Сметы - изоляция по userId в подколлекции users/{userId}/estimates  
     match /users/{userId}/estimates/{estimateId} {
       allow read, write: if isOwner(userId);
+      
+      // Элементы смет - подколлекция items
+      match /items/{itemId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      // Коммуникации по смете - подколлекция communications  
+      match /communications/{commId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Категории смет - изоляция по userId
+    match /users/{userId}/estimateCategories/{categoryId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // Задачи смет - изоляция по userId
+    match /users/{userId}/estimateTasks/{taskId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // НОМЕНКЛАТУРА - унифицированная система товаров, услуг и комплектов
+    match /users/{userId}/items/{itemId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // СКЛАДЫ И СКЛАДСКИЕ ОПЕРАЦИИ
+    match /users/{userId}/warehouses/{warehouseId} {
+      allow read, write: if isOwner(userId);
+      
+      // Подколлекции склада
+      match /bins/{binId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /stockLots/{lotId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /stockBalance/{balanceId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /transactions/{transactionId} {
+        allow read, write: if isOwner(userId);
+      }
+      
+      match /ledger/{entryId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // Глобальные складские коллекции
+    match /users/{userId}/stockReservations/{reservationId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    match /users/{userId}/reservations/{reservationId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    match /users/{userId}/inventoryCounts/{countId} {
+      allow read, write: if isOwner(userId);
+      
+      // Строки инвентаризации
+      match /lines/{lineId} {
+        allow read, write: if isOwner(userId);
+      }
+    }
+    
+    // ИНТЕГРАЦИЯ СМЕТ СО СКЛАДОМ
+    match /users/{userId}/estimateItemWarehouse/{linkId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // КОНТРАГЕНТЫ - изоляция по userId в подколлекции users/{userId}/counterparties
+    match /users/{userId}/counterparties/{counterpartyId} {
+      allow read, write: if isOwner(userId);
+    }
+    
+    // ГЛОБАЛЬНЫЙ ИНДЕКС КОНТРАГЕНТОВ - для проверки дубликатов
+    match /counterparties_index/{indexId} {
+      allow read: if isAuthenticated();
+      allow write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
     
     // ЗАПРЕТ НА ВСЕ ОСТАЛЬНОЕ

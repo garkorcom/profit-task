@@ -38,7 +38,6 @@ import {
   Flag as DoneIcon,
   Info as InfoIcon
 } from '@mui/icons-material';
-import { t } from '../../utils/mockTranslations';
 
 import { 
   StartabilityReport,

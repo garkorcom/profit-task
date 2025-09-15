@@ -65,7 +65,7 @@ export const GlobalTimerIndicator: React.FC = () => {
 
   const handleConfirmStop = async () => {
     try {
-      await stopWork();
+      await stopWork(undefined, undefined, undefined, true);
       setShowStopConfirm(false);
     } catch (error) {
       console.error('Error stopping work:', error);

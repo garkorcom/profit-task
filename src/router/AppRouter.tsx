@@ -43,6 +43,7 @@ import RoleManagementPage from '../pages/admin/RoleManagementPage';
 import ConditionalPermissionsTest from '../pages/admin/ConditionalPermissionsTest';
 import { TrajectoryPage } from '../modules/trajectory/TrajectoryPage';
 import StartabilityV2TestPage from '../pages/StartabilityV2TestPage';
+import DevTestCounterpartiesPage from '../pages/DevTestCounterpartiesPage';
 // import PermissionDebugger from '../components/admin/PermissionDebugger';
 // import AuditLogViewer from '../components/admin/AuditLogViewer';
 // import UserOffboardingManager from '../components/admin/UserOffboardingManager';
@@ -65,6 +66,7 @@ const AppRouter: React.FC = () => {
             <Route path="/" element={<HomePage />} />
             <Route path="/dev-tools" element={<DevToolsPage />} />
             <Route path="/startability-v2-test" element={<StartabilityV2TestPage />} />
+            <Route path="/dev-test-counterparties" element={<DevTestCounterpartiesPage />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/review" element={<TaskReviewPage />} />
             <Route path="/analytics" element={<AnalyticsDashboard />} />
@@ -78,6 +80,7 @@ const AppRouter: React.FC = () => {
             <Route path="/shopping" element={<ShoppingListPage />} />
             <Route path="/projects" element={<ProjectsV2Page />} />
             <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
+            <Route path="/projects/:projectId/estimates" element={<EstimatesHub />} />
             <Route path="/projects-legacy" element={<ProjectsPage />} />
             <Route path="/counterparties" element={<CounterpartiesPage />} />
             <Route path="/counterparties/:counterpartyId" element={<CounterpartyDetailsPage />} />

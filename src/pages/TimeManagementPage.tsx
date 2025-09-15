@@ -94,7 +94,7 @@ export const TimeManagementPage: React.FC = () => {
   const handleStopWork = async () => {
     setActionLoading(true);
     try {
-      await stopWork();
+      await stopWork(undefined, undefined, undefined, true);
     } catch (error) {
       console.error('Error stopping work:', error);
     } finally {

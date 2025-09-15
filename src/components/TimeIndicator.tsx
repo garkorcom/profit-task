@@ -97,7 +97,7 @@ const TimeIndicator: React.FC<TimeIndicatorProps> = ({ variant = 'desktop' }) =>
     );
     
     if (confirmStop) {
-      await stopWork();
+      await stopWork(undefined, undefined, undefined, true);
       setDialogOpen(false);
       navigate('/time-tracking');
     }

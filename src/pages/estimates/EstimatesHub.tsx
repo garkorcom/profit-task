@@ -58,7 +58,7 @@ import {
   PictureAsPdf as PdfIcon,
   AttachMoney as MoneyIcon,
 } from '@mui/icons-material';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from '../../auth/AuthContext';
 import { 
   getEstimatesStream, 
@@ -93,6 +93,7 @@ function TabPanel(props: TabPanelProps) {
 const EstimatesHub: React.FC = () => {
   const { currentUser } = useAuth();
   const navigate = useNavigate();
+  const { projectId } = useParams<{ projectId?: string }>();
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md')); // 1024px для мобильной версии
   const isVerySmall = useMediaQuery(theme.breakpoints.down(375));
@@ -145,11 +146,18 @@ const EstimatesHub: React.FC = () => {
       return dateB - dateA;
     });
     
+    // Filter by project if projectId is provided
+    let projectFiltered = sortedEstimates;
+    if (projectId) {
+      projectFiltered = sortedEstimates.filter(e => e.projectId === projectId);
+      console.log(`🎯 Filtered by project ${projectId}:`, projectFiltered.length, 'estimates');
+    }
+    
     // Apply search filter if needed
-    let searchFiltered = sortedEstimates;
+    let searchFiltered = projectFiltered;
     if (debouncedSearchQuery) {
       const query = debouncedSearchQuery.toLowerCase();
-      searchFiltered = sortedEstimates.filter(e => 
+      searchFiltered = projectFiltered.filter(e => 
         e.number?.toLowerCase().includes(query) ||
         e.terms?.toLowerCase().includes(query)
       );
@@ -171,7 +179,7 @@ const EstimatesHub: React.FC = () => {
     });
     
     return result;
-  }, [estimates, debouncedSearchQuery]);
+  }, [estimates, debouncedSearchQuery, projectId]);
   
   const { all: allEstimates, draft: draftEstimates, sent: sentEstimates, approved: approvedEstimates } = filteredEstimates;
   

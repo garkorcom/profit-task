@@ -27,7 +27,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({ task }) => {
       if (action === 'start') {
         // Останавливаем текущий таймер если нужно
         if (isWorking && currentEntry && currentEntry.taskId !== task.id) {
-          await stopWork();
+          await stopWork(undefined, undefined, undefined, true);
         }
         
         // Запускаем новый таймер
@@ -84,7 +84,7 @@ const TaskListItem: React.FC<TaskListItemProps> = ({ task }) => {
           } as any : undefined
         });
       } else {
-        await stopWork();
+        await stopWork(undefined, undefined, undefined, true);
       }
     } catch (error) {
       console.error('Time tracking error:', error);
