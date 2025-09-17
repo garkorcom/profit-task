@@ -99,16 +99,18 @@ export const checkFirestoreConnection = () => {
   });
 };
 
-// Подключение к эмуляторам в режиме разработки
-if (process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost') {
-  // Подключаем эмуляторы только если они еще не подключены
-  try {
-    connectAuthEmulator(auth, 'http://localhost:9099');
-    connectFirestoreEmulator(db, 'localhost', 8080);
-    connectFunctionsEmulator(functions, 'localhost', 5001);
-    connectStorageEmulator(storage, 'localhost', 9199);
-    console.log('Connected to Firebase emulators');
-  } catch (error) {
-    console.log('Emulators already connected or not available:', error);
-  }
-}
+// Подключение к эмуляторам в режиме разработки (ОТКЛЮЧЕНО для production)
+// if (process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost') {
+//   // Подключаем эмуляторы только если они еще не подключены
+//   try {
+//     connectAuthEmulator(auth, 'http://localhost:9099');
+//     connectFirestoreEmulator(db, 'localhost', 8080);
+//     connectFunctionsEmulator(functions, 'localhost', 5001);
+//     connectStorageEmulator(storage, 'localhost', 9199);
+//     console.log('Connected to Firebase emulators');
+//   } catch (error) {
+//     console.log('Emulators already connected or not available:', error);
+//   }
+// }
+
+console.log('🔥 Firebase initialized in production mode - using live servers');
