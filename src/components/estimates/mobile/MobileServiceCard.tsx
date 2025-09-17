@@ -75,7 +75,13 @@ const MobileServiceCard: React.FC<MobileServiceCardProps> = ({
   const [voiceInput, setVoiceInput] = useState(false);
   
   const expectedHours = (pert: typeof service.pert) => {
-    return (pert.optimistic + 4 * pert.mostLikely + pert.pessimistic) / 6;
+    if (!pert || typeof pert !== 'object') {
+      console.warn('MobileServiceCard expectedHours: Invalid pert object:', pert);
+      return 0;
+    }
+    
+    const { optimistic = 0, mostLikely = 0, pessimistic = 0 } = pert;
+    return (optimistic + 4 * mostLikely + pessimistic) / 6;
   };
   
   const hours = expectedHours(service.pert);
@@ -291,9 +297,9 @@ const MobileServiceCard: React.FC<MobileServiceCardProps> = ({
                   <TextField
                     label="Мин"
                     type="number"
-                    value={service.pert.optimistic}
+                    value={service.pert?.optimistic || 0}
                     onChange={(e) => onUpdate(service.id, { 
-                      pert: { ...service.pert, optimistic: Number(e.target.value || 0) }
+                      pert: { ...(service.pert || {}), optimistic: Number(e.target.value || 0) }
                     })}
                     size="small"
                     sx={{ flex: 1 }}
@@ -356,11 +362,11 @@ const MobileServiceCard: React.FC<MobileServiceCardProps> = ({
             </Typography>
             
             <Box>
-              <Typography gutterBottom>Оптимистичная оценка: {service.pert.optimistic}</Typography>
+              <Typography gutterBottom>Оптимистичная оценка: {service.pert?.optimistic || 0}</Typography>
               <Slider
-                value={service.pert.optimistic}
+                value={service.pert?.optimistic || 0}
                 onChange={(e, v) => onUpdate(service.id, { 
-                  pert: { ...service.pert, optimistic: v as number }
+                  pert: { ...(service.pert || {}), optimistic: v as number }
                 })}
                 min={0}
                 max={100}

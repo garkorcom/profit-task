@@ -96,10 +96,24 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({
   const theme = useTheme();
   const isMobile = useMediaQuery(theme.breakpoints.down('md'));
   const initialData = (block?.data as any) || {};
-  const [state, setState] = useState<ServicesState>({
-    sections: initialData.sections || defaultState.sections,
-    rows: initialData.rows || defaultState.rows,
-    hourlyRate: initialData.hourlyRate ?? defaultState.hourlyRate,
+  const [state, setState] = useState<ServicesState>(() => {
+    // Нормализуем данные строк, убеждаясь что у каждой есть корректный pert объект
+    const normalizeRows = (rows: any[]): ServiceRow[] => {
+      return rows.map(row => ({
+        ...row,
+        pert: row.pert && typeof row.pert === 'object' ? {
+          optimistic: row.pert.optimistic || 0,
+          mostLikely: row.pert.mostLikely || 0,
+          pessimistic: row.pert.pessimistic || 0
+        } : { optimistic: 1, mostLikely: 2, pessimistic: 3 }
+      }));
+    };
+    
+    return {
+      sections: initialData.sections || defaultState.sections,
+      rows: normalizeRows(initialData.rows || defaultState.rows),
+      hourlyRate: initialData.hourlyRate ?? defaultState.hourlyRate,
+    };
   });
 
   // Templates
@@ -217,7 +231,15 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({
     }));
   };
 
-  const expectedHours = (pert: Pert) => (pert.optimistic + 4 * pert.mostLikely + pert.pessimistic) / 6;
+  const expectedHours = (pert: Pert | undefined | null) => {
+    if (!pert || typeof pert !== 'object') {
+      console.warn('expectedHours: Invalid pert object:', pert);
+      return 0;
+    }
+    
+    const { optimistic = 0, mostLikely = 0, pessimistic = 0 } = pert;
+    return (optimistic + 4 * mostLikely + pessimistic) / 6;
+  };
 
   const totals = useMemo(() => {
     const hours = state.rows.reduce((sum, r) => sum + expectedHours(r.pert), 0);
@@ -503,7 +525,7 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({
                             <TextField
                               type="number"
                               label="Мин"
-                              value={row.pert.optimistic}
+                              value={row.pert?.optimistic || 0}
                               onChange={(e) => updateRow(row.id, { pert: { ...row.pert, optimistic: Number(e.target.value || 0) } })}
                               sx={{ flex: 1 }}
                               inputProps={{ min: 0 }}
@@ -530,7 +552,7 @@ const ServicesBlock: React.FC<ServicesBlockProps> = ({
                             <TextField
                               type="number"
                               label="PERT min"
-                              value={row.pert.optimistic}
+                              value={row.pert?.optimistic || 0}
                               onChange={(e) => updateRow(row.id, { pert: { ...row.pert, optimistic: Number(e.target.value || 0) } })}
                               sx={{ width: 110 }}
                               inputProps={{ min: 0 }}

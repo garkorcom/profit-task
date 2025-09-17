@@ -652,7 +652,7 @@ export const recalculateEstimateTotals = async (
     serviceRows.forEach((row: any) => {
       // Calculate PERT estimate: (optimistic + 4*mostLikely + pessimistic)/6
       const pertEstimate = row.pert ? 
-        (row.pert.optimistic + 4 * row.pert.mostLikely + row.pert.pessimistic) / 6 : 0;
+        ((row.pert?.optimistic || 0) + 4 * (row.pert?.mostLikely || 0) + (row.pert?.pessimistic || 0)) / 6 : 0;
       
       const serviceTotal = row.rate * pertEstimate;
       laborCost += serviceTotal;

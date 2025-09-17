@@ -224,7 +224,7 @@ const MobileEstimateConstructor: React.FC<MobileEstimateConstructorProps> = ({
     let totalCost = 0;
     
     services.forEach(service => {
-      const hours = (service.pert.optimistic + 4 * service.pert.mostLikely + service.pert.pessimistic) / 6;
+      const hours = service.pert ? ((service.pert.optimistic || 0) + 4 * (service.pert.mostLikely || 0) + (service.pert.pessimistic || 0)) / 6 : 0;
       totalHours += hours;
       totalCost += hours * service.rate;
     });
@@ -450,7 +450,7 @@ const MobileEstimateConstructor: React.FC<MobileEstimateConstructorProps> = ({
                 Разбивка по услугам:
               </Typography>
               {services.map((service) => {
-                const hours = (service.pert.optimistic + 4 * service.pert.mostLikely + service.pert.pessimistic) / 6;
+                const hours = service.pert ? ((service.pert.optimistic || 0) + 4 * (service.pert.mostLikely || 0) + (service.pert.pessimistic || 0)) / 6 : 0;
                 const cost = hours * service.rate;
                 return (
                   <Stack key={service.id} direction="row" justifyContent="space-between" alignItems="center">

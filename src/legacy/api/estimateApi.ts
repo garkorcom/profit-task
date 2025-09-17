@@ -107,7 +107,7 @@ export interface Estimate {
  * Утилиты расчёта
  */
 export const calculatePert = (p: PertEstimate): number => {
-  return (p.optimistic + 4 * p.mostLikely + p.pessimistic) / 6;
+  return p ? ((p.optimistic || 0) + 4 * (p.mostLikely || 0) + (p.pessimistic || 0)) / 6 : 0;
 };
 
 export const calculateEstimateTotal = (estimate: Estimate): number => {
