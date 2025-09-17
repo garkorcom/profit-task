@@ -41,7 +41,8 @@ import {
   CheckCircle as CheckCircleIcon,
   Error as ErrorIcon,
 } from '@mui/icons-material';
-import { reconnectFirestore, checkFirestoreConnection } from '../firebase/firebase';
+import { reconnectFirestore, checkFirestoreConnection, db } from '../firebase/firebase';
+import { enableNetwork, disableNetwork } from 'firebase/firestore';
 
 interface ConnectionStatus {
   isOnline: boolean;
@@ -165,20 +166,21 @@ const FirestoreConnectionMonitor: React.FC = () => {
     }
   };
 
-  // Ручное переподключение
-  const handleReconnect = async () => {
+  // Принудительное включение онлайн режима
+  const forceOnline = async () => {
     setIsReconnecting(true);
     
     try {
-      console.log('🔄 Manual reconnection initiated...');
+      console.log('🔄 Forcing Firestore online...');
       
-      // Сначала проверяем сеть
-      if (!navigator.onLine) {
-        throw new Error('Нет подключения к интернету');
-      }
+      // Принудительно отключаем и включаем сеть
+      await disableNetwork(db);
+      console.log('📴 Network disabled');
       
-      // Переподключаем Firestore
-      await reconnectFirestore();
+      await new Promise(resolve => setTimeout(resolve, 1000)); // Пауза 1 сек
+      
+      await enableNetwork(db);
+      console.log('📶 Network enabled');
       
       // Проверяем соединение
       await checkConnection();
@@ -186,7 +188,7 @@ const FirestoreConnectionMonitor: React.FC = () => {
       setShowAlert(false);
       
     } catch (error) {
-      console.error('❌ Manual reconnection failed:', error);
+      console.error('❌ Force online failed:', error);
       
       setConnectionStatus(prev => ({
         ...prev,
@@ -197,6 +199,11 @@ const FirestoreConnectionMonitor: React.FC = () => {
     } finally {
       setIsReconnecting(false);
     }
+  };
+
+  // Ручное переподключение
+  const handleReconnect = async () => {
+    await forceOnline();
   };
 
   const getStatusColor = () => {
