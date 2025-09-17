@@ -71,10 +71,7 @@ const PublicEstimatePage: React.FC = () => {
       try {
         console.log('Searching for estimate ID:', estimateId);
         
-        // Добавляем таймаут для избежания долгого ожидания
-        const timeoutPromise = new Promise((_, reject) => {
-          setTimeout(() => reject(new Error('Таймаут загрузки')), 15000); // 15 секунд
-        });
+        // Убираем общий таймаут - используем индивидуальные таймауты для каждого запроса
         
         // Оптимизированный поиск сметы
         console.log('🔍 Starting optimized estimate search...');
@@ -115,8 +112,9 @@ const PublicEstimatePage: React.FC = () => {
               }
             }
           } catch (error) {
-            if (error.message !== 'timeout') {
-              console.log(`❌ Error checking user ${userId}:`, error.message);
+            const errorMessage = error instanceof Error ? error.message : String(error);
+            if (errorMessage !== 'timeout') {
+              console.log(`❌ Error checking user ${userId}:`, errorMessage);
             }
           }
           
@@ -140,8 +138,9 @@ const PublicEstimatePage: React.FC = () => {
                 }
               }
             } catch (error) {
-              if (error.message !== 'timeout') {
-                console.log(`❌ Error checking V2 for user ${userId}:`, error.message);
+              const errorMessage = error instanceof Error ? error.message : String(error);
+              if (errorMessage !== 'timeout') {
+                console.log(`❌ Error checking V2 for user ${userId}:`, errorMessage);
               }
             }
           }
@@ -184,8 +183,9 @@ const PublicEstimatePage: React.FC = () => {
                 }
               } catch (error) {
                 // Игнорируем таймауты и ошибки прав доступа
-                if (!error.message.includes('timeout') && !error.message.includes('permission')) {
-                  console.log(`❌ Error in full search for ${userDoc.id}:`, error.message);
+                const errorMessage = error instanceof Error ? error.message : String(error);
+                if (!errorMessage.includes('timeout') && !errorMessage.includes('permission')) {
+                  console.log(`❌ Error in full search for ${userDoc.id}:`, errorMessage);
                 }
               }
             }
