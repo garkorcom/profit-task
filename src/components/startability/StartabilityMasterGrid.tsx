@@ -493,12 +493,12 @@ export const StartabilityMasterGrid: React.FC<StartabilityMasterGridProps> = ({
                       {item.quantity ? `${item.quantity} ${item.unit || ''}` : '—'}
                     </TableCell>
                     <TableCell align="right">
-                      {item.rate ? `${item.rate.toLocaleString()} ₽` : '—'}
+                      {item.rate ? `${(item.rate || 0).toLocaleString()} ₽` : '—'}
                     </TableCell>
                     <TableCell align="right">
                       {item.total ? (
                         <Typography variant="body2" fontWeight="medium">
-                          {item.total.toLocaleString()} ₽
+                          {(item.total || 0).toLocaleString()} ₽
                         </Typography>
                       ) : '—'}
                     </TableCell>

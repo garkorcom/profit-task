@@ -1077,21 +1077,26 @@ const EstimateConstructor: React.FC = () => {
 // Helper component for displaying totals
 const TotalLine: React.FC<{
   label: string;
-  value: number;
+  value: number | null | undefined;
   variant?: any;
   color?: any;
-}> = ({ label, value, variant = 'body2', color = 'textPrimary' }) => (
-  <Stack direction="row" justifyContent="space-between">
-    <Typography variant={variant} color={color}>
-      {label}
-    </Typography>
-    <Typography variant={variant} color={color} fontWeight="bold">
-      {value.toLocaleString('en-US', { style: 'currency', 
-        currency: 'USD',
-        maximumFractionDigits: 0,
-       })}
-    </Typography>
-  </Stack>
-);
+}> = ({ label, value, variant = 'body2', color = 'textPrimary' }) => {
+  const safeValue = value || 0;
+  
+  return (
+    <Stack direction="row" justifyContent="space-between">
+      <Typography variant={variant} color={color}>
+        {label}
+      </Typography>
+      <Typography variant={variant} color={color} fontWeight="bold">
+        {safeValue.toLocaleString('en-US', { 
+          style: 'currency', 
+          currency: 'USD',
+          maximumFractionDigits: 0,
+        })}
+      </Typography>
+    </Stack>
+  );
+};
 
 export default EstimateConstructor;

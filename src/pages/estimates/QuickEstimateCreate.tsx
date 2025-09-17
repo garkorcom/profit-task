@@ -463,7 +463,7 @@ const QuickEstimateCreate: React.FC = () => {
                         <ListItem key={product.id}>
                           <ListItemText
                             primary={product.name}
-                            secondary={`$${product.salePrice?.toLocaleString('en-US')}/${product.unit}`}
+                            secondary={`$${(product.salePrice || 0).toLocaleString('en-US')}/${product.unit}`}
                           />
                           <ListItemSecondaryAction>
                             <IconButton 
@@ -550,7 +550,7 @@ const QuickEstimateCreate: React.FC = () => {
                                   {/* Итого и удаление */}
                                   <Stack direction="row" justifyContent="space-between" alignItems="center">
                                     <Typography variant="h6" color="primary">
-                                      = ${item.total.toLocaleString('en-US')}
+                                      = ${(item.total || 0).toLocaleString('en-US')}
                                     </Typography>
                                     <IconButton
                                       color="error"
@@ -606,7 +606,7 @@ const QuickEstimateCreate: React.FC = () => {
                                   />
                                   
                                   <Typography variant="body2" fontWeight="bold">
-                                    = ${item.total.toLocaleString('en-US')}
+                                    = ${(item.total || 0).toLocaleString('en-US')}
                                   </Typography>
                                   
                                   <Box flex={1} />
@@ -629,7 +629,7 @@ const QuickEstimateCreate: React.FC = () => {
                     <Divider sx={{ my: 2 }} />
                     
                     <Typography variant="h6" align="right">
-                      Итого: ${total.toLocaleString('en-US')}
+                      Итого: ${(total || 0).toLocaleString('en-US')}
                     </Typography>
                   </Box>
                 )}
@@ -698,7 +698,7 @@ const QuickEstimateCreate: React.FC = () => {
                       <ListItem key={item.id}>
                         <ListItemText
                           primary={item.name}
-                          secondary={`${item.quantity} ${item.unit} × $${item.unitPrice} = $${item.total.toLocaleString('en-US')}`}
+                          secondary={`${item.quantity} ${item.unit} × $${item.unitPrice} = $${(item.total || 0).toLocaleString('en-US')}`}
                         />
                       </ListItem>
                     ))}
@@ -707,7 +707,7 @@ const QuickEstimateCreate: React.FC = () => {
                   <Divider sx={{ my: 2 }} />
                   
                   <Typography variant="h6" align="right" color="primary">
-                    Итого: ${total.toLocaleString('en-US')}
+                    Итого: ${(total || 0).toLocaleString('en-US')}
                   </Typography>
                 </Paper>
               </Box>
@@ -793,7 +793,7 @@ const QuickEstimateCreate: React.FC = () => {
           </Box>
           
           <Typography variant="body2" sx={{ mt: 2 }}>
-            Сумма: ${(quickAddForm.quantity * quickAddForm.price).toLocaleString('en-US')}
+            Сумма: ${((quickAddForm.quantity || 0) * (quickAddForm.price || 0)).toLocaleString('en-US')}
           </Typography>
         </DialogContent>
         <DialogActions>

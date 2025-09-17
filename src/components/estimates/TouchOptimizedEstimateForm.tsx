@@ -229,7 +229,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
           />
           <Chip
             icon={<MoneyIcon />}
-            label={`${total.toLocaleString('en-US')} $`}
+            label={`${(total || 0).toLocaleString('en-US')} $`}
             size="small"
             color="primary"
           />
@@ -295,13 +295,13 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
                               ×
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
-                              {item.price.toLocaleString('en-US')} $
+                              {(item.price || 0).toLocaleString('en-US')} $
                             </Typography>
                             <Typography variant="body2" color="text.secondary">
                               =
                             </Typography>
                             <Typography variant="body2" fontWeight="bold" color="primary">
-                              {item.total.toLocaleString('en-US')} $
+                              {(item.total || 0).toLocaleString('en-US')} $
                             </Typography>
                           </Stack>
                         }
@@ -437,7 +437,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
               sx={{ minHeight: 56 }}
               startIcon={saving ? undefined : <SaveIcon />}
             >
-              {saving ? 'Сохранение...' : `Сохранить (${total.toLocaleString('en-US')} $)`}
+              {saving ? 'Сохранение...' : `Сохранить (${(total || 0).toLocaleString('en-US')} $)`}
             </Button>
           </Paper>
         </>
@@ -548,7 +548,7 @@ const TouchOptimizedEstimateForm: React.FC<TouchOptimizedEstimateFormProps> = ({
                   Итого за позицию:
                 </Typography>
                 <Typography variant="h6" color="primary">
-                  {(newItemForm.quantity * newItemForm.price).toLocaleString('en-US')} $
+                  {((newItemForm.quantity || 0) * (newItemForm.price || 0)).toLocaleString('en-US')} $
                 </Typography>
               </Paper>
             )}
