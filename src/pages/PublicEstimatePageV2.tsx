@@ -256,42 +256,44 @@ const PublicEstimatePageV2: React.FC<PublicEstimatePageV2Props> = () => {
       // Регистрируем просмотр
       await registerView();
       
-      // Ищем смету среди всех пользователей
-      const usersCollection = collection(db, 'users');
-      const usersSnapshot = await getDocs(usersCollection);
+      // Быстрый поиск в известных пользователях
+      const knownUserIds = [
+        'm4Uzwwc2jLRlZKzhkmMc9uu2L8c2',
+        'BpytV14pywbAxc84fOn5tZEV1IB3', 
+        'EoReRhkpEIaCchoY99ByGbgTGOb2',
+        'UecBF4TgUeQfulep9ymLgL6PK8E3',
+        'lQB9qDx73eazscwpAaBkSI5tCWr2'
+      ];
       
       let foundEstimate: Estimate | null = null;
       let ownerId: string | null = null;
 
-      console.log('📂 Checking', usersSnapshot.docs.length, 'users');
-
-      for (const userDoc of usersSnapshot.docs) {
-        console.log(`👤 Checking user: ${userDoc.id}`);
+      console.log('🎯 Quick search in known users...');
+      
+      for (const userId of knownUserIds) {
+        console.log(`👤 Checking user: ${userId}`);
         
-        // Проверяем V2 коллекцию
+        // Проверяем estimates коллекцию с таймаутом
         try {
-          const estimateDocV2 = await getDoc(doc(db, 'users', userDoc.id, 'estimatesV2', estimateId));
-          if (estimateDocV2.exists()) {
-            console.log('✅ Found estimate in estimatesV2 collection');
-            foundEstimate = { id: estimateDocV2.id, ...estimateDocV2.data() } as Estimate;
-            ownerId = userDoc.id;
-            break;
-          }
-        } catch (error) {
-          console.error(`❌ Error checking estimatesV2 for user ${userDoc.id}:`, error);
-        }
-        
-        // Проверяем legacy коллекцию
-        try {
-          const estimateDoc = await getDoc(doc(db, 'users', userDoc.id, 'estimates', estimateId));
+          const estimateDoc = await Promise.race([
+            getDoc(doc(db, 'users', userId, 'estimates', estimateId)),
+            new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+          ]) as any;
+          
           if (estimateDoc.exists()) {
-            console.log('✅ Found estimate in estimates collection');
-            foundEstimate = { id: estimateDoc.id, ...estimateDoc.data() } as Estimate;
-            ownerId = userDoc.id;
-            break;
+            const data = estimateDoc.data();
+            if (data.status === 'sent' || data.status === 'accepted' || data.status === 'viewed') {
+              console.log('✅ Found public estimate');
+              foundEstimate = { id: estimateDoc.id, ...data } as Estimate;
+              ownerId = userId;
+              break;
+            }
           }
         } catch (error) {
-          console.error(`❌ Error checking estimates for user ${userDoc.id}:`, error);
+          const errorMessage = error instanceof Error ? error.message : String(error);
+          if (errorMessage !== 'timeout') {
+            console.log(`❌ Error checking user ${userId}:`, errorMessage);
+          }
         }
       }
 
