@@ -64,6 +64,7 @@ import {
   getEstimatesStream, 
   generateEstimatePDF 
 } from '../../api/estimateV2StreamApi';
+import { getEstimates } from '../../api/estimateV2Api';
 import { Estimate } from '../../types/estimate.types';
 import { deleteEstimate as deleteEstimateV2 } from '../../api/estimateV2Api';
 import { format } from '../../utils/dateUtils';
@@ -115,22 +116,39 @@ const EstimatesHub: React.FC = () => {
     return () => clearTimeout(timer);
   }, [searchQuery]);
   
-  // Load estimates
+  // Load estimates with timeout and error handling
   useEffect(() => {
     if (!currentUser) return;
     
     console.log('🔄 Loading estimates for user:', currentUser.uid);
     setLoading(true);
     
+    // Добавляем таймаут для предотвращения долгого ожидания
+    const timeoutId = setTimeout(async () => {
+      console.warn('⚠️ Stream loading timeout, trying direct API call');
+      try {
+        // Fallback: используем прямой API вызов вместо stream
+        const estimatesData = await getEstimates(currentUser.uid);
+        console.log('📊 Fallback: Loaded estimates via direct API:', estimatesData.length);
+        setEstimates(estimatesData);
+        setLoading(false);
+      } catch (error) {
+        console.error('❌ Fallback loading failed:', error);
+        setLoading(false);
+        setEstimates([]);
+      }
+    }, 8000); // 8 секунд таймаут
+    
     const unsubscribe = getEstimatesStream(currentUser.uid, '', (data) => {
-      console.log('📊 Received estimates data:', data.length, 'estimates');
-      console.log('📊 Estimates:', data);
+      console.log('📊 Received estimates data via stream:', data.length, 'estimates');
+      clearTimeout(timeoutId); // Отменяем таймаут при успешной загрузке
       setEstimates(data);
       setLoading(false);
     });
     
     return () => {
       console.log('🔌 Unsubscribing from estimates stream');
+      clearTimeout(timeoutId);
       unsubscribe();
     };
   }, [currentUser]);

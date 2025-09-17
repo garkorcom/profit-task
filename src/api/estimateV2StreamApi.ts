@@ -37,8 +37,9 @@ export const getEstimatesStream = (
     constraints.push(where('counterpartyId', '==', filters.counterpartyId));
   }
   
-  // Default sorting by creation date
-  constraints.push(orderBy('createdAt', 'desc'));
+  // Убираем сортировку для ускорения загрузки
+  // Сортировку делаем на клиенте
+  // constraints.push(orderBy('createdAt', 'desc'));
   
   // Create query
   const estimatesQuery = query(
@@ -54,6 +55,13 @@ export const getEstimatesStream = (
         id: doc.id,
         ...data,
       } as Estimate;
+    });
+    
+    // Сортируем на клиенте для избежания индекса
+    estimates.sort((a, b) => {
+      const dateA = new Date(a.createdAt || 0).getTime();
+      const dateB = new Date(b.createdAt || 0).getTime();
+      return dateB - dateA; // desc
     });
     
     // Apply client-side search filter if provided
