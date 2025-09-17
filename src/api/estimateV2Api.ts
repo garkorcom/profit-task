@@ -963,7 +963,8 @@ const generatePublicShareLink = async (
   userId: string,
   estimateId: string
 ): Promise<string> => {
-  const publicId = doc(collection(db, 'temp')).id;
+  // Используем сам estimateId как публичный ID для простоты
+  const publicId = estimateId;
   
   await updateEstimate(userId, estimateId, { 
     publicShareId: publicId,
@@ -975,6 +976,145 @@ const generatePublicShareLink = async (
   });
   
   return publicId;
+};
+
+/**
+ * Получение публичной ссылки для сметы
+ */
+export const getPublicEstimateUrl = (estimateId: string): string => {
+  const baseUrl = typeof window !== 'undefined' ? window.location.origin : 'https://profit-task.web.app';
+  return `${baseUrl}/public/estimate/${estimateId}`;
+};
+
+/**
+ * Создание публичной тестовой сметы
+ */
+export const createPublicTestEstimate = async (userId: string): Promise<{ estimateId: string; publicUrl: string }> => {
+  const estimateId = 'public-test-' + Date.now();
+  
+  // Создаем тестовую смету с публичным статусом
+  const testEstimateData = {
+    id: estimateId,
+    number: `EST-TEST-${Date.now()}`,
+    status: 'sent' as EstimateStatus, // Публичный статус
+    revision: 1,
+    parentEstimateId: null,
+    
+    projectId: null,
+    counterpartyId: null,
+    
+    currency: 'USD',
+    taxProfileId: null,
+    terms: 'Это тестовая смета, созданная для проверки публичного доступа. Она доступна по прямой ссылке без входа в систему.',
+    validUntil: new Date(Date.now() + 30 * 24 * 60 * 60 * 1000).toISOString(), // 30 дней
+    
+    publicShareId: estimateId,
+    pdfSnapshotUrl: null,
+    publicSettings: {
+      showUnitPrices: true,
+      requireLogin: false,
+    },
+    
+    // V2 структура с totals
+    totals: {
+      materialsCost: 0,
+      laborCost: 2500,
+      equipmentCost: 200,
+      subcontractCost: 0,
+      overheadPct: 10,
+      overheadAmt: 270,
+      discountAmt: 0,
+      shippingAmt: 0,
+      subtotalPrice: 2700,
+      taxAmt: 540,
+      grandTotal: 3240,
+      grossMarginPct: 20
+    },
+    
+    // Блоки с тестовыми данными
+    blocks: [
+      {
+        key: 'services' as BlockKey,
+        status: 'complete',
+        dataVersion: 1,
+        data: {
+          sections: [],
+          rows: [
+            {
+              id: '1',
+              sectionId: '',
+              name: 'Консультация и анализ требований',
+              description: 'Детальный анализ потребностей клиента и техническая консультация',
+              unit: 'час',
+              rate: 150,
+              pert: {
+                optimistic: 6,
+                mostLikely: 8,
+                pessimistic: 12
+              }
+            },
+            {
+              id: '2',
+              sectionId: '',
+              name: 'Разработка технического решения',
+              description: 'Проектирование архитектуры и создание технической документации',
+              unit: 'час',
+              rate: 200,
+              pert: {
+                optimistic: 8,
+                mostLikely: 10,
+                pessimistic: 14
+              }
+            },
+            {
+              id: '3',
+              sectionId: '',
+              name: 'Настройка и внедрение',
+              description: 'Установка, настройка и запуск системы',
+              unit: 'час',
+              rate: 120,
+              pert: {
+                optimistic: 2,
+                mostLikely: 3,
+                pessimistic: 5
+              }
+            }
+          ],
+          totals: {
+            hours: 21,
+            cost: 2500
+          },
+          hourlyRate: 150
+        },
+        updatedAt: new Date().toISOString(),
+      }
+    ],
+    
+    createdBy: userId,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+    auditLog: [{
+      id: doc(collection(db, 'temp')).id,
+      timestamp: new Date().toISOString(),
+      userId,
+      action: 'created',
+      details: { type: 'public_test', purpose: 'testing_public_access' },
+    }],
+  };
+
+  // Сохраняем в коллекцию estimates
+  const estimateRef = doc(db, `users/${userId}/estimates`, estimateId);
+  await setDoc(estimateRef, cleanForFirestore(testEstimateData));
+
+  const publicUrl = getPublicEstimateUrl(estimateId);
+  
+  console.log('✅ Public test estimate created:', {
+    estimateId,
+    publicUrl,
+    status: 'sent'
+  });
+
+  return { estimateId, publicUrl };
 };
 
 /**

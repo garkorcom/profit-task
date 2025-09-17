@@ -54,6 +54,7 @@ import {
   doc,
   setDoc,
 } from 'firebase/firestore';
+import { createPublicTestEstimate, getPublicEstimateUrl } from '../api/estimateV2Api';
 
 interface PublicEstimate {
   id: string;
@@ -154,7 +155,7 @@ const DiagnosticsPublicEstimates: React.FC = () => {
     }
   };
 
-  // Создание тестовой публичной сметы
+  // Создание тестовой публичной сметы через API
   const createTestEstimate = async () => {
     if (!currentUser) {
       setMessage({text: 'Необходимо войти в систему', type: 'error'});
@@ -165,81 +166,17 @@ const DiagnosticsPublicEstimates: React.FC = () => {
     setMessage(null);
     
     try {
-      const testEstimateId = 'public-test-' + Date.now();
+      // Используем новую функцию API для создания тестовой сметы
+      const result = await createPublicTestEstimate(currentUser.uid);
       
-      // Создаем тестовую смету со статусом "sent"
-      const estimateData = {
-        id: testEstimateId,
-        number: `EST-TEST-${Date.now()}`,
-        status: 'sent', // Публичный статус
-        title: 'Тестовая публичная смета для диагностики',
-        terms: 'Это тестовая смета, созданная для диагностики публичного просмотра. Она должна быть доступна по прямой ссылке без входа в систему.',
-        currency: 'USD',
-        total: 2500,
-        subtotal: 2200,
-        taxRate: 13.64,
-        taxAmt: 300,
-        createdAt: new Date().toISOString(),
-        updatedAt: new Date().toISOString(),
-        createdBy: currentUser.uid,
-        revision: 1,
-        // V2 структура с блоками
-        totals: {
-          materialsCost: 0,
-          laborCost: 2200,
-          equipmentCost: 0,
-          subcontractCost: 0,
-          overheadPct: 0,
-          overheadAmt: 0,
-          discountAmt: 0,
-          shippingAmt: 0,
-          subtotalPrice: 2200,
-          taxAmt: 300,
-          grandTotal: 2500,
-          grossMarginPct: 0
-        },
-        blocks: [
-          {
-            key: 'services',
-            data: {
-              rows: [
-                {
-                  id: '1',
-                  name: 'Консультация по проекту',
-                  description: 'Техническая консультация и анализ требований',
-                  quantity: 4,
-                  unit: 'час',
-                  unitPrice: 150,
-                  totalCost: 600
-                },
-                {
-                  id: '2', 
-                  name: 'Разработка технического решения',
-                  description: 'Проектирование архитектуры и создание документации',
-                  quantity: 8,
-                  unit: 'час',
-                  unitPrice: 200,
-                  totalCost: 1600
-                }
-              ]
-            }
-          }
-        ]
-      };
-
-      // Сохраняем в коллекцию estimates (старую, для совместимости)
-      await setDoc(
-        doc(db, 'users', currentUser.uid, 'estimates', testEstimateId),
-        estimateData
-      );
-
-      console.log('✅ Тестовая смета создана:', testEstimateId);
-      setNewEstimateId(testEstimateId);
+      setNewEstimateId(result.estimateId);
       
       setMessage({
-        text: `Публичная смета успешно создана! ID: ${testEstimateId}`,
+        text: `Публичная смета успешно создана! ID: ${result.estimateId}`,
         type: 'success'
       });
+
+      console.log('✅ Тестовая смета создана через API:', result);
 
       // Автоматически обновляем список
       setTimeout(() => {
@@ -262,10 +199,8 @@ const DiagnosticsPublicEstimates: React.FC = () => {
     searchPublicEstimates();
   }, []);
 
-  const getPublicUrl = (estimateId: string, version: 'v1' | 'v2' = 'v2') => {
-    return version === 'v2' 
-      ? `${window.location.origin}/public/estimate-v2/${estimateId}`
-      : `${window.location.origin}/public/estimate/${estimateId}`;
+  const getPublicUrl = (estimateId: string) => {
+    return getPublicEstimateUrl(estimateId);
   };
 
   return (
@@ -301,22 +236,13 @@ const DiagnosticsPublicEstimates: React.FC = () => {
                 InputProps={{ readOnly: true }}
                 sx={{ mb: 2 }}
               />
-              <Stack direction="row" spacing={1}>
-                <Button
-                  variant="outlined"
-                  startIcon={<LaunchIcon />}
-                  onClick={() => window.open(getPublicUrl(newEstimateId, 'v1'), '_blank')}
-                >
-                  Открыть V1
-                </Button>
-                <Button
-                  variant="contained"
-                  startIcon={<LaunchIcon />}
-                  onClick={() => window.open(getPublicUrl(newEstimateId, 'v2'), '_blank')}
-                >
-                  Открыть V2 ✨
-                </Button>
-              </Stack>
+              <Button
+                variant="contained"
+                startIcon={<LaunchIcon />}
+                onClick={() => window.open(getPublicUrl(newEstimateId), '_blank')}
+              >
+                Открыть публичную смету
+              </Button>
             </CardContent>
           </Card>
         )}
@@ -407,24 +333,14 @@ const DiagnosticsPublicEstimates: React.FC = () => {
                           {new Date(estimate.createdAt).toLocaleString('ru-RU')}
                         </TableCell>
                         <TableCell>
-                          <Stack direction="row" spacing={1}>
-                            <Button
-                              size="small"
-                              variant="outlined"
-                              startIcon={<LaunchIcon />}
-                              onClick={() => window.open(getPublicUrl(estimate.id, 'v1'), '_blank')}
-                            >
-                              V1
-                            </Button>
-                            <Button
-                              size="small"
-                              variant="contained"
-                              startIcon={<LaunchIcon />}
-                              onClick={() => window.open(getPublicUrl(estimate.id, 'v2'), '_blank')}
-                            >
-                              V2 ✨
-                            </Button>
-                          </Stack>
+                          <Button
+                            size="small"
+                            variant="contained"
+                            startIcon={<LaunchIcon />}
+                            onClick={() => window.open(getPublicUrl(estimate.id), '_blank')}
+                          >
+                            Открыть
+                          </Button>
                         </TableCell>
                       </TableRow>
                     ))}
