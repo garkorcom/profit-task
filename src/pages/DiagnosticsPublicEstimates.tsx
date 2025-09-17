@@ -262,8 +262,10 @@ const DiagnosticsPublicEstimates: React.FC = () => {
     searchPublicEstimates();
   }, []);
 
-  const getPublicUrl = (estimateId: string) => {
-    return `${window.location.origin}/public/estimate/${estimateId}`;
+  const getPublicUrl = (estimateId: string, version: 'v1' | 'v2' = 'v2') => {
+    return version === 'v2' 
+      ? `${window.location.origin}/public/estimate-v2/${estimateId}`
+      : `${window.location.origin}/public/estimate/${estimateId}`;
   };
 
   return (
@@ -299,13 +301,22 @@ const DiagnosticsPublicEstimates: React.FC = () => {
                 InputProps={{ readOnly: true }}
                 sx={{ mb: 2 }}
               />
-              <Button
-                variant="contained"
-                startIcon={<LaunchIcon />}
-                onClick={() => window.open(getPublicUrl(newEstimateId), '_blank')}
-              >
-                Открыть в новой вкладке
-              </Button>
+              <Stack direction="row" spacing={1}>
+                <Button
+                  variant="outlined"
+                  startIcon={<LaunchIcon />}
+                  onClick={() => window.open(getPublicUrl(newEstimateId, 'v1'), '_blank')}
+                >
+                  Открыть V1
+                </Button>
+                <Button
+                  variant="contained"
+                  startIcon={<LaunchIcon />}
+                  onClick={() => window.open(getPublicUrl(newEstimateId, 'v2'), '_blank')}
+                >
+                  Открыть V2 ✨
+                </Button>
+              </Stack>
             </CardContent>
           </Card>
         )}
@@ -396,13 +407,24 @@ const DiagnosticsPublicEstimates: React.FC = () => {
                           {new Date(estimate.createdAt).toLocaleString('ru-RU')}
                         </TableCell>
                         <TableCell>
-                          <Button
-                            size="small"
-                            startIcon={<LaunchIcon />}
-                            onClick={() => window.open(getPublicUrl(estimate.id), '_blank')}
-                          >
-                            Открыть
-                          </Button>
+                          <Stack direction="row" spacing={1}>
+                            <Button
+                              size="small"
+                              variant="outlined"
+                              startIcon={<LaunchIcon />}
+                              onClick={() => window.open(getPublicUrl(estimate.id, 'v1'), '_blank')}
+                            >
+                              V1
+                            </Button>
+                            <Button
+                              size="small"
+                              variant="contained"
+                              startIcon={<LaunchIcon />}
+                              onClick={() => window.open(getPublicUrl(estimate.id, 'v2'), '_blank')}
+                            >
+                              V2 ✨
+                            </Button>
+                          </Stack>
                         </TableCell>
                       </TableRow>
                     ))}

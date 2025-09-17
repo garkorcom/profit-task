@@ -47,6 +47,7 @@ import StartabilityV2TestPage from '../pages/StartabilityV2TestPage';
 import DevTestCounterpartiesPage from '../pages/DevTestCounterpartiesPage';
 import TestPublicEstimate from '../pages/TestPublicEstimate';
 import DiagnosticsPublicEstimates from '../pages/DiagnosticsPublicEstimates';
+import PublicEstimatePageV2 from '../pages/PublicEstimatePageV2';
 import EstimatePreviewTest from '../pages/EstimatePreviewTest';
 // import PermissionDebugger from '../components/admin/PermissionDebugger';
 // import AuditLogViewer from '../components/admin/AuditLogViewer';
@@ -62,8 +63,9 @@ const AppRouter: React.FC = () => {
       <Routes>
         <Route path="/login" element={currentUser ? <Navigate to="/" /> : <LoginPage />} />
         
-        {/* Публичный маршрут для сметы */}
+        {/* Публичные маршруты для смет */}
         <Route path="/public/estimate/:estimateId" element={<PublicEstimatePage />} />
+        <Route path="/public/estimate-v2/:estimateId" element={<PublicEstimatePageV2 />} />
         
         <Route element={<PrivateRoute />}>
           <Route element={<MainLayout />}>
