@@ -33,6 +33,7 @@ import ProjectsV2Page from '../pages/project/ProjectsV2Page';
 import ProjectDetailsPage from '../pages/project/ProjectDetailsPage';
 import PublicEstimatePage from '../pages/PublicEstimatePage';
 import ClaudeTest from '../components/ClaudeTest';
+import ItemsPage from '../pages/erp/ItemsPage';
 import ReportsPage from '../components/reports/ReportsPage';
 import AboutPage from '../pages/AboutPage';
 import OperationalOverviewPage from '../pages/OperationalOverviewPage';
@@ -44,6 +45,9 @@ import ConditionalPermissionsTest from '../pages/admin/ConditionalPermissionsTes
 import { TrajectoryPage } from '../modules/trajectory/TrajectoryPage';
 import StartabilityV2TestPage from '../pages/StartabilityV2TestPage';
 import DevTestCounterpartiesPage from '../pages/DevTestCounterpartiesPage';
+import TestPublicEstimate from '../pages/TestPublicEstimate';
+import DiagnosticsPublicEstimates from '../pages/DiagnosticsPublicEstimates';
+import EstimatePreviewTest from '../pages/EstimatePreviewTest';
 // import PermissionDebugger from '../components/admin/PermissionDebugger';
 // import AuditLogViewer from '../components/admin/AuditLogViewer';
 // import UserOffboardingManager from '../components/admin/UserOffboardingManager';
@@ -67,6 +71,9 @@ const AppRouter: React.FC = () => {
             <Route path="/dev-tools" element={<DevToolsPage />} />
             <Route path="/startability-v2-test" element={<StartabilityV2TestPage />} />
             <Route path="/dev-test-counterparties" element={<DevTestCounterpartiesPage />} />
+            <Route path="/test-public-estimate" element={<TestPublicEstimate />} />
+            <Route path="/diagnostics-public-estimates" element={<DiagnosticsPublicEstimates />} />
+            <Route path="/test-estimate-preview" element={<EstimatePreviewTest />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/review" element={<TaskReviewPage />} />
             <Route path="/analytics" element={<AnalyticsDashboard />} />
@@ -75,7 +82,10 @@ const AppRouter: React.FC = () => {
             <Route path="/operational-overview" element={<OperationalOverviewPage />} />
             <Route path="/about" element={<AboutPage />} />
             <Route path="/profile" element={<UserProfilePage />} />
-            <Route path="/products" element={<ProductsPage />} />
+            <Route path="/products-legacy" element={<ProductsPage />} />
+            <Route path="/products" element={<ItemsPage />} />
+            <Route path="/erp" element={<ItemsPage />} />
+            <Route path="/erp/items" element={<ItemsPage />} />
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/shopping" element={<ShoppingListPage />} />
             <Route path="/projects" element={<ProjectsV2Page />} />

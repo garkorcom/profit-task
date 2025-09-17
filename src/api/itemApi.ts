@@ -20,14 +20,6 @@ import {
   increment
 } from 'firebase/firestore';
 import { db, auth } from '../firebase/firebase';
-
-function getCurrentUser() {
-  const user = auth.currentUser;
-  if (!user) {
-    throw new Error('User not authenticated');
-  }
-  return user;
-}
 import {
   Item,
   ProductItem,
@@ -46,6 +38,14 @@ import {
   ItemCategory,
   ItemStatus
 } from '../types/item.types';
+
+function getCurrentUser() {
+  const user = auth.currentUser;
+  if (!user) {
+    throw new Error('User not authenticated');
+  }
+  return user;
+}
 
 // ==================== КОНСТАНТЫ ====================
 
