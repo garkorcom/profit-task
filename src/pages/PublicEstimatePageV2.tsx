@@ -306,12 +306,13 @@ const PublicEstimatePageV2: React.FC<PublicEstimatePageV2Props> = () => {
       setEstimate(foundEstimate);
       setEstimateOwnerId(ownerId);
 
-      // Параллельная загрузка связанных данных
-      await Promise.all([
-        loadRelatedData(foundEstimate, ownerId!),
-        loadComments(ownerId!, estimateId),
-        loadViews(ownerId!, estimateId)
-      ]);
+      // Загружаем только основные данные, остальное - по требованию
+      try {
+        await loadRelatedData(foundEstimate, ownerId!);
+      } catch (error) {
+        console.warn('Could not load related data:', error);
+        // Продолжаем работу без связанных данных
+      }
 
     } catch (error) {
       console.error('💥 Error fetching estimate:', error);
@@ -394,22 +395,15 @@ const PublicEstimatePageV2: React.FC<PublicEstimatePageV2Props> = () => {
   };
 
   /**
-   * Регистрация просмотра
+   * Регистрация просмотра (упрощенная версия)
    */
   const registerView = async () => {
     try {
-      // Простая регистрация без аутентификации
-      const viewData = {
-        timestamp: serverTimestamp(),
-        userAgent: navigator.userAgent,
-        location: window.location.href
-      };
-      
-      // Добавляем в локальное хранилище для избежания дублирования
+      // Простая регистрация только в локальное хранилище
       const viewKey = `estimate_view_${estimateId}`;
       if (!localStorage.getItem(viewKey)) {
         localStorage.setItem(viewKey, new Date().toISOString());
-        console.log('📈 View registered');
+        console.log('📈 View registered locally');
       }
     } catch (error) {
       console.error('Error registering view:', error);

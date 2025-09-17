@@ -48,6 +48,7 @@ import DevTestCounterpartiesPage from '../pages/DevTestCounterpartiesPage';
 import TestPublicEstimate from '../pages/TestPublicEstimate';
 import DiagnosticsPublicEstimates from '../pages/DiagnosticsPublicEstimates';
 import PublicEstimatePageV2 from '../pages/PublicEstimatePageV2';
+import ConnectionTest from '../pages/ConnectionTest';
 import EstimatePreviewTest from '../pages/EstimatePreviewTest';
 // import PermissionDebugger from '../components/admin/PermissionDebugger';
 // import AuditLogViewer from '../components/admin/AuditLogViewer';
@@ -75,6 +76,7 @@ const AppRouter: React.FC = () => {
             <Route path="/dev-test-counterparties" element={<DevTestCounterpartiesPage />} />
             <Route path="/test-public-estimate" element={<TestPublicEstimate />} />
             <Route path="/diagnostics-public-estimates" element={<DiagnosticsPublicEstimates />} />
+            <Route path="/connection-test" element={<ConnectionTest />} />
             <Route path="/test-estimate-preview" element={<EstimatePreviewTest />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/review" element={<TaskReviewPage />} />

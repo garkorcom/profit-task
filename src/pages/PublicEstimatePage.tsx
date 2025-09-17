@@ -71,9 +71,17 @@ const PublicEstimatePage: React.FC = () => {
       try {
         console.log('Searching for estimate ID:', estimateId);
         
+        // Добавляем таймаут для избежания долгого ожидания
+        const timeoutPromise = new Promise((_, reject) => {
+          setTimeout(() => reject(new Error('Таймаут загрузки')), 15000); // 15 секунд
+        });
+        
         // Ищем смету среди всех пользователей в обеих коллекциях
         const usersCollection = collection(db, 'users');
-        const usersSnapshot = await getDocs(usersCollection);
+        const usersSnapshot = await Promise.race([
+          getDocs(usersCollection),
+          timeoutPromise
+        ]) as any;
         
         let foundEstimate: Estimate | null = null;
         let estimateOwnerId: string | null = null;
@@ -121,28 +129,49 @@ const PublicEstimatePage: React.FC = () => {
 
         setEstimate(foundEstimate);
 
-        // Загружаем связанные данные
-        if (foundEstimate.projectId && estimateOwnerId) {
-          try {
-            const projectDoc = await getDoc(doc(db, 'users', estimateOwnerId, 'projects', foundEstimate.projectId));
-            if (projectDoc.exists()) {
-              setProject({ id: projectDoc.id, ...projectDoc.data() } as Project);
-            }
-          } catch (error) {
-            console.error('Error loading project:', error);
+        // Загружаем связанные данные с таймаутом (необязательно)
+        const loadRelatedData = async () => {
+          const promises = [];
+          
+          if (foundEstimate.projectId && estimateOwnerId) {
+            promises.push(
+              getDoc(doc(db, 'users', estimateOwnerId, 'projects', foundEstimate.projectId))
+                .then(projectDoc => {
+                  if (projectDoc.exists()) {
+                    setProject({ id: projectDoc.id, ...projectDoc.data() } as Project);
+                  }
+                })
+                .catch(error => console.warn('Could not load project:', error))
+            );
           }
-        }
 
-        if (foundEstimate.counterpartyId && estimateOwnerId) {
-          try {
-            const counterpartyDoc = await getDoc(doc(db, 'users', estimateOwnerId, 'counterparties', foundEstimate.counterpartyId));
-            if (counterpartyDoc.exists()) {
-              setCounterparty({ id: counterpartyDoc.id, ...counterpartyDoc.data() } as Counterparty);
-            }
-          } catch (error) {
-            console.error('Error loading counterparty:', error);
+          if (foundEstimate.counterpartyId && estimateOwnerId) {
+            promises.push(
+              getDoc(doc(db, 'users', estimateOwnerId, 'counterparties', foundEstimate.counterpartyId))
+                .then(counterpartyDoc => {
+                  if (counterpartyDoc.exists()) {
+                    setCounterparty({ id: counterpartyDoc.id, ...counterpartyDoc.data() } as Counterparty);
+                  }
+                })
+                .catch(error => console.warn('Could not load counterparty:', error))
+            );
           }
-        }
+          
+          // Загружаем связанные данные с таймаутом 5 секунд
+          if (promises.length > 0) {
+            try {
+              await Promise.race([
+                Promise.all(promises),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('Timeout')), 5000))
+              ]);
+            } catch (error) {
+              console.warn('Related data loading timeout, continuing without it');
+            }
+          }
+        };
+        
+        // Загружаем связанные данные в фоне, не блокируя основную смету
+        loadRelatedData();
 
       } catch (error) {
         console.error('Error fetching estimate:', error);
@@ -211,12 +240,21 @@ const PublicEstimatePage: React.FC = () => {
     return (
       <Box 
         display="flex" 
+        flexDirection="column"
         justifyContent="center" 
         alignItems="center" 
         minHeight="100vh"
         bgcolor="#f5f5f5"
+        gap={2}
       >
         <CircularProgress size={60} />
+        <Typography variant="h6" color="text.secondary">
+          Загрузка сметы...
+        </Typography>
+        <Typography variant="body2" color="text.secondary" align="center">
+          Если загрузка занимает много времени,<br />
+          проверьте интернет-соединение
+        </Typography>
       </Box>
     );
   }
