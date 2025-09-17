@@ -378,10 +378,15 @@ const PublicEstimatePageV2: React.FC<PublicEstimatePageV2Props> = () => {
     try {
       const viewsCollection = collection(db, 'users', ownerId, 'estimates', estimateId, 'views');
       const viewsSnapshot = await getDocs(viewsCollection);
-      const loadedViews = viewsSnapshot.docs.map(doc => ({
-        id: doc.id,
-        ...doc.data()
-      })) as EstimateView[];
+      const loadedViews = viewsSnapshot.docs.map(doc => {
+        const data = doc.data();
+        return {
+          id: doc.id,
+          timestamp: data.timestamp || new Date().toISOString(),
+          userAgent: data.userAgent || '',
+          location: data.location
+        } as EstimateView;
+      });
       setViews(loadedViews);
     } catch (error) {
       console.error('Error loading views:', error);
@@ -435,8 +440,8 @@ const PublicEstimatePageV2: React.FC<PublicEstimatePageV2Props> = () => {
       }
     }
     
-    if (estimate.items && Array.isArray(estimate.items)) {
-      return estimate.items;
+    if ((estimate as any).items && Array.isArray((estimate as any).items)) {
+      return (estimate as any).items;
     }
     
     return [];
@@ -477,9 +482,9 @@ const PublicEstimatePageV2: React.FC<PublicEstimatePageV2Props> = () => {
       return sum + (quantity * price);
     }, 0);
 
-    const discountAmt = estimate.discountRate ? (subtotal * estimate.discountRate / 100) : 0;
+    const discountAmt = (estimate as any).discountRate ? (subtotal * (estimate as any).discountRate / 100) : 0;
     const afterDiscount = subtotal - discountAmt;
-    const taxAmt = estimate.taxRate ? (afterDiscount * estimate.taxRate / 100) : 0;
+    const taxAmt = (estimate as any).taxRate ? (afterDiscount * (estimate as any).taxRate / 100) : 0;
     const grandTotal = afterDiscount + taxAmt;
 
     return {
@@ -1294,8 +1299,8 @@ const PublicEstimatePageV2: React.FC<PublicEstimatePageV2Props> = () => {
                                     <Typography variant="subtitle1" fontWeight="bold">
                                       {comment.author}
                                     </Typography>
-                                    {comment.rating > 0 && (
-                                      <Rating value={comment.rating} readOnly size="small" />
+                                    {(comment.rating || 0) > 0 && (
+                                      <Rating value={comment.rating || 0} readOnly size="small" />
                                     )}
                                     <Chip 
                                       label={comment.type} 

@@ -170,7 +170,7 @@ const ShareDialog: React.FC<ShareDialogProps> = ({
           <Divider />
 
           {/* Нативное поделиться (мобильные) */}
-          {navigator.share && (
+          {typeof navigator !== 'undefined' && 'share' in navigator && (
             <>
               <List>
                 <ListItemButton onClick={handleNativeShare}>
