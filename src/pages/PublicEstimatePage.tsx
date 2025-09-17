@@ -76,51 +76,136 @@ const PublicEstimatePage: React.FC = () => {
           setTimeout(() => reject(new Error('Таймаут загрузки')), 15000); // 15 секунд
         });
         
-        // Ищем смету среди всех пользователей в обеих коллекциях
-        const usersCollection = collection(db, 'users');
-        const usersSnapshot = await Promise.race([
-          getDocs(usersCollection),
-          timeoutPromise
-        ]) as any;
+        // Оптимизированный поиск сметы
+        console.log('🔍 Starting optimized estimate search...');
         
         let foundEstimate: Estimate | null = null;
         let estimateOwnerId: string | null = null;
 
-        console.log('Checking', usersSnapshot.docs.length, 'users');
+        // Сначала пробуем найти смету в известных пользователях (список можно расширить)
+        const knownUserIds = [
+          'm4Uzwwc2jLRlZKzhkmMc9uu2L8c2',
+          'BpytV14pywbAxc84fOn5tZEV1IB3', 
+          'EoReRhkpEIaCchoY99ByGbgTGOb2',
+          'UecBF4TgUeQfulep9ymLgL6PK8E3',
+          'lQB9qDx73eazscwpAaBkSI5tCWr2'
+        ];
 
-        for (const userDoc of usersSnapshot.docs) {
-          console.log(`Checking user: ${userDoc.id}`);
+        console.log('🎯 Quick search in known users first...');
+        
+        for (const userId of knownUserIds) {
+          console.log(`👤 Quick check user: ${userId}`);
           
-          // Проверяем сначала новую коллекцию estimatesV2
+          // Проверяем estimates коллекцию
           try {
-            const estimateDocV2 = await getDoc(doc(db, 'users', userDoc.id, 'estimatesV2', estimateId));
-            if (estimateDocV2.exists()) {
-              console.log('Found estimate in estimatesV2 collection');
-              foundEstimate = { id: estimateDocV2.id, ...estimateDocV2.data() } as Estimate;
-              estimateOwnerId = userDoc.id;
-              break;
+            const estimateDoc = await Promise.race([
+              getDoc(doc(db, 'users', userId, 'estimates', estimateId)),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+            ]) as any;
+            
+            if (estimateDoc.exists()) {
+              const data = estimateDoc.data();
+              if (data.status === 'sent' || data.status === 'accepted' || data.status === 'viewed') {
+                console.log('✅ Found public estimate in estimates collection');
+                foundEstimate = { id: estimateDoc.id, ...data } as Estimate;
+                estimateOwnerId = userId;
+                break;
+              } else {
+                console.log(`⚠️ Found estimate but status is '${data.status}' (not public)`);
+              }
             }
           } catch (error) {
-            console.error(`Error checking estimatesV2 for user ${userDoc.id}:`, error);
+            if (error.message !== 'timeout') {
+              console.log(`❌ Error checking user ${userId}:`, error.message);
+            }
           }
           
-          // Если не найдено в V2, проверяем старую коллекцию estimates  
+          // Проверяем estimatesV2 коллекцию
+          if (!foundEstimate) {
+            try {
+              const estimateDocV2 = await Promise.race([
+                getDoc(doc(db, 'users', userId, 'estimatesV2', estimateId)),
+                new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 3000))
+              ]) as any;
+              
+              if (estimateDocV2.exists()) {
+                const data = estimateDocV2.data();
+                if (data.status === 'sent' || data.status === 'accepted' || data.status === 'viewed') {
+                  console.log('✅ Found public estimate in estimatesV2 collection');
+                  foundEstimate = { id: estimateDocV2.id, ...data } as Estimate;
+                  estimateOwnerId = userId;
+                  break;
+                } else {
+                  console.log(`⚠️ Found estimate but status is '${data.status}' (not public)`);
+                }
+              }
+            } catch (error) {
+              if (error.message !== 'timeout') {
+                console.log(`❌ Error checking V2 for user ${userId}:`, error.message);
+              }
+            }
+          }
+        }
+
+        // Если не найдено в известных пользователях, делаем полный поиск (с таймаутом)
+        if (!foundEstimate) {
+          console.log('🔍 Not found in known users, doing full search...');
+          
           try {
-            const estimateDoc = await getDoc(doc(db, 'users', userDoc.id, 'estimates', estimateId));
-            if (estimateDoc.exists()) {
-              console.log('Found estimate in estimates collection');
-              foundEstimate = { id: estimateDoc.id, ...estimateDoc.data() } as Estimate;
-              estimateOwnerId = userDoc.id;
-              break;
+            const usersCollection = collection(db, 'users');
+            const usersSnapshot = await Promise.race([
+              getDocs(usersCollection),
+              new Promise((_, reject) => setTimeout(() => reject(new Error('Full search timeout')), 10000))
+            ]) as any;
+            
+            console.log('📂 Full search in', usersSnapshot.docs.length, 'users');
+
+            for (const userDoc of usersSnapshot.docs) {
+              // Пропускаем уже проверенных пользователей
+              if (knownUserIds.includes(userDoc.id)) continue;
+              
+              console.log(`👤 Full check user: ${userDoc.id}`);
+              
+              // Быстрая проверка только estimates коллекции для неизвестных пользователей
+              try {
+                const estimateDoc = await Promise.race([
+                  getDoc(doc(db, 'users', userDoc.id, 'estimates', estimateId)),
+                  new Promise((_, reject) => setTimeout(() => reject(new Error('timeout')), 2000))
+                ]) as any;
+                
+                if (estimateDoc.exists()) {
+                  const data = estimateDoc.data();
+                  if (data.status === 'sent' || data.status === 'accepted' || data.status === 'viewed') {
+                    console.log('✅ Found public estimate in full search');
+                    foundEstimate = { id: estimateDoc.id, ...data } as Estimate;
+                    estimateOwnerId = userDoc.id;
+                    break;
+                  }
+                }
+              } catch (error) {
+                // Игнорируем таймауты и ошибки прав доступа
+                if (!error.message.includes('timeout') && !error.message.includes('permission')) {
+                  console.log(`❌ Error in full search for ${userDoc.id}:`, error.message);
+                }
+              }
             }
           } catch (error) {
-            console.error(`Error checking estimates for user ${userDoc.id}:`, error);
+            console.error('❌ Full search failed:', error);
           }
         }
 
         if (!foundEstimate) {
-          console.log('Estimate not found in any collection');
-          setError('Смета не найдена или недоступна для публичного просмотра');
+          console.log('❌ Estimate not found in any collection');
+          console.log('🔍 Search summary:');
+          console.log(`📋 Estimate ID: ${estimateId}`);
+          console.log(`👥 Known users checked: ${knownUserIds.length}`);
+          console.log('💡 Possible reasons:');
+          console.log('  - Estimate does not exist');
+          console.log('  - Estimate status is not public (sent/accepted/viewed)');
+          console.log('  - Estimate belongs to unknown user');
+          console.log('  - Connection timeout occurred');
+          
+          setError(`Смета ${estimateId} не найдена или недоступна для публичного просмотра`);
           setLoading(false);
           return;
         }
@@ -265,8 +350,41 @@ const PublicEstimatePage: React.FC = () => {
     return (
       <Box p={3} bgcolor="#f5f5f5" minHeight="100vh">
         <Container maxWidth="md">
-          <Alert severity="error" sx={{ mt: 4 }}>
-            {error}
+          <Alert 
+            severity="error" 
+            sx={{ mt: 4 }}
+            action={
+              <Stack direction="column" spacing={1}>
+                <Button 
+                  color="inherit" 
+                  size="small"
+                  onClick={() => window.location.reload()}
+                >
+                  Повторить
+                </Button>
+                <Button 
+                  color="inherit" 
+                  size="small"
+                  onClick={() => window.open('/diagnostics-public-estimates', '_blank')}
+                >
+                  Создать тестовую смету
+                </Button>
+              </Stack>
+            }
+          >
+            <Typography variant="h6" gutterBottom>
+              Смета не найдена
+            </Typography>
+            <Typography variant="body2">
+              {error}
+            </Typography>
+            <Typography variant="body2" sx={{ mt: 2 }}>
+              <strong>Возможные причины:</strong><br />
+              • Смета не существует в системе<br />
+              • Смета не имеет публичный статус (sent/accepted)<br />
+              • Проблемы с интернет-соединением<br />
+              • Смета была удалена или изменена
+            </Typography>
           </Alert>
         </Container>
       </Box>
