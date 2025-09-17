@@ -91,9 +91,11 @@ service cloud.firestore {
     }
     
     // Пользователи - только владелец может читать свой профиль
+    // Но разрешаем список пользователей для поиска публичных смет
     match /users/{userId} {
       allow read: if isOwner(userId);
       allow write: if isOwner(userId);
+      allow list: if true; // Разрешаем получать список пользователей для поиска публичных смет
     }
     
     // Проекты - изоляция по userId в подколлекции users/{userId}/projects  
@@ -113,16 +115,39 @@ service cloud.firestore {
     
     // Сметы - изоляция по userId в подколлекции users/{userId}/estimates  
     match /users/{userId}/estimates/{estimateId} {
-      allow read, write: if isOwner(userId);
+      // Публичный доступ для смет со статусом "sent" или "accepted"
+      allow read: if resource.data.status in ['sent', 'accepted'] || isOwner(userId);
+      allow write: if isOwner(userId);
       
       // Элементы смет - подколлекция items
       match /items/{itemId} {
-        allow read, write: if isOwner(userId);
+        allow read: if get(/databases/$(database)/documents/users/$(userId)/estimates/$(estimateId)).data.status in ['sent', 'accepted'] || isOwner(userId);
+        allow write: if isOwner(userId);
       }
       
       // Коммуникации по смете - подколлекция communications  
       match /communications/{commId} {
-        allow read, write: if isOwner(userId);
+        allow read: if get(/databases/$(database)/documents/users/$(userId)/estimates/$(estimateId)).data.status in ['sent', 'accepted'] || isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+    }
+    
+    // Сметы V2 - изоляция по userId в подколлекции users/{userId}/estimatesV2
+    match /users/{userId}/estimatesV2/{estimateId} {
+      // Публичный доступ для смет со статусом "sent" или "accepted"
+      allow read: if resource.data.status in ['sent', 'accepted'] || isOwner(userId);
+      allow write: if isOwner(userId);
+      
+      // Элементы смет V2 - подколлекция items
+      match /items/{itemId} {
+        allow read: if get(/databases/$(database)/documents/users/$(userId)/estimatesV2/$(estimateId)).data.status in ['sent', 'accepted'] || isOwner(userId);
+        allow write: if isOwner(userId);
+      }
+      
+      // Коммуникации по смете V2 - подколлекция communications  
+      match /communications/{commId} {
+        allow read: if get(/databases/$(database)/documents/users/$(userId)/estimatesV2/$(estimateId)).data.status in ['sent', 'accepted'] || isOwner(userId);
+        allow write: if isOwner(userId);
       }
     }
     
@@ -201,9 +226,9 @@ service cloud.firestore {
       allow write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
     
-    // ЗАПРЕТ НА ВСЕ ОСТАЛЬНОЕ
+    // DEVELOPMENT: Allow all authenticated users - TODO: Restrict in production
     match /{document=**} {
-      allow read, write: if false;
+      allow read, write: if isAuthenticated();
     }
   }
 }

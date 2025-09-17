@@ -27,6 +27,8 @@
     "@types/qrcode.react": "^1.0.5",
     "@types/react": "^18.3.3",
     "@types/react-dom": "^18.3.0",
+    "ajv": "8.17.1",
+    "ajv-keywords": "5.1.0",
     "cmdk": "^1.1.1",
     "date-fns": "^2.30.0",
     "firebase": "^11.10.0",

@@ -5,6 +5,7 @@ import { ThemeProvider, createTheme } from '@mui/material/styles';
 import { CssBaseline } from '@mui/material';
 import { TimeTrackingProvider } from './contexts/TimeTrackingContext';
 import { CommandPaletteProvider } from './contexts/CommandPaletteContext';
+import FirestoreConnectionMonitor from './components/FirestoreConnectionMonitor';
 import { initializeMobileOptimizations } from './utils/mobileOptimizations';
 import './utils/createTestEstimate'; // Импортируем для доступа из консоли
 import './utils/cleanOldContractors'; // Импортируем для очистки старых контрагентов
@@ -147,6 +148,7 @@ function App() {
         <TimeTrackingProvider>
           <CommandPaletteProvider>
             <AppRouter />
+            <FirestoreConnectionMonitor />
           </CommandPaletteProvider>
         </TimeTrackingProvider>
       </AuthProvider>

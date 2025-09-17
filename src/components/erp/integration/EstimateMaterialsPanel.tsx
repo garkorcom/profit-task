@@ -48,7 +48,7 @@ import {
 } from '../../../types/warehouse.types';
 import { Item, isProductItem } from '../../../types/item.types';
 import { ItemSelector } from '../items';
-import { ReservationPanel } from '../warehouse';
+// import { ReservationPanel } from '../warehouse';
 import { 
   getEstimateWarehouseLinks,
   autoReserveMaterialsForEstimate,
@@ -541,11 +541,10 @@ const EstimateMaterialsPanel: React.FC<EstimateMaterialsPanelProps> = ({
       >
         <DialogTitle>Резервирование материалов</DialogTitle>
         <DialogContent>
-          <ReservationPanel
-            estimateId={estimateId}
-            showCreateButton={false}
-            compact={true}
-          />
+          {/* TODO: Restore ReservationPanel when react-hook-form conflicts are resolved */}
+          <Typography>
+            Резервирование материалов будет доступно после восстановления компонента ReservationPanel
+          </Typography>
         </DialogContent>
         <DialogActions>
           <Button onClick={() => setReservationDialogOpen(false)}>

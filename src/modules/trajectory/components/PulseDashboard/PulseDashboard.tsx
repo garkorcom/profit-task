@@ -446,7 +446,7 @@ export const PulseDashboard: React.FC<PulseDashboardProps> = ({
                   cy="50%"
                   outerRadius={80}
                   dataKey="value"
-                  label={({ name, percent }) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
+                  label={({ name, percent }: any) => `${name} ${((percent || 0) * 100).toFixed(0)}%`}
                   labelLine={false}
                 >
                   {distributionData.map((entry, index) => (

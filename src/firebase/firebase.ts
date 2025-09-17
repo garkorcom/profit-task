@@ -3,7 +3,7 @@
 // Конфигурацию берём из консоли Firebase (Project settings → Your apps (Web)).
 import { initializeApp } from 'firebase/app';
 import { getAuth, connectAuthEmulator } from 'firebase/auth';
-import { getFirestore, connectFirestoreEmulator } from 'firebase/firestore';
+import { getFirestore, connectFirestoreEmulator, enableNetwork, disableNetwork, initializeFirestore } from 'firebase/firestore';
 import { getFunctions, connectFunctionsEmulator } from 'firebase/functions';
 import { getStorage, connectStorageEmulator } from 'firebase/storage';
 
@@ -22,9 +22,82 @@ const app = initializeApp(firebaseConfig);
 
 // Экспортируем инстансы для использования по всему приложению
 export const auth = getAuth(app);
-export const db = getFirestore(app);
+
+// Инициализируем Firestore с оптимизированными настройками
+export const db = (() => {
+  try {
+    // Пытаемся инициализировать с настройками
+    return initializeFirestore(app, {
+      experimentalAutoDetectLongPolling: true,
+      cacheSizeBytes: 40000000, // 40MB cache для offline поддержки
+    });
+  } catch (error) {
+    // Если не получилось (уже инициализирован), используем существующий
+    console.warn('⚠️ Using existing Firestore instance:', error);
+    return getFirestore(app);
+  }
+})();
+
 export const functions = getFunctions(app);
 export const storage = getStorage(app);
+
+/**
+ * ============================================================================
+ * FIRESTORE CONNECTION OPTIMIZATION
+ * ============================================================================
+ * 
+ * Настройки для улучшения соединения с Firestore и устранения таймаутов:
+ * - experimentalAutoDetectLongPolling: автоматическое определение long polling
+ * - Функции для ручного управления сетевым состоянием
+ * - Обработка проблем с соединением
+ * ============================================================================
+ */
+
+// Логируем успешную инициализацию с оптимизированными настройками
+console.log('🔥 Firestore initialized with connection optimizations:', {
+  experimentalAutoDetectLongPolling: true,
+  cacheSizeBytes: '40MB',
+  offlineSupport: true
+});
+
+// Функции для управления сетевым состоянием Firestore
+export const reconnectFirestore = async () => {
+  try {
+    console.log('🔄 Attempting to reconnect Firestore...');
+    await disableNetwork(db);
+    await enableNetwork(db);
+    console.log('✅ Firestore reconnection successful');
+  } catch (error) {
+    console.error('❌ Firestore reconnection failed:', error);
+  }
+};
+
+// Функция для проверки состояния соединения
+export const checkFirestoreConnection = () => {
+  return new Promise((resolve, reject) => {
+    const timeout = setTimeout(() => {
+      reject(new Error('Connection check timeout'));
+    }, 5000);
+    
+    // Простой запрос для проверки соединения
+    import('firebase/firestore').then(({ doc, getDoc }) => {
+      getDoc(doc(db, '_connection_test', 'test'))
+        .then(() => {
+          clearTimeout(timeout);
+          resolve(true);
+        })
+        .catch((error) => {
+          clearTimeout(timeout);
+          if (error.code === 'permission-denied') {
+            // Если получили permission-denied, значит соединение работает
+            resolve(true);
+          } else {
+            reject(error);
+          }
+        });
+    });
+  });
+};
 
 // Подключение к эмуляторам в режиме разработки
 if (process.env.NODE_ENV === 'development' && window.location.hostname === 'localhost') {

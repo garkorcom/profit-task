@@ -23,7 +23,7 @@ import {
 } from '@mui/icons-material';
 import { Item, CreateItemDto, UpdateItemDto } from '../../types/item.types';
 import { createItem, updateItem } from '../../api/itemApi';
-import ItemForm from '../../components/erp/items/ItemForm';
+import ItemFormSimple from '../../components/erp/items/ItemFormSimple';
 import ItemList from '../../components/erp/items/ItemList';
 import { useAuth } from '../../auth/AuthContext';
 
@@ -140,7 +140,7 @@ const ItemsPage: React.FC = () => {
         fullScreen={isMobile}
       >
         <DialogContent sx={{ p: 0 }}>
-          <ItemForm
+          <ItemFormSimple
             item={selectedItem || undefined}
             onSave={handleSave}
             onCancel={handleCancel}
