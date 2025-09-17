@@ -131,9 +131,11 @@ const PublicEstimatePage: React.FC = () => {
 
         // Загружаем связанные данные с таймаутом (необязательно)
         const loadRelatedData = async () => {
+          if (!foundEstimate || !estimateOwnerId) return;
+          
           const promises = [];
           
-          if (foundEstimate.projectId && estimateOwnerId) {
+          if (foundEstimate.projectId) {
             promises.push(
               getDoc(doc(db, 'users', estimateOwnerId, 'projects', foundEstimate.projectId))
                 .then(projectDoc => {
@@ -145,7 +147,7 @@ const PublicEstimatePage: React.FC = () => {
             );
           }
 
-          if (foundEstimate.counterpartyId && estimateOwnerId) {
+          if (foundEstimate.counterpartyId) {
             promises.push(
               getDoc(doc(db, 'users', estimateOwnerId, 'counterparties', foundEstimate.counterpartyId))
                 .then(counterpartyDoc => {
