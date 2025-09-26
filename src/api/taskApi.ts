@@ -3,6 +3,7 @@
 // Здесь собраны функции для подписки на изменения и для операций создания/обновления/удаления задач.
 import { db } from '../firebase/firebase';
 import { collection, onSnapshot, query, orderBy, addDoc, updateDoc, deleteDoc, doc, serverTimestamp, where, limit, Unsubscribe, Query, DocumentData } from 'firebase/firestore';
+import { auth } from '../firebase/firebase';
 
 // Статусы жизненного цикла задачи
 export type TaskStatus = 
@@ -84,6 +85,24 @@ export interface Task {
   // Системные поля
   createdAt?: any;
   updatedAt?: any;
+}
+
+export interface TaskComment {
+  id: string;
+  taskId: string;
+  userId: string;
+  userName?: string;
+  text: string;
+  createdAt?: any;
+}
+
+export interface TaskPhotoMeta {
+  id: string;
+  taskId: string;
+  url: string;
+  createdAt?: any;
+  width?: number;
+  height?: number;
 }
 
 /**
@@ -364,4 +383,111 @@ export const canTransitionStatus = (
 export const applyStockForTask = async (userId: string, taskId: string, stockData: any) => {
   // Здесь будет логика применения остатков к задаче
   console.log('Применение остатков к задаче:', { userId, taskId, stockData });
+};
+
+/**
+ * Подписка на единичную задачу.
+ */
+export const subscribeToTask = (
+  userId: string,
+  taskId: string,
+  cb: (task: Task | null) => void
+): Unsubscribe => {
+  const taskRef = doc(db, `users/${userId}/tasks`, taskId);
+  return onSnapshot(taskRef, (snapshot) => {
+    if (!snapshot.exists()) {
+      cb(null);
+      return;
+    }
+    const data = snapshot.data() as Task;
+    cb({ ...data, id: snapshot.id });
+  });
+};
+
+/**
+ * Частичное обновление полей задачи без перезаписи всего документа.
+ */
+export const updateTaskFields = async (
+  userId: string,
+  taskId: string,
+  patch: Partial<Task>
+) => {
+  const taskRef = doc(db, `users/${userId}/tasks`, taskId);
+  await updateDoc(taskRef, {
+    ...patch,
+    updatedAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Реальное время для комментариев задачи.
+ */
+export const subscribeToTaskComments = (
+  userId: string,
+  taskId: string,
+  cb: (items: TaskComment[]) => void
+): Unsubscribe => {
+  const commentsRef = collection(db, `users/${userId}/tasks/${taskId}/comments`);
+  const q = query(commentsRef, orderBy('createdAt', 'asc'));
+  return onSnapshot(q, (snapshot) => {
+    const items = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as TaskComment;
+      return {
+        ...data,
+        id: docSnap.id,
+      };
+    });
+    cb(items);
+  });
+};
+
+/**
+ * Добавление комментария к задаче.
+ */
+export const addTaskComment = async (
+  userId: string,
+  taskId: string,
+  text: string
+): Promise<void> => {
+  const commentsRef = collection(db, `users/${userId}/tasks/${taskId}/comments`);
+  await addDoc(commentsRef, {
+    text,
+    userId,
+    userName: auth.currentUser?.displayName || auth.currentUser?.email || '',
+    createdAt: serverTimestamp(),
+  });
+};
+
+/**
+ * Удаление комментария.
+ */
+export const deleteTaskComment = async (
+  userId: string,
+  taskId: string,
+  commentId: string
+): Promise<void> => {
+  const commentRef = doc(db, `users/${userId}/tasks/${taskId}/comments`, commentId);
+  await deleteDoc(commentRef);
+};
+
+/**
+ * Подписка на фотографии задачи.
+ */
+export const subscribeToTaskPhotos = (
+  userId: string,
+  taskId: string,
+  cb: (items: TaskPhotoMeta[]) => void
+): Unsubscribe => {
+  const photosRef = collection(db, `users/${userId}/tasks/${taskId}/photos`);
+  const q = query(photosRef, orderBy('createdAt', 'desc'));
+  return onSnapshot(q, (snapshot) => {
+    const items = snapshot.docs.map((docSnap) => {
+      const data = docSnap.data() as TaskPhotoMeta;
+      return {
+        ...data,
+        id: docSnap.id,
+      };
+    });
+    cb(items);
+  });
 };

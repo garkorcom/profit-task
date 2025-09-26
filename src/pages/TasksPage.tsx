@@ -108,6 +108,7 @@ import LoadingSpinner from '../components/common/LoadingSpinner';
 import Notification from '../components/common/Notification';
 import ConfirmDialog from '../components/common/ConfirmDialog';
 import { TimeTrackingButton } from '../components/TimeTrackingButton';
+import TaskDetailsDrawer from '../features/tasks/TaskDetailsDrawer';
 
 import { getTasksStream, addTask, updateTask, deleteTask, TaskStatus, TaskPriority } from '../api/taskApi';
 import { subscribeToProjects } from '../api/projectV2Api';
@@ -162,6 +163,8 @@ const TasksPage: React.FC = () => {
   });
   
   const [confirm, setConfirm] = useState<{ open: boolean; taskId?: string }>({ open: false });
+  const [selectedTaskId, setSelectedTaskId] = useState<string | null>(null);
+  const [isDrawerOpen, setDrawerOpen] = useState(false);
 
   // Load data
   useEffect(() => {
@@ -518,9 +521,14 @@ const TasksPage: React.FC = () => {
             return (
               <Card 
                 key={task.id}
+                onClick={() => {
+                  setSelectedTaskId(task.id);
+                  setDrawerOpen(true);
+                }}
                 sx={{ 
                   border: isCurrentTask ? `2px solid ${theme.palette.primary.main}` : undefined,
-                  bgcolor: isCurrentTask ? alpha(theme.palette.primary.main, 0.05) : undefined
+                  bgcolor: isCurrentTask ? alpha(theme.palette.primary.main, 0.05) : undefined,
+                  cursor: 'pointer'
                 }}
               >
                 <CardContent>
@@ -598,7 +606,7 @@ const TasksPage: React.FC = () => {
                       )}
                     </Box>
                     
-                    <IconButton onClick={() => handleOpenDialog(task)}>
+                    <IconButton onClick={(event) => { event.stopPropagation(); handleOpenDialog(task); }}>
                       <EditIcon />
                     </IconButton>
                   </Box>
@@ -606,7 +614,7 @@ const TasksPage: React.FC = () => {
 
                 <CardActions sx={{ px: 2, pb: 2 }}>
                   <Box sx={{ display: 'flex', justifyContent: 'space-between', width: '100%', alignItems: 'center' }}>
-                    <Box>
+                    <Box onClick={(event) => event.stopPropagation()}>
                       {canStartWork(task) && project && (
                         <TimeTrackingButton
                           project={project as any}
@@ -619,7 +627,7 @@ const TasksPage: React.FC = () => {
                     
                     <IconButton 
                       color="error" 
-                      onClick={() => setConfirm({ open: true, taskId: task.id })}
+                      onClick={(event) => { event.stopPropagation(); setConfirm({ open: true, taskId: task.id }); }}
                       size="small"
                     >
                       <DeleteIcon />
@@ -787,7 +795,14 @@ const TasksPage: React.FC = () => {
         onClose={() => setConfirm({ open: false })}
       />
 
-      {/* Notifications */}
+      {/* Task Details Drawer */}
+      <TaskDetailsDrawer
+        taskId={selectedTaskId}
+        open={isDrawerOpen}
+        onClose={() => setDrawerOpen(false)}
+        projects={projects}
+      />
+
       <Notification
         open={notification.open}
         message={notification.message}
