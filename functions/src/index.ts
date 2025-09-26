@@ -25,6 +25,9 @@ export * from './mfaFunctions';
 // Импортируем функции стартуемости проектов
 export * from './startability';
 
+// Storage proxy functions
+export * from './storage-proxy';
+
 /**
  * Триггер для автоматического расчета COGS при изменении статуса TimeEntry
  * Срабатывает при переходе в статус 'approved' или 'posted'
