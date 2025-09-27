@@ -95,14 +95,14 @@ export const uploadTaskPhoto = async (
   const photosCollection = collection(db, `users/${userId}/tasks/${taskId}/photos`);
   const metaRef = doc(photosCollection);
   
-  // Check if we're in production and should use Cloud Function directly
-  const isProduction = window.location.hostname === 'profit-task.web.app' || 
-                      window.location.hostname === 'profit-task.firebaseapp.com';
-  
-  if (isProduction) {
-    // Use Cloud Function directly in production to avoid CORS
-    console.log('Using Cloud Function for upload (production)');
-    return uploadViaFunction(userId, taskId, file, metaRef.id, onProgress);
+  // Always use Cloud Function to avoid CORS issues
+  console.log('Using Cloud Function for upload to bypass CORS');
+  try {
+    return await uploadViaFunction(userId, taskId, file, metaRef.id, onProgress);
+  } catch (error) {
+    console.error('Cloud Function upload failed:', error);
+    // Show user-friendly error
+    throw new Error('Photo upload is temporarily unavailable. Please try again later or contact support.');
   }
   
   // Try direct upload for localhost

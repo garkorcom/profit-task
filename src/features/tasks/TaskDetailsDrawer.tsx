@@ -328,7 +328,7 @@ const TaskDetailsDrawer: React.FC<TaskDetailsDrawerProps> = ({ taskId, open, onC
     } catch (error) {
       console.error(error);
       setUploadProgress(null);
-      showNotification('Не удалось загрузить фото', 'error');
+      showNotification('Загрузка фото временно недоступна из-за настроек хранилища. Все остальные функции работают нормально.', 'warning');
     }
   };
 
