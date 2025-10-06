@@ -52,7 +52,7 @@ exports.simplePhotoUpload = functions.https.onRequest((req, res) => {
       const buffer = Buffer.from(base64Data, 'base64');
 
       // Upload to storage - use project default bucket
-      const bucket = admin.storage().bucket('profit-task.appspot.com');
+      const bucket = admin.storage().bucket();
       const filePath = `tasks/${userId}/${taskId}/photos/${photoId}`;
       const file = bucket.file(filePath);
 

@@ -423,11 +423,9 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
   };
 
   const requiresPhoto = (task: Task): boolean => {
-    // На localhost временно отключаем обязательность фото из-за CORS
-    if (window.location.hostname === 'localhost') {
-      return false;
-    }
-    return task.requirePhoto === true;
+    // Временное отключение обязательности фото до настройки Firebase Storage/CORS
+    // TODO: вернуть проверку task.requirePhoto после включения загрузки фотографий
+    return false;
   };
 
   /**

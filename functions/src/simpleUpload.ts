@@ -54,7 +54,7 @@ export const simplePhotoUpload = functions.https.onRequest((req, res) => {
 
       // Upload to storage
       const bucket = admin.storage().bucket();
-      const filePath = `users/${userId}/tasks/${taskId}/photos/${photoId}`;
+      const filePath = `tasks/${userId}/${taskId}/photos/${photoId}`;
       const file = bucket.file(filePath);
 
       await file.save(buffer, {

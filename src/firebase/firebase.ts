@@ -13,7 +13,7 @@ const firebaseConfig = {
   apiKey: "AIzaSyChIcIXwcyFMSybKprc_LbeqjZIOeu84kw",
   authDomain: "profit-task.firebaseapp.com",
   projectId: "profit-task",
-  storageBucket: "profit-task.firebasestorage.app",
+  storageBucket: "profit-task.appspot.com",
   messagingSenderId: "833518013631",
   appId: "1:833518013631:web:b6f55cd89deb72294fca0a"
 };

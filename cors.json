@@ -1,8 +1,18 @@
 [
   {
-    "origin": ["http://localhost:3000", "http://localhost:3001", "https://profit-task.web.app", "https://profit-task.firebaseapp.com"],
-    "method": ["GET", "POST", "PUT", "DELETE", "HEAD"],
-    "maxAgeSeconds": 3600,
-    "responseHeader": ["Content-Type", "Authorization", "Content-Length", "User-Agent", "x-goog-resumable"]
+    "origin": [
+      "http://localhost:3000",
+      "https://profit-task.web.app"
+    ],
+    "method": [
+      "GET",
+      "POST",
+      "PUT",
+      "HEAD"
+    ],
+    "responseHeader": [
+      "Content-Type"
+    ],
+    "maxAgeSeconds": 3600
   }
 ]
