@@ -10,6 +10,7 @@ import { initializeMobileOptimizations } from './utils/mobileOptimizations';
 import './utils/createTestEstimate'; // Импортируем для доступа из консоли
 import './utils/cleanOldContractors'; // Импортируем для очистки старых контрагентов
 import './utils/recalculateAllEstimates'; // Импортируем утилиту пересчета смет
+import './utils/directAdminCall'; // Импортируем утилиты администрирования
 
 // Enhanced mobile-first theme with better performance
 const theme = createTheme({

@@ -684,3 +684,110 @@ export const onUserProfileUpdate = functions.firestore
       });
     }
   });
+
+/**
+ * СПЕЦИАЛЬНАЯ ФУНКЦИЯ: Инициализация первого администратора
+ * Используется только для назначения первого owner в системе
+ * Защищена специальным секретным ключом
+ */
+export const initializeFirstAdmin = functions.https.onCall(async (data, context) => {
+  // Проверка аутентификации
+  if (!context.auth) {
+    throw new functions.https.HttpsError('unauthenticated', 'Must be authenticated');
+  }
+
+  const { email, secret } = data;
+  
+  // Простая защита секретным ключом (можно усложнить)
+  if (secret !== 'init-admin-2025') {
+    throw new functions.https.HttpsError(
+      'permission-denied', 
+      'Invalid secret key'
+    );
+  }
+
+  if (!email) {
+    throw new functions.https.HttpsError(
+      'invalid-argument', 
+      'Email is required'
+    );
+  }
+
+  try {
+    // Ищем пользователя по email
+    const userRecord = await auth.getUserByEmail(email);
+    const userId = userRecord.uid;
+
+    // Проверяем, есть ли уже владельцы в системе
+    const ownersQuery = await db.collection('users')
+      .where('role', '==', 'owner')
+      .limit(1)
+      .get();
+
+    if (!ownersQuery.empty) {
+      throw new functions.https.HttpsError(
+        'already-exists', 
+        'System already has an owner. Use regular role update functions.'
+      );
+    }
+
+    // Обновляем профиль пользователя
+    const userRef = db.collection('users').doc(userId);
+    const userDoc = await userRef.get();
+    
+    if (!userDoc.exists) {
+      // Создаем новый профиль если не существует
+      await userRef.set({
+        id: userId,
+        email: email,
+        displayName: userRecord.displayName || email.split('@')[0],
+        role: 'owner',
+        isActive: true,
+        createdAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: 'init-admin-function'
+      });
+    } else {
+      // Обновляем существующий профиль
+      await userRef.update({
+        role: 'owner',
+        isActive: true,
+        updatedAt: admin.firestore.FieldValue.serverTimestamp(),
+        updatedBy: 'init-admin-function'
+      });
+    }
+
+    // Устанавливаем Custom Claims
+    await auth.setCustomUserClaims(userId, {
+      role: 'owner',
+      isActive: true,
+      permissions: ['*'] // Все разрешения
+    });
+
+    // Логируем действие
+    await createAuditLog({
+      userId,
+      actorId: context.auth.uid,
+      action: 'INITIALIZE_FIRST_ADMIN',
+      resource: 'user_profile',
+      resourceId: userId,
+      newValue: { role: 'owner', isActive: true },
+      success: true
+    });
+
+    return { 
+      success: true, 
+      message: `Successfully initialized ${email} as first admin`,
+      userId: userId
+    };
+    
+  } catch (error: any) {
+    console.error('Error initializing first admin:', error);
+    
+    if (error.code === 'auth/user-not-found') {
+      throw new functions.https.HttpsError('not-found', 'User not found with this email');
+    }
+    
+    throw new functions.https.HttpsError('internal', 'Failed to initialize admin');
+  }
+});

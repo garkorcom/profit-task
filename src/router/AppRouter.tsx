@@ -41,6 +41,7 @@ import { useAuth } from '../auth/AuthContext';
 import StartWorkPage from '../pages/StartWorkPage'; // Импортируем новую страницу
 import AdminPage from '../pages/admin/AdminPage';
 import RoleManagementPage from '../pages/admin/RoleManagementPage';
+import UserAccountsPage from '../pages/admin/UserAccountsPage';
 import ConditionalPermissionsTest from '../pages/admin/ConditionalPermissionsTest';
 import { TrajectoryPage } from '../modules/trajectory/TrajectoryPage';
 import StartabilityV2TestPage from '../pages/StartabilityV2TestPage';
@@ -92,6 +93,7 @@ const AppRouter: React.FC = () => {
             <Route path="/invoices" element={<InvoicesPage />} />
             <Route path="/shopping" element={<ShoppingListPage />} />
             <Route path="/projects" element={<ProjectsV2Page />} />
+            <Route path="/projects/new" element={<Navigate to="/projects" replace />} />
             <Route path="/projects/:projectId" element={<ProjectDetailsPage />} />
             <Route path="/projects/:projectId/estimates" element={<EstimatesHub />} />
             <Route path="/projects-legacy" element={<ProjectsPage />} />
@@ -119,6 +121,7 @@ const AppRouter: React.FC = () => {
             {/* Административные маршруты */}
             <Route path="/admin" element={<AdminPage />} />
             <Route path="/admin/roles" element={<RoleManagementPage />} />
+            <Route path="/admin/users" element={<UserAccountsPage />} />
             {/* <Route path="/admin/permissions-debugger" element={<PermissionDebugger />} /> */}
             {/* <Route path="/admin/audit-log" element={<AuditLogViewer />} /> */}
             {/* <Route path="/admin/offboarding" element={<UserOffboardingManager />} /> */}

@@ -40,15 +40,29 @@ import AuditLogViewer from '../../components/admin/AuditLogViewer';
 import UserOffboardingManager from '../../components/admin/UserOffboardingManager';
 import MFASetup from '../../components/auth/MFASetup';
 import SessionManager from '../../components/security/SessionManager';
+import QuickAdminActions from '../../components/admin/QuickAdminActions';
+import { useNavigate } from 'react-router-dom';
 
 interface AdminPageProps {}
 
+interface AdminSection {
+  title: string;
+  description: string;
+  icon: React.ReactNode;
+  color: string;
+  component: React.ReactNode | null;
+  onClick?: () => void;
+}
+
 const AdminPage: React.FC<AdminPageProps> = () => {
   const { currentUser, customClaims, userProfile } = useAuth();
+  const navigate = useNavigate();
   const [activeTab, setActiveTab] = useState(0);
   const theme = useTheme();
 
-  const hasAccess = hasAdminRights(customClaims);
+  // Проверяем права либо через Custom Claims, либо через профиль (для резервного доступа)
+  const hasAccess = hasAdminRights(customClaims) || 
+    (userProfile?.role === 'owner' || userProfile?.role === 'manager');
 
   if (!hasAccess) {
     return (
@@ -69,6 +83,21 @@ const AdminPage: React.FC<AdminPageProps> = () => {
   }
 
   const adminSections = [
+    {
+      title: 'Быстрые действия',
+      description: 'Административные утилиты и быстрые действия',
+      icon: <AdminIcon />,
+      color: '#e91e63',
+      component: <QuickAdminActions />
+    },
+    {
+      title: 'Управление аккаунтами',
+      description: 'Управление пользователями и их аккаунтами',
+      icon: <PeopleIcon />,
+      color: '#4caf50',
+      component: null,
+      onClick: () => navigate('/admin/users')
+    },
     {
       title: 'Управление ролями',
       description: 'Создание и настройка ролей RBAC',
@@ -140,9 +169,10 @@ const AdminPage: React.FC<AdminPageProps> = () => {
             <Typography variant="body2">
               Вы вошли как: <strong>{userProfile?.displayName || currentUser?.email}</strong>
             </Typography>
-            <Typography variant="body2">
-              Роль: <Chip size="small" label={customClaims?.role || 'Не определена'} color="primary" />
-            </Typography>
+            <Box sx={{ display: 'flex', alignItems: 'center', gap: 1 }}>
+              <Typography variant="body2">Роль:</Typography>
+              <Chip size="small" label={customClaims?.role || userProfile?.role || 'Не определена'} color="primary" />
+            </Box>
           </Box>
           <Box>
             <Typography variant="body2" color="textSecondary">
@@ -203,7 +233,7 @@ const AdminPage: React.FC<AdminPageProps> = () => {
                   <CardActions>
                     <Button
                       size="small"
-                      onClick={() => setActiveTab(index)}
+                      onClick={() => section.onClick ? section.onClick() : setActiveTab(index)}
                       startIcon={section.icon}
                     >
                       Перейти

@@ -3,7 +3,8 @@ import { useParams, useNavigate } from 'react-router-dom';
 import { 
   Box, Typography, CircularProgress, Paper, Breadcrumbs, Link, Chip,
   Tabs, Tab, Card, CardContent, CardHeader, Button, Stack, Avatar,
-  List, ListItem, ListItemText, ListItemAvatar, Divider, ListItemButton
+  List, ListItem, ListItemText, ListItemAvatar, Divider, ListItemButton,
+  Grid, IconButton, Tooltip
 } from '@mui/material';
 import {
   Business as BusinessIcon,
@@ -14,7 +15,12 @@ import {
   Edit as EditIcon,
   ArrowBack as ArrowBackIcon,
   Star as StarIcon,
-  StarBorder as StarBorderIcon
+  StarBorder as StarBorderIcon,
+  CalendarToday as CalendarIcon,
+  AccountBalance as AccountBalanceIcon,
+  TrendingUp as TrendingUpIcon,
+  Schedule as ScheduleIcon,
+  Launch as LaunchIcon
 } from '@mui/icons-material';
 import { useAuth } from '../../auth/AuthContext';
 import { Counterparty, CounterpartyStatus, CounterpartyPriority, CounterpartyRole } from '../../types/counterparty.types';
@@ -87,6 +93,48 @@ const CounterpartyDetailsPage: React.FC = () => {
       case 'medium': return <StarBorderIcon />;
       default: return null;
     }
+  };
+
+  const getProjectStatusColor = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active': return 'success';
+      case 'planning': return 'info';
+      case 'on_hold': return 'warning';
+      case 'completed': return 'default';
+      case 'cancelled': return 'error';
+      default: return 'default';
+    }
+  };
+
+  const getProjectStatusLabel = (status: string) => {
+    switch (status.toLowerCase()) {
+      case 'active': return 'Активный';
+      case 'planning': return 'Планирование';
+      case 'on_hold': return 'На паузе';
+      case 'completed': return 'Завершён';
+      case 'cancelled': return 'Отменён';
+      case 'idea': return 'Идея';
+      default: return status;
+    }
+  };
+
+  const formatDate = (dateString: string | undefined) => {
+    if (!dateString) return 'Не указана';
+    try {
+      return new Date(dateString).toLocaleDateString('ru-RU');
+    } catch {
+      return 'Некорректная дата';
+    }
+  };
+
+  const formatCurrency = (amount: number | undefined) => {
+    if (!amount) return 'Не указана';
+    return new Intl.NumberFormat('ru-RU', {
+      style: 'currency',
+      currency: 'RUB',
+      minimumFractionDigits: 0,
+      maximumFractionDigits: 0,
+    }).format(amount);
   };
 
   if (loading) {
@@ -229,31 +277,154 @@ const CounterpartyDetailsPage: React.FC = () => {
       )}
       
       {currentTab === 3 && (
-        <Paper sx={{ p: 2 }}>
-          <Typography variant="h6">Проекты ({projects.length})</Typography>
+        <Box>
+          <Stack direction="row" justifyContent="space-between" alignItems="center" sx={{ mb: 3 }}>
+            <Typography variant="h6">Проекты ({projects.length})</Typography>
+            <Button 
+              variant="outlined" 
+              onClick={() => navigate('/projects')}
+              size="small"
+            >
+              Все проекты
+            </Button>
+          </Stack>
+          
           {projects.length > 0 ? (
-            <List>
+            <Grid container spacing={2}>
               {projects.map(project => (
-                <ListItem 
-                  key={project.id}
-                  disablePadding
-                >
-                  <ListItemButton onClick={() => navigate(`/projects/${project.id}`)}>
-                    <ListItemAvatar>
-                      <Avatar><BusinessIcon /></Avatar>
-                    </ListItemAvatar>
-                    <ListItemText
-                      primary={project.name}
-                      secondary={`Статус: ${project.status} | c ${project.estimatedStartDate || ''}`}
+                <Grid item xs={12} md={6} lg={4} key={project.id}>
+                  <Card 
+                    sx={{ 
+                      height: '100%',
+                      cursor: 'pointer',
+                      transition: 'all 0.2s ease-in-out',
+                      '&:hover': {
+                        transform: 'translateY(-2px)',
+                        boxShadow: 3
+                      }
+                    }}
+                    onClick={() => navigate(`/projects/${project.id}`)}
+                  >
+                    <CardHeader
+                      avatar={
+                        <Avatar sx={{ bgcolor: 'primary.main' }}>
+                          <BusinessIcon />
+                        </Avatar>
+                      }
+                      action={
+                        <Tooltip title="Открыть проект">
+                          <IconButton size="small">
+                            <LaunchIcon />
+                          </IconButton>
+                        </Tooltip>
+                      }
+                      title={
+                        <Typography variant="h6" component="div" noWrap>
+                          {project.name}
+                        </Typography>
+                      }
+                      subheader={
+                        <Chip 
+                          label={getProjectStatusLabel(project.status)} 
+                          color={getProjectStatusColor(project.status)}
+                          size="small"
+                        />
+                      }
+                      sx={{ pb: 1 }}
                     />
-                  </ListItemButton>
-                </ListItem>
+                    
+                    <CardContent sx={{ pt: 0 }}>
+                      <Stack spacing={2}>
+                        {/* Даты */}
+                        <Box>
+                          <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                            <CalendarIcon fontSize="small" color="action" />
+                            <Typography variant="body2" color="text.secondary">
+                              Начало проекта
+                            </Typography>
+                          </Stack>
+                          <Typography variant="body2">
+                            {formatDate(project.estimatedStartDate)}
+                          </Typography>
+                        </Box>
+
+                        {/* Бюджет */}
+                        {project.financials?.budgetTotal && (
+                          <Box>
+                            <Stack direction="row" alignItems="center" spacing={1} sx={{ mb: 1 }}>
+                              <AccountBalanceIcon fontSize="small" color="action" />
+                              <Typography variant="body2" color="text.secondary">
+                                Бюджет
+                              </Typography>
+                            </Stack>
+                            <Typography variant="body2" fontWeight="medium">
+                              {formatCurrency(project.financials.budgetTotal)}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Описание */}
+                        {project.description && (
+                          <Box>
+                            <Typography 
+                              variant="body2" 
+                              color="text.secondary"
+                              sx={{
+                                display: '-webkit-box',
+                                WebkitLineClamp: 2,
+                                WebkitBoxOrient: 'vertical',
+                                overflow: 'hidden',
+                                textOverflow: 'ellipsis'
+                              }}
+                            >
+                              {project.description}
+                            </Typography>
+                          </Box>
+                        )}
+
+                        {/* Дополнительная информация */}
+                        <Stack direction="row" justifyContent="space-between" alignItems="center">
+                          <Stack direction="row" alignItems="center" spacing={1}>
+                            <ScheduleIcon fontSize="small" color="action" />
+                            <Typography variant="caption" color="text.secondary">
+                              Создан: {formatDate(project.createdAt)}
+                            </Typography>
+                          </Stack>
+                          
+                          {project.priority && (
+                            <Chip 
+                              label={project.priority} 
+                              size="small" 
+                              variant="outlined"
+                              color="primary"
+                            />
+                          )}
+                        </Stack>
+                      </Stack>
+                    </CardContent>
+                  </Card>
+                </Grid>
               ))}
-            </List>
+            </Grid>
           ) : (
-            <Typography color="text.secondary">Проекты не найдены.</Typography>
+            <Paper sx={{ p: 4, textAlign: 'center' }}>
+              <BusinessIcon sx={{ fontSize: 48, color: 'text.secondary', mb: 2 }} />
+              <Typography variant="h6" color="text.secondary" gutterBottom>
+                Проекты не найдены
+              </Typography>
+              <Typography variant="body2" color="text.secondary" sx={{ mb: 2 }}>
+                С этим контрагентом пока нет связанных проектов
+              </Typography>
+              <Button 
+                variant="contained" 
+                onClick={() => navigate('/projects')}
+                startIcon={<BusinessIcon />}
+              >
+                Перейти к проектам
+              </Button>
+            </Paper>
           )}
-        </Paper>
+        </Box>
       )}
       
       {currentTab === 4 && (
