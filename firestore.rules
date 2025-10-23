@@ -226,6 +226,131 @@ service cloud.firestore {
       allow write: if isAuthenticated() && request.resource.data.userId == request.auth.uid;
     }
     
+    // ==================== СИСТЕМА ПОСТАНОВКИ ЗАДАЧ ====================
+    
+    // Функции для проверки ролей пользователей
+    function hasAdminRights() {
+      return request.auth.token.role in ['owner', 'manager'];
+    }
+    
+    function hasManagerRights() {
+      return request.auth.token.role in ['owner', 'manager', 'pm'];
+    }
+    
+    function canAssignTasks() {
+      return request.auth.token.role in ['owner', 'manager', 'pm', 'estimator'];
+    }
+    
+    function isFieldWorker() {
+      return request.auth.token.role in ['field', 'employee', 'contractor'];
+    }
+    
+    // Валидация статуса задачи
+    function isValidTaskStatus(status) {
+      return status in ['assigned', 'acknowledged', 'started', 'in_progress', 'paused', 'completed', 'verified', 'approved', 'rejected'];
+    }
+    
+    // Валидация приоритета задачи
+    function isValidTaskPriority(priority) {
+      return priority in ['low', 'medium', 'high', 'urgent'];
+    }
+    
+    // Проверка разрешенных полей для обновления исполнителем
+    function onlyUpdatingAllowedEmployeeFields() {
+      let allowedFields = ['status', 'acknowledgedAt', 'startedAt', 'completedAt', 'currentTimeEntryId', 
+                          'totalActiveDuration', 'totalPauseDuration', 'startLocation', 'endLocation',
+                          'startPhotos', 'completionPhotos', 'pauseReason', 'unreadCount', 'lastCommentAt', 
+                          'lastCommentBy', 'updatedAt'];
+      
+      return request.resource.data.diff(resource.data).affectedKeys().hasOnly(allowedFields);
+    }
+    
+    // ОСНОВНАЯ КОЛЛЕКЦИЯ ЗАДАЧ ПОСТАНОВКИ
+    match /assignmentTasks/{taskId} {
+      // ЧТЕНИЕ: назначенный сотрудник, создатель, админы/менеджеры
+      allow read: if isAuthenticated() && (
+        resource.data.assignedTo == request.auth.uid ||
+        resource.data.assignedBy == request.auth.uid ||
+        hasManagerRights()
+      );
+      
+      // СОЗДАНИЕ: только те, кто может назначать задачи
+      allow create: if isAuthenticated() && 
+                   canAssignTasks() &&
+                   request.resource.data.assignedBy == request.auth.uid &&
+                   isValidTaskStatus(request.resource.data.status) &&
+                   isValidTaskPriority(request.resource.data.priority) &&
+                   request.resource.data.status == 'assigned'; // Новые задачи всегда со статусом 'assigned'
+      
+      // ОБНОВЛЕНИЕ:
+      // 1. Назначенный сотрудник может менять разрешенные поля (статус, временные метки, фото, локацию)
+      // 2. Создатель/менеджер может менять любые поля
+      allow update: if isAuthenticated() && (
+        // Сотрудник может обновлять только разрешенные поля
+        (resource.data.assignedTo == request.auth.uid && 
+         onlyUpdatingAllowedEmployeeFields() &&
+         isValidTaskStatus(request.resource.data.status)) ||
+        // Создатель может обновлять все поля
+        resource.data.assignedBy == request.auth.uid ||
+        // Админы/менеджеры могут обновлять все поля
+        hasManagerRights()
+      );
+      
+      // УДАЛЕНИЕ: только создатель или админы
+      allow delete: if isAuthenticated() && (
+        resource.data.assignedBy == request.auth.uid ||
+        hasAdminRights()
+      );
+      
+      // ==================== ПОДКОЛЛЕКЦИЯ КОММЕНТАРИЕВ ====================
+      match /comments/{commentId} {
+        // ЧТЕНИЕ: участники задачи (назначенный, создатель) + менеджеры
+        allow read: if isAuthenticated() && (
+          get(/databases/$(database)/documents/assignmentTasks/$(taskId)).data.assignedTo == request.auth.uid ||
+          get(/databases/$(database)/documents/assignmentTasks/$(taskId)).data.assignedBy == request.auth.uid ||
+          hasManagerRights()
+        );
+        
+        // СОЗДАНИЕ: участники задачи могут добавлять комментарии
+        allow create: if isAuthenticated() && 
+                     request.resource.data.userId == request.auth.uid &&
+                     request.resource.data.taskId == taskId &&
+                     (get(/databases/$(database)/documents/assignmentTasks/$(taskId)).data.assignedTo == request.auth.uid ||
+                      get(/databases/$(database)/documents/assignmentTasks/$(taskId)).data.assignedBy == request.auth.uid ||
+                      hasManagerRights());
+        
+        // ОБНОВЛЕНИЕ: только автор комментария (для пометки как прочитанного)
+        allow update: if isAuthenticated() && 
+                     resource.data.userId == request.auth.uid;
+        
+        // УДАЛЕНИЕ: автор комментария или админы
+        allow delete: if isAuthenticated() && (
+          resource.data.userId == request.auth.uid ||
+          hasAdminRights()
+        );
+      }
+    }
+    
+    // ==================== ИНДЕКСЫ И СТАТИСТИКА ЗАДАЧ ====================
+    
+    // Индекс задач по пользователю (для быстрого поиска "мои задачи")
+    match /taskAssignmentIndex/{userId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        hasManagerRights()
+      );
+      allow write: if false; // Только через Cloud Functions
+    }
+    
+    // Статистика выполнения задач
+    match /taskStatistics/{userId} {
+      allow read: if isAuthenticated() && (
+        request.auth.uid == userId ||
+        hasManagerRights()
+      );
+      allow write: if false; // Только через Cloud Functions
+    }
+    
     // DEVELOPMENT: Allow all authenticated users - TODO: Restrict in production
     match /{document=**} {
       allow read, write: if isAuthenticated();

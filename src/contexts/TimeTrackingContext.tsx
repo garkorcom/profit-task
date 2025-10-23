@@ -68,6 +68,11 @@ import {
   resumeTimeEntry,
   completeTimeEntry
 } from '../api/timeEntryUnified';
+import { 
+  createTimeEntryForAssignmentTask,
+  syncTaskStatusWithTimeEntry,
+  recalculateTaskTime
+} from '../api/taskTimeIntegration';
 import { doc, getDoc } from 'firebase/firestore';
 import { db } from '../firebase/firebase';
 import { Estimate, EstimateItem } from '../types/estimate.types';
@@ -183,6 +188,7 @@ interface TimeTrackingContextType {
 
 export interface StartWorkPayload {
   task?: Task;
+  assignmentTask?: import('../types/taskAssignment').AssignmentTask; // Поддержка задач постановки
   estimate?: Estimate;
   service?: EstimateItem;
   project: Project;
@@ -556,18 +562,18 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     setIsStartingWork(true);
     setTimeTrackingError(null);
 
-    const { task, estimate, service, project, startPhoto, location, startMethod = 'manual', requireGPS = false, taskRequirements, blockingValidation = false } = payload;
+    const { task, assignmentTask, estimate, service, project, startPhoto, location, startMethod = 'manual', requireGPS = false, taskRequirements, blockingValidation = false } = payload;
 
     // Определяем основную задачу для учета времени
-    const workTarget = task || service || estimate;
+    const workTarget = task || assignmentTask || service || estimate;
     if (!workTarget) {
       setTimeTrackingError('Необходимо указать задачу или смету для начала работы');
       setIsStartingWork(false);
       throw new Error('Необходимо указать задачу или смету для начала работы');
     }
     
-    const taskId = task?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
-    const taskName = task?.task || service?.name || estimate?.number || 'Работа';
+    const taskId = task?.id || assignmentTask?.id || `estimate-${estimate?.id}-${service?.id || 'main'}`;
+    const taskName = task?.task || assignmentTask?.title || service?.name || estimate?.number || 'Работа';
 
     // --- БЛОКИРУЮЩАЯ ВАЛИДАЦИЯ ПРЕДВАРИТЕЛЬНЫХ УСЛОВИЙ ---
     let preConditionData: PreConditionData = {};
@@ -615,6 +621,9 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         pauses: [],
         createdAt: new Date(),
         updatedAt: new Date(),
+        ...(estimate?.id && { estimateId: estimate.id, estimateName: estimate.number }),
+        ...(service?.id && { serviceId: service.id, serviceName: service.name }),
+        ...(assignmentTask?.id && { assignmentTaskId: assignmentTask.id, taskType: 'assignment' as const }),
         // Интегрируем предварительно полученные данные
         ...(preConditionData.startPhotoUrl && { startPhotoUrl: preConditionData.startPhotoUrl }),
         ...(preConditionData.location && { 
@@ -661,6 +670,10 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         entryDraft.serviceId = service.id;
         entryDraft.serviceName = service.name;
       }
+      if (assignmentTask?.id) {
+        entryDraft.assignmentTaskId = assignmentTask.id;
+        entryDraft.taskType = 'assignment';
+      }
       
       // Интегрируем предварительно полученные данные в серверную запись
       if (preConditionData.startPhotoUrl) {
@@ -675,9 +688,21 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         };
       }
 
-      // Создаем запись в БД без ожидания периферийных данных
-      const entryId = await createTimeEntry(currentUser.uid, entryDraft);
-      console.log('⚡ Мгновенный старт! Entry ID:', entryId);
+      // Создаем запись в БД с поддержкой интеграции задач постановки
+      let entryId: string;
+      if (assignmentTask) {
+        // Для задач постановки используем интегрированный API
+        entryId = await createTimeEntryForAssignmentTask(assignmentTask, {
+          location: preConditionData.location,
+          photoUrl: preConditionData.startPhotoUrl,
+          startMethod
+        });
+        console.log('⚡ Мгновенный старт задачи постановки! Entry ID:', entryId);
+      } else {
+        // Для обычных задач используем стандартный API
+        entryId = await createTimeEntry(currentUser.uid, entryDraft);
+        console.log('⚡ Мгновенный старт! Entry ID:', entryId);
+      }
       
       if (!entryId) {
         throw new Error('Failed to create time entry - no ID returned');
@@ -698,6 +723,8 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
       if (task && task.status !== 'in_progress') {
         await changeTaskStatus(currentUser.uid, task.id, 'in_progress');
       }
+      
+      // Для задач постановки статус обновляется автоматически через интеграцию
 
       console.log('🎉 МОЛНИЕНОСНЫЙ СТАРТ ЗАВЕРШЕН! Время до трекинга: <1s');
       
@@ -1050,6 +1077,12 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
         await submitTaskForReview(currentUser.uid, workingTask.id);
       }
       
+      // Для задач постановки статус и время обновляются автоматически через интеграцию
+      if (workingEntry.assignmentTaskId) {
+        await recalculateTaskTime(workingEntry.assignmentTaskId, currentUser.uid);
+        console.log('⏱️ Время задачи постановки пересчитано автоматически');
+      }
+      
       // Очищаем состояние
       setCurrentEntry(null);
       setCurrentTask(null);
@@ -1084,6 +1117,11 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       // Вызываем API
       await pauseTimeEntry(currentUser.uid, currentEntry.id, reason);
+      
+      // Синхронизируем статус задачи постановки если есть
+      if (currentEntry.assignmentTaskId) {
+        await syncTaskStatusWithTimeEntry(currentEntry.assignmentTaskId, 'paused', currentUser.uid);
+      }
       
       // Фиксируем состояние после успешного ответа
       const now = new Date();
@@ -1120,6 +1158,11 @@ export const TimeTrackingProvider: React.FC<{ children: ReactNode }> = ({ childr
     try {
       // Вызываем API для возобновления на сервере
       await resumeTimeEntry(currentUser.uid, currentEntry.id);
+      
+      // Синхронизируем статус задачи постановки если есть
+      if (currentEntry.assignmentTaskId) {
+        await syncTaskStatusWithTimeEntry(currentEntry.assignmentTaskId, 'in_progress', currentUser.uid);
+      }
       
       // Локально рассчитываем и обновляем общее время пауз
       const pauseStartTime = localStorage.getItem('pauseStartTime');

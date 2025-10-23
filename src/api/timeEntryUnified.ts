@@ -359,6 +359,11 @@ export interface TimeEntry {
   serviceName?: string;
   estimateName?: string;
   pauseReason?: string;
+  
+  // ==================== ИНТЕГРАЦИЯ С ASSIGNMENT TASKS ====================
+  assignmentTaskId?: string;    // ID задачи постановки (если применимо)
+  taskType?: 'legacy' | 'assignment'; // Тип задачи для различения
+  autoCreatedFromAssignment?: boolean; // Автоматически создано из AssignmentTask
 }
 
 // Расширенная версия TimeEntry для совместимости

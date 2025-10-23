@@ -191,3 +191,18 @@ export const syncEmailWithAuth = async (userId: string): Promise<void> => {
     });
   }
 };
+
+// Подписка на изменения всех пользователей
+export const getUsersStream = (
+  callback: (users: UserProfile[]) => void
+): (() => void) => {
+  const usersRef = collection(db, 'users');
+  
+  return onSnapshot(usersRef, (snapshot) => {
+    const users = snapshot.docs.map(doc => ({
+      ...doc.data(),
+      id: doc.id
+    } as UserProfile));
+    callback(users);
+  });
+};

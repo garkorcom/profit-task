@@ -45,6 +45,7 @@ export enum Permission {
   EDIT_USERS = 'edit_users',
   DELETE_USERS = 'delete_users',
   CHANGE_USER_ROLES = 'change_user_roles',
+  MANAGE_EMPLOYEES = 'manage_employees',
   
   // Склад
   VIEW_WAREHOUSE = 'view_warehouse',
@@ -173,6 +174,7 @@ export const rolePermissions: Record<UserRole, Permission[]> = {
     
     // Пользователи
     Permission.VIEW_ALL_USERS,
+    Permission.MANAGE_EMPLOYEES,
     
     // Склад
     Permission.VIEW_WAREHOUSE,
@@ -566,6 +568,7 @@ export const permissionDescriptions: Record<Permission, string> = {
   [Permission.EDIT_USERS]: 'Редактирование пользователей',
   [Permission.DELETE_USERS]: 'Удаление пользователей',
   [Permission.CHANGE_USER_ROLES]: 'Изменение ролей пользователей',
+  [Permission.MANAGE_EMPLOYEES]: 'Управление сотрудниками',
   
   [Permission.VIEW_WAREHOUSE]: 'Просмотр склада',
   [Permission.MANAGE_WAREHOUSE]: 'Управление складом',

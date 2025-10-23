@@ -27,6 +27,7 @@ import InfoIcon from '@mui/icons-material/Info';
 import AssessmentIcon from '@mui/icons-material/Assessment';
 import TimelineIcon from '@mui/icons-material/Timeline';
 import PlayCircleOutlineIcon from '@mui/icons-material/PlayCircleOutline';
+import AssignmentIcon from '@mui/icons-material/Assignment';
 import CriticalStockBell from '../dashboard/CriticalStockBell';
 import { usePermissions } from '../../auth/usePermissions';
 import { Permission } from '../../auth/permissions';
@@ -53,6 +54,15 @@ const allNavItems = [
     permissions: [Permission.VIEW_ALL_TASKS, Permission.VIEW_OWN_TASKS],
     mode: 'any' as const,
     color: '#ff9800'
+  },
+  { 
+    path: '/assignment-tasks', 
+    label: 'Задачи сотрудникам', 
+    value: 'assignment-tasks', 
+    icon: <AssignmentIcon />,
+    permissions: [Permission.MANAGE_EMPLOYEES, Permission.VIEW_ALL_TASKS],
+    mode: 'any' as const,
+    color: '#ff5722'
   },
   { 
     path: '/time-management', 

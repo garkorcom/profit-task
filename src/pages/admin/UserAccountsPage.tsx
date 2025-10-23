@@ -36,17 +36,12 @@ import {
   FormControl,
   InputLabel,
   Select,
-  Switch,
-  FormControlLabel,
   Alert,
-  Tabs,
-  Tab,
   Grid,
   Card,
   CardContent,
   Avatar,
   Stack,
-  Tooltip,
   Badge
 } from '@mui/material';
 import {
@@ -56,15 +51,9 @@ import {
   Block as BlockIcon,
   LockReset as LockResetIcon,
   Visibility as ViewIcon,
-  Delete as DeleteIcon,
   Add as AddIcon,
-  FilterList as FilterIcon,
   Download as DownloadIcon,
-  Security as SecurityIcon,
   Person as PersonIcon,
-  Email as EmailIcon,
-  Phone as PhoneIcon,
-  CalendarToday as CalendarIcon,
   AdminPanelSettings as AdminIcon
 } from '@mui/icons-material';
 
@@ -89,7 +78,7 @@ interface UserAccount {
 }
 
 const UserAccountsPage: React.FC = () => {
-  const { currentUser, customClaims, userProfile } = useAuth();
+  const { customClaims, userProfile } = useAuth();
   const [users, setUsers] = useState<UserAccount[]>([]);
   const [loading, setLoading] = useState(true);
   const [searchTerm, setSearchTerm] = useState('');
@@ -98,9 +87,9 @@ const UserAccountsPage: React.FC = () => {
   const [selectedUser, setSelectedUser] = useState<UserAccount | null>(null);
   const [actionMenuAnchor, setActionMenuAnchor] = useState<null | HTMLElement>(null);
   const [editDialogOpen, setEditDialogOpen] = useState(false);
+  const [userDetailsOpen, setUserDetailsOpen] = useState(false);
   const [filterRole, setFilterRole] = useState('all');
   const [filterStatus, setFilterStatus] = useState('all');
-  const [activeTab, setActiveTab] = useState(0);
 
   // Проверяем права либо через Custom Claims, либо через профиль (для резервного доступа)
   const hasAccess = hasAdminRights(customClaims) || 
@@ -196,6 +185,11 @@ const UserAccountsPage: React.FC = () => {
   const handleActionClose = () => {
     setActionMenuAnchor(null);
     setSelectedUser(null);
+  };
+
+  const handleViewUser = (user: UserAccount) => {
+    setSelectedUser(user);
+    setUserDetailsOpen(true);
   };
 
   const handleEditUser = () => {
@@ -419,7 +413,12 @@ const UserAccountsPage: React.FC = () => {
             {filteredUsers
               .slice(page * rowsPerPage, page * rowsPerPage + rowsPerPage)
               .map((user) => (
-                <TableRow key={user.id} hover>
+                <TableRow 
+                  key={user.id} 
+                  hover 
+                  onClick={() => handleViewUser(user)}
+                  sx={{ cursor: 'pointer' }}
+                >
                   <TableCell>
                     <Stack direction="row" alignItems="center" spacing={2}>
                       <Badge
@@ -475,7 +474,10 @@ const UserAccountsPage: React.FC = () => {
                   </TableCell>
                   <TableCell align="right">
                     <IconButton
-                      onClick={(e) => handleActionClick(e, user)}
+                      onClick={(e) => {
+                        e.stopPropagation(); // Предотвращаем открытие карточки при клике на меню
+                        handleActionClick(e, user);
+                      }}
                       size="small"
                     >
                       <MoreVertIcon />
@@ -545,6 +547,158 @@ const UserAccountsPage: React.FC = () => {
           </Button>
           <Button variant="contained">
             Сохранить
+          </Button>
+        </DialogActions>
+      </Dialog>
+
+      {/* Диалог карточки пользователя */}
+      <Dialog 
+        open={userDetailsOpen} 
+        onClose={() => setUserDetailsOpen(false)}
+        maxWidth="md"
+        fullWidth
+      >
+        <DialogTitle>
+          <Box sx={{ display: 'flex', alignItems: 'center', gap: 2 }}>
+            <Avatar src={selectedUser?.avatar} sx={{ width: 48, height: 48 }}>
+              {selectedUser?.displayName.charAt(0)}
+            </Avatar>
+            <Box>
+              <Typography variant="h6">{selectedUser?.displayName}</Typography>
+              <Typography variant="body2" color="textSecondary">
+                {selectedUser?.email}
+              </Typography>
+            </Box>
+          </Box>
+        </DialogTitle>
+        <DialogContent>
+          <Grid container spacing={3}>
+            {/* Основная информация */}
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Основная информация
+                  </Typography>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">ID пользователя</Typography>
+                      <Typography variant="body1">{selectedUser?.id}</Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">Роль</Typography>
+                      <Chip 
+                        label={getRoleLabel(selectedUser?.role || '')} 
+                        size="small"
+                        color={selectedUser?.role === 'admin' ? 'error' : 'default'}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">Статус</Typography>
+                      <Chip 
+                        label={getStatusLabel(selectedUser?.status || '')} 
+                        size="small"
+                        color={getStatusColor(selectedUser?.status || '') as any}
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">Отдел</Typography>
+                      <Typography variant="body1">{selectedUser?.department || 'Не указан'}</Typography>
+                    </Box>
+                    {selectedUser?.phone && (
+                      <Box>
+                        <Typography variant="body2" color="textSecondary">Телефон</Typography>
+                        <Typography variant="body1">{selectedUser.phone}</Typography>
+                      </Box>
+                    )}
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Безопасность и доступ */}
+            <Grid item xs={12} md={6}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Безопасность и доступ
+                  </Typography>
+                  <Stack spacing={2}>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">Email подтвержден</Typography>
+                      <Chip 
+                        label={selectedUser?.emailVerified ? 'Да' : 'Нет'} 
+                        size="small"
+                        color={selectedUser?.emailVerified ? 'success' : 'warning'}
+                        variant="outlined"
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">Двухфакторная аутентификация</Typography>
+                      <Chip 
+                        label={selectedUser?.twoFactorEnabled ? 'Включена' : 'Отключена'} 
+                        size="small"
+                        color={selectedUser?.twoFactorEnabled ? 'success' : 'default'}
+                        variant="outlined"
+                      />
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">Последний вход</Typography>
+                      <Typography variant="body1">
+                        {selectedUser?.lastLogin ? formatDate(selectedUser.lastLogin) : 'Никогда'}
+                      </Typography>
+                    </Box>
+                    <Box>
+                      <Typography variant="body2" color="textSecondary">Дата создания</Typography>
+                      <Typography variant="body1">
+                        {selectedUser?.createdAt ? formatDate(selectedUser.createdAt) : 'Не указана'}
+                      </Typography>
+                    </Box>
+                  </Stack>
+                </CardContent>
+              </Card>
+            </Grid>
+
+            {/* Разрешения */}
+            <Grid item xs={12}>
+              <Card variant="outlined">
+                <CardContent>
+                  <Typography variant="h6" gutterBottom>
+                    Разрешения ({selectedUser?.permissions.length || 0})
+                  </Typography>
+                  <Box sx={{ display: 'flex', flexWrap: 'wrap', gap: 1, mt: 1 }}>
+                    {selectedUser?.permissions.map((permission, index) => (
+                      <Chip 
+                        key={index}
+                        label={permission}
+                        size="small"
+                        variant="outlined"
+                        color="primary"
+                      />
+                    )) || (
+                      <Typography variant="body2" color="textSecondary">
+                        Разрешения не назначены
+                      </Typography>
+                    )}
+                  </Box>
+                </CardContent>
+              </Card>
+            </Grid>
+          </Grid>
+        </DialogContent>
+        <DialogActions>
+          <Button onClick={() => setUserDetailsOpen(false)}>
+            Закрыть
+          </Button>
+          <Button 
+            variant="outlined" 
+            startIcon={<EditIcon />}
+            onClick={() => {
+              setUserDetailsOpen(false);
+              setEditDialogOpen(true);
+            }}
+          >
+            Редактировать
           </Button>
         </DialogActions>
       </Dialog>

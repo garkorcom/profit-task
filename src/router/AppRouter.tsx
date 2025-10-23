@@ -39,6 +39,7 @@ import AboutPage from '../pages/AboutPage';
 import OperationalOverviewPage from '../pages/OperationalOverviewPage';
 import { useAuth } from '../auth/AuthContext';
 import StartWorkPage from '../pages/StartWorkPage'; // Импортируем новую страницу
+import AssignmentTasksPage from '../pages/AssignmentTasksPage';
 import AdminPage from '../pages/admin/AdminPage';
 import RoleManagementPage from '../pages/admin/RoleManagementPage';
 import UserAccountsPage from '../pages/admin/UserAccountsPage';
@@ -48,6 +49,8 @@ import StartabilityV2TestPage from '../pages/StartabilityV2TestPage';
 import DevTestCounterpartiesPage from '../pages/DevTestCounterpartiesPage';
 import TestPublicEstimate from '../pages/TestPublicEstimate';
 import DiagnosticsPublicEstimates from '../pages/DiagnosticsPublicEstimates';
+import WorkPlansPage from '../pages/WorkPlansPage';
+import AIWorkPlanTest from '../pages/AIWorkPlanTest';
 // import PublicEstimatePageV2 from '../pages/PublicEstimatePageV2'; // Удален - используем объединенную версию
 import ConnectionTest from '../pages/ConnectionTest';
 import EstimatePreviewTest from '../pages/EstimatePreviewTest';
@@ -78,8 +81,10 @@ const AppRouter: React.FC = () => {
             <Route path="/diagnostics-public-estimates" element={<DiagnosticsPublicEstimates />} />
             <Route path="/connection-test" element={<ConnectionTest />} />
             <Route path="/test-estimate-preview" element={<EstimatePreviewTest />} />
+            <Route path="/ai-workplan-test" element={<AIWorkPlanTest />} />
             <Route path="/tasks" element={<TasksPage />} />
             <Route path="/tasks/review" element={<TaskReviewPage />} />
+            <Route path="/assignment-tasks" element={<AssignmentTasksPage />} />
             <Route path="/analytics" element={<AnalyticsDashboard />} />
             <Route path="/reports" element={<ReportsPage />} />
             <Route path="/reports/plan-fact" element={<PlanFactReportPage />} />
@@ -103,6 +108,7 @@ const AppRouter: React.FC = () => {
             <Route path="/time-control" element={<TimeControlPage />} />
             <Route path="/start-work" element={<StartWorkPage />} /> {/* <-- ДОБАВЛЕННЫЙ МАРШРУТ */}
             <Route path="/time-management" element={<TimeManagementPage />} />
+            <Route path="/work-plans" element={<WorkPlansPage />} />
             <Route path="/estimates" element={<EstimatesHub />} />
             <Route path="/estimates/quick-create" element={<QuickEstimateCreate />} />
             <Route path="/estimates/new" element={<EstimateConstructor />} />
