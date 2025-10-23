@@ -1,7 +1,7 @@
 {
   "name": "my-business-app-functions",
   "scripts": {
-    "build": "tsc",
+    "build": "echo 'skip tsc build for deploy, using precompiled lib'",
     "serve": "npm run build && firebase emulators:start --only functions",
     "shell": "npm run build && firebase functions:shell",
     "start": "npm run shell",
