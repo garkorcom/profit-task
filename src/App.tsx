@@ -135,8 +135,11 @@ const theme = createTheme({
 });
 
 function App() {
+  console.log('[DEBUG] App component rendering');
+
   // Initialize mobile optimizations on app start
   useEffect(() => {
+    console.log('[DEBUG] App useEffect running');
     initializeMobileOptimizations();
   }, []);
 
